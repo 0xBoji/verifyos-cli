@@ -1,5 +1,5 @@
-use std::path::Path;
 use plist::Value;
+use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PlistError {
@@ -31,14 +31,23 @@ impl InfoPlist {
     }
 
     pub fn get_string(&self, key: &str) -> Option<&str> {
-        self.root.as_dictionary().and_then(|dict| dict.get(key)).and_then(|v| v.as_string())
+        self.root
+            .as_dictionary()
+            .and_then(|dict| dict.get(key))
+            .and_then(|v| v.as_string())
     }
 
     pub fn get_bool(&self, key: &str) -> Option<bool> {
-        self.root.as_dictionary().and_then(|dict| dict.get(key)).and_then(|v| v.as_boolean())
+        self.root
+            .as_dictionary()
+            .and_then(|dict| dict.get(key))
+            .and_then(|v| v.as_boolean())
     }
-    
+
     pub fn has_key(&self, key: &str) -> bool {
-        self.root.as_dictionary().map(|dict| dict.contains_key(key)).unwrap_or(false)
+        self.root
+            .as_dictionary()
+            .map(|dict| dict.contains_key(key))
+            .unwrap_or(false)
     }
 }

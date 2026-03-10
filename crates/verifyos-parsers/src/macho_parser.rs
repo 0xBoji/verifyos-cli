@@ -1,5 +1,5 @@
-use std::path::Path;
 use apple_codesign::MachFile;
+use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MachOError {
@@ -17,9 +17,10 @@ pub struct MachOExecutable {
 
 impl MachOExecutable {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, MachOError> {
-        let file_data = std::fs::read(path).map_err(|e| Box::new(apple_codesign::AppleCodesignError::Io(e)))?;
+        let file_data =
+            std::fs::read(path).map_err(|e| Box::new(apple_codesign::AppleCodesignError::Io(e)))?;
         let mach_file = MachFile::parse(&file_data).map_err(Box::new)?;
-        
+
         let mut first_entitlements: Option<Option<String>> = None;
 
         for macho in mach_file.iter_macho() {
@@ -42,8 +43,8 @@ impl MachOExecutable {
             }
         }
 
-        Ok(Self { 
-            entitlements: first_entitlements.flatten() 
+        Ok(Self {
+            entitlements: first_entitlements.flatten(),
         })
     }
 }

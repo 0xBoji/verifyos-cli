@@ -48,14 +48,16 @@ impl AppStoreRule for EntitlementsMismatchRule {
         let executable_path = artifact.app_bundle_path.join(app_name);
 
         if executable_path.exists() {
-            let macho = MachOExecutable::from_file(&executable_path)
-                .map_err(EntitlementsError::MachO)?;
+            let macho =
+                MachOExecutable::from_file(&executable_path).map_err(EntitlementsError::MachO)?;
 
             if let Some(entitlements_xml) = macho.entitlements {
                 // Parse the XML using the plist reader since entitlements are a plist
-                let plist = verifyos_parsers::plist_reader::InfoPlist::from_bytes(entitlements_xml.as_bytes())
-                    .map_err(|_| EntitlementsError::ParseFailure)?;
-                
+                let plist = verifyos_parsers::plist_reader::InfoPlist::from_bytes(
+                    entitlements_xml.as_bytes(),
+                )
+                .map_err(|_| EntitlementsError::ParseFailure)?;
+
                 // For App Store submission, get-task-allow must NOT be true.
                 if let Some(true) = plist.get_bool("get-task-allow") {
                     return Err(RuleError::Entitlements(EntitlementsError::DebugEntitlement));

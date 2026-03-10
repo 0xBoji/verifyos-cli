@@ -18,7 +18,7 @@ fn test_privacy_manifest_rule_passes() {
         app_bundle_path: &app_path,
         info_plist: None,
     };
-    
+
     let rule = MissingPrivacyManifestRule;
     let result = rule.evaluate(&context);
     assert!(result.is_ok());
@@ -32,7 +32,7 @@ fn test_privacy_manifest_rule_fails() {
         app_bundle_path: &app_path,
         info_plist: None,
     };
-    
+
     let rule = MissingPrivacyManifestRule;
     let result = rule.evaluate(&context);
     assert!(result.is_err());
@@ -43,12 +43,12 @@ fn test_camera_usage_rule_passes() {
     let app_path = get_fixture_path();
     let plist_path = app_path.join("Info.plist");
     let plist = InfoPlist::from_file(&plist_path).unwrap();
-    
+
     let context = ArtifactContext {
         app_bundle_path: &app_path,
         info_plist: Some(&plist),
     };
-    
+
     let rule = CameraUsageDescriptionRule;
     let result = rule.evaluate(&context);
     assert!(result.is_ok());

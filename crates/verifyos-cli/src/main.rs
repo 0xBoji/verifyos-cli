@@ -1,10 +1,10 @@
-use std::path::PathBuf;
 use clap::Parser;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::{Cell, Color, Table};
 use indicatif::{ProgressBar, ProgressStyle};
 use miette::{IntoDiagnostic, Result};
+use std::path::PathBuf;
 use textwrap::wrap;
 
 use verifyos_core::engine::Engine;
@@ -38,7 +38,7 @@ fn main() -> Result<()> {
 
     // 3. Initialize Core Engine
     let mut engine = Engine::new();
-    
+
     // Register the current rules
     engine.register_rule(Box::new(MissingPrivacyManifestRule));
     engine.register_rule(Box::new(CameraUsageDescriptionRule));
@@ -71,9 +71,9 @@ fn main() -> Result<()> {
         };
 
         if let Severity::Error = res.severity {
-             if res.result.is_err() {
-                 has_errors = true;
-             }
+            if res.result.is_err() {
+                has_errors = true;
+            }
         }
 
         let message_cell = match res.result {
@@ -85,11 +85,7 @@ fn main() -> Result<()> {
             }
         };
 
-        table.add_row(vec![
-            Cell::new(rule_name),
-            severity_cell,
-            message_cell,
-        ]);
+        table.add_row(vec![Cell::new(rule_name), severity_cell, message_cell]);
     }
 
     println!("\n{}", table);
