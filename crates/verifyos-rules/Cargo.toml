@@ -7,6 +7,7 @@ description = "Trait-based App Store validation rules engine for verifyos-cli."
 license = "MIT"
 repository = "https://github.com/0xBoji/verifyos-cli"
 homepage = "https://github.com/0xBoji/verifyos-cli"
+readme = "../../README.md"
 
 [dependencies]
 miette = { version = "7.2", features = ["fancy"] }
