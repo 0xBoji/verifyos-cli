@@ -1,0 +1,15 @@
+[package]
+name = "verifyos-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+miette = { version = "7.2", features = ["fancy"] }
+indicatif = "0.17"
+comfy-table = "7.1"
+colored = "2.1"
+
+verifyos-core = { path = "../verifyos-core" }
+verifyos-rules = { version = "0.1.0", path = "../verifyos-rules" }
+textwrap = "0.16.2"

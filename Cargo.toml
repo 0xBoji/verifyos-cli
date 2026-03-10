@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "crates/verifyos-cli",
+    "crates/verifyos-core",
+    "crates/verifyos-parsers",
+    "crates/verifyos-rules"
+]
+resolver = "2"

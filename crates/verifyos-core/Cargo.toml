@@ -1,0 +1,11 @@
+[package]
+name = "verifyos-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+miette = "7.2"
+thiserror = "2.0.18"
+
+verifyos-parsers = { path = "../verifyos-parsers" }
+verifyos-rules = { path = "../verifyos-rules" }
