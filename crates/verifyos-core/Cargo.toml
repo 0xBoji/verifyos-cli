@@ -2,6 +2,11 @@
 name = "verifyos-core"
 version = "0.1.0"
 edition = "2021"
+authors = ["0xboji"]
+description = "Core orchestrator and execution engine for verifyos-cli."
+license = "MIT"
+repository = "https://github.com/0xBoji/verifyos-cli"
+homepage = "https://github.com/0xBoji/verifyos-cli"
 
 [dependencies]
 miette = "7.2"
