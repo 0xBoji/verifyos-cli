@@ -68,7 +68,7 @@ verifyos-cli --app path/to/YourApp.ipa --md-out report.md
 Suppress existing findings by providing a baseline JSON report. Only *new* failing findings will be shown:
 
 ```bash
-verifyos-cli --app path/to/YourApp.ipa --format json > baseline.json
+voc --app path/to/YourApp.ipa --format json > baseline.json
 verifyos-cli --app path/to/YourApp.ipa --baseline baseline.json
 ```
 
