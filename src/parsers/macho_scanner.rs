@@ -16,6 +16,12 @@ pub struct UsageScan {
     pub evidence: HashSet<&'static str>,
 }
 
+#[derive(Debug, Default)]
+pub struct CapabilityScan {
+    pub detected: HashSet<&'static str>,
+    pub evidence: HashSet<&'static str>,
+}
+
 pub fn scan_usage_from_app_bundle(app_bundle_path: &Path) -> Result<UsageScan, UsageScanError> {
     let executable =
         resolve_executable_path(app_bundle_path).ok_or(UsageScanError::MissingExecutable)?;
@@ -33,6 +39,14 @@ pub fn scan_private_api_from_app_bundle(
     let executable =
         resolve_executable_path(app_bundle_path).ok_or(UsageScanError::MissingExecutable)?;
     scan_private_api_from_executable(&executable)
+}
+
+pub fn scan_capabilities_from_app_bundle(
+    app_bundle_path: &Path,
+) -> Result<CapabilityScan, UsageScanError> {
+    let executable =
+        resolve_executable_path(app_bundle_path).ok_or(UsageScanError::MissingExecutable)?;
+    scan_capabilities_from_executable(&executable)
 }
 
 fn resolve_executable_path(app_bundle_path: &Path) -> Option<PathBuf> {
@@ -87,6 +101,20 @@ fn scan_private_api_from_executable(path: &Path) -> Result<PrivateApiScan, Usage
 
     scan.hits.sort_unstable();
     scan.hits.dedup();
+
+    Ok(scan)
+}
+
+fn scan_capabilities_from_executable(path: &Path) -> Result<CapabilityScan, UsageScanError> {
+    let bytes = std::fs::read(path)?;
+    let mut scan = CapabilityScan::default();
+
+    for (signature, capability) in CAPABILITY_SIGNATURES {
+        if contains_subslice(&bytes, signature.as_bytes()) {
+            scan.evidence.insert(*signature);
+            scan.detected.insert(*capability);
+        }
+    }
 
     Ok(scan)
 }
@@ -179,4 +207,9 @@ const PRIVATE_API_SIGNATURES: &[&str] = &[
     "UICallApplication",
     "UIGetScreenImage",
     "_MGCopyAnswer",
+];
+
+const CAPABILITY_SIGNATURES: &[(&str, &str)] = &[
+    ("AVCaptureDevice", "camera"),
+    ("CLLocationManager", "location"),
 ];

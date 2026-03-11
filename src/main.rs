@@ -16,6 +16,7 @@ use verifyos_cli::rules::export_compliance::ExportComplianceRule;
 use verifyos_cli::rules::info_plist::InfoPlistCapabilitiesRule;
 use verifyos_cli::rules::info_plist::InfoPlistRequiredKeysRule;
 use verifyos_cli::rules::info_plist::LSApplicationQueriesSchemesAuditRule;
+use verifyos_cli::rules::info_plist::UIRequiredDeviceCapabilitiesAuditRule;
 use verifyos_cli::rules::info_plist::UsageDescriptionsRule;
 use verifyos_cli::rules::info_plist::UsageDescriptionsValueRule;
 use verifyos_cli::rules::nested_bundles::NestedBundleDebugEntitlementRule;
@@ -80,6 +81,7 @@ fn main() -> Result<()> {
     engine.register_rule(Box::new(InfoPlistRequiredKeysRule));
     engine.register_rule(Box::new(InfoPlistCapabilitiesRule));
     engine.register_rule(Box::new(LSApplicationQueriesSchemesAuditRule));
+    engine.register_rule(Box::new(UIRequiredDeviceCapabilitiesAuditRule));
     engine.register_rule(Box::new(ExportComplianceRule));
     engine.register_rule(Box::new(AtsAuditRule));
     engine.register_rule(Box::new(EntitlementsMismatchRule));

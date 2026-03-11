@@ -3,6 +3,7 @@ use verifyos_cli::core::engine::Engine;
 use verifyos_cli::rules::core::{RuleStatus, Severity};
 use verifyos_cli::rules::entitlements::EntitlementsMismatchRule;
 use verifyos_cli::rules::info_plist::LSApplicationQueriesSchemesAuditRule;
+use verifyos_cli::rules::info_plist::UIRequiredDeviceCapabilitiesAuditRule;
 use verifyos_cli::rules::permissions::CameraUsageDescriptionRule;
 use verifyos_cli::rules::privacy::MissingPrivacyManifestRule;
 use verifyos_cli::rules::signing::EmbeddedCodeSignatureTeamRule;
@@ -20,6 +21,7 @@ fn create_engine() -> Engine {
     engine.register_rule(Box::new(EntitlementsMismatchRule));
     engine.register_rule(Box::new(EmbeddedCodeSignatureTeamRule));
     engine.register_rule(Box::new(LSApplicationQueriesSchemesAuditRule));
+    engine.register_rule(Box::new(UIRequiredDeviceCapabilitiesAuditRule));
     engine
 }
 

@@ -1,4 +1,6 @@
-use crate::parsers::macho_scanner::scan_usage_from_app_bundle;
+use crate::parsers::macho_scanner::{
+    scan_capabilities_from_app_bundle, scan_usage_from_app_bundle,
+};
 use crate::parsers::plist_reader::InfoPlist;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
@@ -299,6 +301,94 @@ impl AppStoreRule for InfoPlistCapabilitiesRule {
     }
 }
 
+pub struct UIRequiredDeviceCapabilitiesAuditRule;
+
+impl AppStoreRule for UIRequiredDeviceCapabilitiesAuditRule {
+    fn id(&self) -> &'static str {
+        "RULE_DEVICE_CAPABILITIES_AUDIT"
+    }
+
+    fn name(&self) -> &'static str {
+        "UIRequiredDeviceCapabilities Audit"
+    }
+
+    fn category(&self) -> RuleCategory {
+        RuleCategory::Metadata
+    }
+
+    fn severity(&self) -> Severity {
+        Severity::Warning
+    }
+
+    fn recommendation(&self) -> &'static str {
+        "Only declare capabilities that match actual hardware usage in the binary."
+    }
+
+    fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
+        let Some(plist) = artifact.info_plist else {
+            return Ok(RuleReport {
+                status: RuleStatus::Skip,
+                message: Some("Info.plist not found".to_string()),
+                evidence: None,
+            });
+        };
+
+        let Some(declared) = parse_required_capabilities(plist) else {
+            return Ok(RuleReport {
+                status: RuleStatus::Skip,
+                message: Some("UIRequiredDeviceCapabilities not declared".to_string()),
+                evidence: None,
+            });
+        };
+
+        if declared.is_empty() {
+            return Ok(RuleReport {
+                status: RuleStatus::Skip,
+                message: Some("UIRequiredDeviceCapabilities is empty".to_string()),
+                evidence: None,
+            });
+        }
+
+        let scan = match scan_capabilities_from_app_bundle(artifact.app_bundle_path) {
+            Ok(scan) => scan,
+            Err(err) => {
+                return Ok(RuleReport {
+                    status: RuleStatus::Skip,
+                    message: Some(format!("Capability scan skipped: {err}")),
+                    evidence: None,
+                });
+            }
+        };
+
+        let mut mismatches = Vec::new();
+        for cap in declared {
+            let Some(group) = capability_group(&cap) else {
+                continue;
+            };
+            if !scan.detected.contains(group) {
+                mismatches.push(format!(
+                    "Declared capability '{}' without matching binary usage",
+                    cap
+                ));
+            }
+        }
+
+        if mismatches.is_empty() {
+            return Ok(RuleReport {
+                status: RuleStatus::Pass,
+                message: Some("UIRequiredDeviceCapabilities matches binary usage".to_string()),
+                evidence: None,
+            });
+        }
+
+        Ok(RuleReport {
+            status: RuleStatus::Fail,
+            message: Some("Capability list may be overly restrictive".to_string()),
+            evidence: Some(mismatches.join(" | ")),
+        })
+    }
+}
+
 pub struct LSApplicationQueriesSchemesAuditRule;
 
 impl AppStoreRule for LSApplicationQueriesSchemesAuditRule {
@@ -443,6 +533,43 @@ fn is_empty_array(plist: &InfoPlist, key: &str) -> bool {
     match plist.get_value(key) {
         Some(value) => value.as_array().map(|arr| arr.is_empty()).unwrap_or(false),
         None => false,
+    }
+}
+
+fn parse_required_capabilities(plist: &InfoPlist) -> Option<Vec<String>> {
+    let value = plist.get_value("UIRequiredDeviceCapabilities")?;
+
+    if let Some(array) = value.as_array() {
+        let mut out = Vec::new();
+        for item in array {
+            if let Some(value) = item.as_string() {
+                let trimmed = value.trim();
+                if !trimmed.is_empty() {
+                    out.push(trimmed.to_string());
+                }
+            }
+        }
+        return Some(out);
+    }
+
+    if let Some(dict) = value.as_dictionary() {
+        let mut out = Vec::new();
+        for (key, value) in dict {
+            if let Some(true) = value.as_boolean() {
+                out.push(key.to_string());
+            }
+        }
+        return Some(out);
+    }
+
+    None
+}
+
+fn capability_group(value: &str) -> Option<&'static str> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "camera" | "front-facing-camera" | "rear-facing-camera" => Some("camera"),
+        "gps" | "location-services" => Some("location"),
+        _ => None,
     }
 }
 
