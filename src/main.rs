@@ -23,6 +23,7 @@ use verifyos_cli::rules::permissions::CameraUsageDescriptionRule;
 use verifyos_cli::rules::privacy::MissingPrivacyManifestRule;
 use verifyos_cli::rules::privacy_manifest::PrivacyManifestCompletenessRule;
 use verifyos_cli::rules::private_api::PrivateApiRule;
+use verifyos_cli::rules::signing::EmbeddedCodeSignatureTeamRule;
 
 #[derive(Clone, Debug, ValueEnum)]
 enum OutputFormat {
@@ -85,6 +86,7 @@ fn main() -> Result<()> {
     engine.register_rule(Box::new(NestedBundleEntitlementsRule));
     engine.register_rule(Box::new(BundleMetadataConsistencyRule));
     engine.register_rule(Box::new(PrivateApiRule));
+    engine.register_rule(Box::new(EmbeddedCodeSignatureTeamRule));
 
     // 4. Run the Engine
     let results = engine

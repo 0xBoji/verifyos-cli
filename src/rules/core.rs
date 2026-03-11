@@ -12,6 +12,10 @@ pub enum RuleError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Provisioning(#[from] crate::parsers::provisioning_profile::ProvisioningError),
+
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    MachO(#[from] crate::parsers::macho_parser::MachOError),
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

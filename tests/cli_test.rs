@@ -4,6 +4,7 @@ use verifyos_cli::rules::core::{RuleStatus, Severity};
 use verifyos_cli::rules::entitlements::EntitlementsMismatchRule;
 use verifyos_cli::rules::permissions::CameraUsageDescriptionRule;
 use verifyos_cli::rules::privacy::MissingPrivacyManifestRule;
+use verifyos_cli::rules::signing::EmbeddedCodeSignatureTeamRule;
 
 fn get_example_path(filename: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -16,6 +17,7 @@ fn create_engine() -> Engine {
     engine.register_rule(Box::new(MissingPrivacyManifestRule));
     engine.register_rule(Box::new(CameraUsageDescriptionRule));
     engine.register_rule(Box::new(EntitlementsMismatchRule));
+    engine.register_rule(Box::new(EmbeddedCodeSignatureTeamRule));
     engine
 }
 
