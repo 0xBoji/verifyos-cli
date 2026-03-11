@@ -22,6 +22,19 @@ pub fn scan_usage_from_app_bundle(app_bundle_path: &Path) -> Result<UsageScan, U
     scan_usage_from_executable(&executable)
 }
 
+#[derive(Debug, Default)]
+pub struct PrivateApiScan {
+    pub hits: Vec<&'static str>,
+}
+
+pub fn scan_private_api_from_app_bundle(
+    app_bundle_path: &Path,
+) -> Result<PrivateApiScan, UsageScanError> {
+    let executable =
+        resolve_executable_path(app_bundle_path).ok_or(UsageScanError::MissingExecutable)?;
+    scan_private_api_from_executable(&executable)
+}
+
 fn resolve_executable_path(app_bundle_path: &Path) -> Option<PathBuf> {
     let app_name = app_bundle_path
         .file_name()
@@ -58,6 +71,22 @@ fn scan_usage_from_executable(path: &Path) -> Result<UsageScan, UsageScanError> 
             }
         }
     }
+
+    Ok(scan)
+}
+
+fn scan_private_api_from_executable(path: &Path) -> Result<PrivateApiScan, UsageScanError> {
+    let bytes = std::fs::read(path)?;
+    let mut scan = PrivateApiScan::default();
+
+    for signature in PRIVATE_API_SIGNATURES {
+        if contains_subslice(&bytes, signature.as_bytes()) {
+            scan.hits.push(*signature);
+        }
+    }
+
+    scan.hits.sort_unstable();
+    scan.hits.dedup();
 
     Ok(scan)
 }
@@ -138,4 +167,16 @@ const SIGNATURES: &[(&str, Requirement)] = &[
         "HKHealthStore",
         Requirement::Key("NSHealthShareUsageDescription"),
     ),
+];
+
+const PRIVATE_API_SIGNATURES: &[&str] = &[
+    "LSApplicationWorkspace",
+    "LSApplicationProxy",
+    "LSAppWorkspace",
+    "SBApplication",
+    "SpringBoard",
+    "MobileGestalt",
+    "UICallApplication",
+    "UIGetScreenImage",
+    "_MGCopyAnswer",
 ];

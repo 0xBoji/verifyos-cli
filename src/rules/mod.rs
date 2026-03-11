@@ -1,6 +1,11 @@
+pub mod ats;
+pub mod bundle_metadata;
 pub mod core;
 pub mod entitlements;
+pub mod export_compliance;
 pub mod info_plist;
 pub mod nested_bundles;
 pub mod permissions;
 pub mod privacy;
+pub mod privacy_manifest;
+pub mod private_api;
