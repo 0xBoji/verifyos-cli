@@ -54,6 +54,12 @@ SARIF (for GitHub code scanning, etc.):
 verifyos-cli --app path/to/YourApp.ipa --format sarif > report.sarif
 ```
 
+Markdown report (agent-friendly):
+
+```bash
+verifyos-cli --app path/to/YourApp.ipa --md-out report.md
+```
+
 ### Baseline Mode
 
 Suppress existing findings by providing a baseline JSON report. Only *new* failing findings will be shown:

@@ -4,7 +4,9 @@ use miette::{IntoDiagnostic, Result};
 use std::path::PathBuf;
 
 use verifyos_cli::core::engine::Engine;
-use verifyos_cli::report::{apply_baseline, build_report, render_json, render_sarif, render_table};
+use verifyos_cli::report::{
+    apply_baseline, build_report, render_json, render_markdown, render_sarif, render_table,
+};
 use verifyos_cli::rules::core::{RuleStatus, Severity};
 use verifyos_cli::rules::entitlements::EntitlementsMismatchRule;
 use verifyos_cli::rules::entitlements::EntitlementsProvisioningMismatchRule;
@@ -38,6 +40,10 @@ struct Args {
     /// Baseline JSON file to suppress existing findings
     #[arg(long)]
     baseline: Option<PathBuf>,
+
+    /// Write a clean Markdown report to a file (agent-friendly)
+    #[arg(long)]
+    md_out: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -80,11 +86,13 @@ fn main() -> Result<()> {
 
     // 6. Build report and apply baseline (if any)
     let mut report = build_report(results);
+    let mut suppressed = None;
     if let Some(path) = args.baseline {
         let baseline_raw = std::fs::read_to_string(path).into_diagnostic()?;
         let baseline: verifyos_cli::report::ReportData =
             serde_json::from_str(&baseline_raw).into_diagnostic()?;
-        let _ = apply_baseline(&mut report, &baseline);
+        let summary = apply_baseline(&mut report, &baseline);
+        suppressed = Some(summary.suppressed);
     }
 
     // 7. Render output
@@ -92,6 +100,11 @@ fn main() -> Result<()> {
         OutputFormat::Table => println!("{}", render_table(&report)),
         OutputFormat::Json => println!("{}", render_json(&report).into_diagnostic()?),
         OutputFormat::Sarif => println!("{}", render_sarif(&report).into_diagnostic()?),
+    }
+
+    if let Some(path) = args.md_out {
+        let markdown = render_markdown(&report, suppressed);
+        std::fs::write(path, markdown).into_diagnostic()?;
     }
 
     // 8. Exit with code 1 if any Error severity check failed

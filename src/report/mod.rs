@@ -200,3 +200,67 @@ fn sarif_level(severity: Severity) -> &'static str {
         Severity::Info => "note",
     }
 }
+
+pub fn render_markdown(report: &ReportData, suppressed: Option<usize>) -> String {
+    let total = report.results.len();
+    let fail_count = report
+        .results
+        .iter()
+        .filter(|r| matches!(r.status, RuleStatus::Fail | RuleStatus::Error))
+        .count();
+    let warn_count = report
+        .results
+        .iter()
+        .filter(|r| r.severity == Severity::Warning)
+        .count();
+    let error_count = report
+        .results
+        .iter()
+        .filter(|r| r.severity == Severity::Error)
+        .count();
+
+    let mut out = String::new();
+    out.push_str("# verifyOS-cli Report\n\n");
+    out.push_str(&format!("- Total rules: {total}\n"));
+    out.push_str(&format!("- Failures: {fail_count}\n"));
+    out.push_str(&format!(
+        "- Severity: error={error_count}, warning={warn_count}\n"
+    ));
+    if let Some(suppressed) = suppressed {
+        out.push_str(&format!("- Baseline suppressed: {suppressed}\n"));
+    }
+    out.push('\n');
+
+    let mut failures = report
+        .results
+        .iter()
+        .filter(|r| matches!(r.status, RuleStatus::Fail | RuleStatus::Error));
+
+    if failures.next().is_none() {
+        out.push_str("## Findings\n\n- No failing findings.\n");
+        return out;
+    }
+
+    out.push_str("## Findings\n\n");
+    for item in report
+        .results
+        .iter()
+        .filter(|r| matches!(r.status, RuleStatus::Fail | RuleStatus::Error))
+    {
+        out.push_str(&format!("- **{}** (`{}`)\n", item.rule_name, item.rule_id));
+        out.push_str(&format!("  - Category: `{:?}`\n", item.category));
+        out.push_str(&format!("  - Severity: `{:?}`\n", item.severity));
+        out.push_str(&format!("  - Status: `{:?}`\n", item.status));
+        if let Some(message) = &item.message {
+            out.push_str(&format!("  - Message: {}\n", message));
+        }
+        if let Some(evidence) = &item.evidence {
+            out.push_str(&format!("  - Evidence: {}\n", evidence));
+        }
+        if !item.recommendation.is_empty() {
+            out.push_str(&format!("  - Recommendation: {}\n", item.recommendation));
+        }
+    }
+
+    out
+}

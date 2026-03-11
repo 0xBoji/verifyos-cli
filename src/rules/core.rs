@@ -14,7 +14,7 @@ pub enum RuleError {
     Provisioning(#[from] crate::parsers::provisioning_profile::ProvisioningError),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Severity {
     Error,
     Warning,
