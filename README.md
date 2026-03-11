@@ -12,11 +12,11 @@ The App Store Connect validation step is historically a "black box" that costs d
 ## What it does
 
 - Acts as a local static analysis orchestrator for iOS/macOS apps.
-- **Privacy Manifests**: Checks for missing `PrivacyInfo.xcprivacy` and API-required privacy labels.
-- **Permissions (Info.plist)**: Validates the inclusion of mandatory descriptions (e.g., `NSLocationWhenInUseUsageDescription`) against linked frameworks.
-- **Code Signatures**: Extracts binary entitlements and spots mismatches with the embedded provisioning profile.
-- **Export Compliance**: Inspects binaries for the `ITSAppUsesNonExemptEncryption` to avoid manual Web UI confirmations.
-- **Architecture & Metadata**: Ensures proper Mach-O universal sizes and UI asset configurations.
+- **Ruleset metadata**: Every finding includes `rule_id`, `severity`, and `category` (Privacy, Entitlements, Metadata, etc.).
+- **Privacy Manifests**: Checks for missing `PrivacyInfo.xcprivacy`.
+- **Permissions (Info.plist)**: Uses a heuristic Mach-O scan to infer which `NS*UsageDescription` keys are required, then validates presence and non-empty values.
+- **Entitlements**: Detects debug-only entitlements (like `get-task-allow=true`) and flags mismatches between app entitlements and `embedded.mobileprovision` (APNs, keychain groups, iCloud containers).
+- **CI-friendly reports**: Outputs `table`, `json`, or `sarif` with evidence and remediation recommendations.
 
 ## Installation
 
@@ -34,32 +34,61 @@ Run the CLI tool against your `.ipa` or `.app` path:
 verifyos-cli --app path/to/YourApp.ipa
 ```
 
+### Output Formats
+
+Table (default):
+
+```bash
+verifyos-cli --app path/to/YourApp.ipa --format table
+```
+
+JSON:
+
+```bash
+verifyos-cli --app path/to/YourApp.ipa --format json > report.json
+```
+
+SARIF (for GitHub code scanning, etc.):
+
+```bash
+verifyos-cli --app path/to/YourApp.ipa --format sarif > report.sarif
+```
+
+### Baseline Mode
+
+Suppress existing findings by providing a baseline JSON report. Only *new* failing findings will be shown:
+
+```bash
+verifyos-cli --app path/to/YourApp.ipa --format json > baseline.json
+verifyos-cli --app path/to/YourApp.ipa --baseline baseline.json
+```
+
+Baseline matching currently uses `rule_id + evidence` for failing findings.
+
 ### Example Passing Output
 ```text
  Analysis complete!                                                       
-╭──────────────────────────────────┬──────────┬────────────────╮
-│ Rule                             ┆ Severity ┆ Result/Message │
-╞══════════════════════════════════╪══════════╪════════════════╡
-│ Missing Privacy Manifest         ┆ ERROR    ┆ PASS           │
-├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-│ Missing Camera Usage Description ┆ ERROR    ┆ PASS           │
-├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-│ Entitlements Mismatch            ┆ ERROR    ┆ PASS           │
-╰──────────────────────────────────┴──────────┴────────────────╯
+╭──────────────────────────────────┬─────────────┬──────────┬────────┬────────────────╮
+│ Rule                             ┆ Category    ┆ Severity ┆ Status ┆ Message        │
+╞══════════════════════════════════╪═════════════╪══════════╪════════╪════════════════╡
+│ Missing Privacy Manifest         ┆ Privacy     ┆ ERROR    ┆ PASS   ┆ PASS           │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Missing Camera Usage Description ┆ Permissions ┆ ERROR    ┆ PASS   ┆ PASS           │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Debug Entitlements Present       ┆ Entitlements┆ ERROR    ┆ PASS   ┆ PASS           │
+╰──────────────────────────────────┴─────────────┴──────────┴────────┴────────────────╯
 ```
 
 ### Example Failing Output (Exits with code 1)
 ```text
  Analysis complete!                                                       
-╭──────────────────────────────────┬──────────┬──────────────────────────────────╮
-│ Rule                             ┆ Severity ┆ Result/Message                   │
-╞══════════════════════════════════╪══════════╪══════════════════════════════════╡
-│ Missing Privacy Manifest         ┆ ERROR    ┆ Missing Privacy Manifest         │
-├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-│ Missing Camera Usage Description ┆ ERROR    ┆ Missing Camera Usage Description │
-├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-│ Entitlements Mismatch            ┆ ERROR    ┆ PASS                             │
-╰──────────────────────────────────┴──────────┴──────────────────────────────────╯
+╭──────────────────────────────────┬─────────────┬──────────┬────────┬──────────────────────────────────────────────╮
+│ Rule                             ┆ Category    ┆ Severity ┆ Status ┆ Message                                      │
+╞══════════════════════════════════╪═════════════╪══════════╪════════╪══════════════════════════════════════════════╡
+│ Missing Privacy Manifest         ┆ Privacy     ┆ ERROR    ┆ FAIL   ┆ Missing PrivacyInfo.xcprivacy                │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Missing required usage description keys ┆ Privacy ┆ WARNING ┆ FAIL ┆ Missing required usage description keys      │
+╰──────────────────────────────────┴─────────────┴──────────┴────────┴──────────────────────────────────────────────╯
 ```
 
 ## Architecture
