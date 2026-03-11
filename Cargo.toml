@@ -8,13 +8,10 @@ license = "MIT"
 repository = "https://github.com/0xBoji/verifyos-cli"
 homepage = "https://github.com/0xBoji/verifyos-cli"
 readme = "README.md"
+autobins = false
 
 [[bin]]
 name = "voc"
-path = "src/main.rs"
-
-[[bin]]
-name = "verifyos-cli"
 path = "src/main.rs"
 
 [dependencies]
