@@ -1,7 +1,7 @@
 # See https://release-plz.dev/docs/config for supported fields.
 [workspace]
-# Conventional PR title
-pr_name = "chore(release): release ${version}"
+# Conventional PR title (use actual version)
+pr_name = "chore(release): release v{{version}}"
 # Release PR branch prefix
 pr_branch_prefix = "chore/release-plz"
 # Always keep changelog updated
