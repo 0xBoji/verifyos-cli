@@ -7,11 +7,11 @@ use miette::{IntoDiagnostic, Result};
 use std::path::PathBuf;
 use textwrap::wrap;
 
-use verifyos_core::engine::Engine;
-use verifyos_rules::core::Severity;
-use verifyos_rules::entitlements::EntitlementsMismatchRule;
-use verifyos_rules::permissions::CameraUsageDescriptionRule;
-use verifyos_rules::privacy::MissingPrivacyManifestRule;
+use verifyos_cli::core::engine::Engine;
+use verifyos_cli::rules::core::Severity;
+use verifyos_cli::rules::entitlements::EntitlementsMismatchRule;
+use verifyos_cli::rules::permissions::CameraUsageDescriptionRule;
+use verifyos_cli::rules::privacy::MissingPrivacyManifestRule;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

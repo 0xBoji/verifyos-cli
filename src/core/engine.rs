@@ -1,7 +1,7 @@
 use std::path::Path;
-use verifyos_parsers::plist_reader::{InfoPlist, PlistError};
-use verifyos_parsers::zip_extractor::{extract_ipa, ExtractionError};
-use verifyos_rules::core::{AppStoreRule, ArtifactContext, RuleError, RuleResult, Severity};
+use crate::parsers::plist_reader::{InfoPlist, PlistError};
+use crate::parsers::zip_extractor::{extract_ipa, ExtractionError};
+use crate::rules::core::{AppStoreRule, ArtifactContext, RuleError, RuleResult, Severity};
 
 #[derive(Debug, thiserror::Error)]
 pub enum OrchestratorError {

@@ -1,4 +1,4 @@
-use crate::core::{AppStoreRule, ArtifactContext, RuleError, RuleResult, Severity};
+use crate::rules::core::{AppStoreRule, ArtifactContext, RuleError, RuleResult, Severity};
 
 pub struct MissingPrivacyManifestRule;
 

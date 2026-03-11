@@ -1,5 +1,5 @@
-use crate::core::{AppStoreRule, ArtifactContext, RuleError, RuleResult, Severity};
-use verifyos_parsers::macho_parser::MachOExecutable;
+use crate::rules::core::{AppStoreRule, ArtifactContext, RuleError, RuleResult, Severity};
+use crate::parsers::macho_parser::MachOExecutable;
 
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum EntitlementsError {
@@ -19,7 +19,7 @@ pub enum EntitlementsError {
 
     #[error("Mach-O Parsing Error: {0}")]
     #[diagnostic(code(verifyos::entitlements::macho_error))]
-    MachO(#[from] verifyos_parsers::macho_parser::MachOError),
+    MachO(#[from] crate::parsers::macho_parser::MachOError),
 }
 
 pub struct EntitlementsMismatchRule;
@@ -53,7 +53,7 @@ impl AppStoreRule for EntitlementsMismatchRule {
 
             if let Some(entitlements_xml) = macho.entitlements {
                 // Parse the XML using the plist reader since entitlements are a plist
-                let plist = verifyos_parsers::plist_reader::InfoPlist::from_bytes(
+                let plist = crate::parsers::plist_reader::InfoPlist::from_bytes(
                     entitlements_xml.as_bytes(),
                 )
                 .map_err(|_| EntitlementsError::ParseFailure)?;

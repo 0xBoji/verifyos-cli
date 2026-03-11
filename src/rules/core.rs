@@ -18,7 +18,7 @@ pub enum RuleError {
 
     #[error(transparent)]
     #[diagnostic(transparent)]
-    Entitlements(#[from] crate::entitlements::EntitlementsError),
+    Entitlements(#[from] crate::rules::entitlements::EntitlementsError),
 }
 
 #[derive(Debug)]
@@ -36,7 +36,7 @@ pub struct RuleResult {
 // Stub for now. Will hold the path to the app and the parsed Info.plist
 pub struct ArtifactContext<'a> {
     pub app_bundle_path: &'a std::path::Path,
-    pub info_plist: Option<&'a verifyos_parsers::plist_reader::InfoPlist>,
+    pub info_plist: Option<&'a crate::parsers::plist_reader::InfoPlist>,
 }
 
 pub trait AppStoreRule {

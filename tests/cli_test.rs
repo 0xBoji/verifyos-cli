@@ -1,16 +1,12 @@
 use std::path::PathBuf;
-use verifyos_core::engine::Engine;
-use verifyos_rules::core::Severity;
-use verifyos_rules::entitlements::EntitlementsMismatchRule;
-use verifyos_rules::permissions::CameraUsageDescriptionRule;
-use verifyos_rules::privacy::MissingPrivacyManifestRule;
+use verifyos_cli::core::engine::Engine;
+use verifyos_cli::rules::core::Severity;
+use verifyos_cli::rules::entitlements::EntitlementsMismatchRule;
+use verifyos_cli::rules::permissions::CameraUsageDescriptionRule;
+use verifyos_cli::rules::privacy::MissingPrivacyManifestRule;
 
 fn get_example_path(filename: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
         .join("examples")
         .join(filename)
 }

@@ -1,8 +1,8 @@
 use std::path::PathBuf;
-use verifyos_parsers::plist_reader::InfoPlist;
-use verifyos_rules::core::{AppStoreRule, ArtifactContext};
-use verifyos_rules::permissions::CameraUsageDescriptionRule;
-use verifyos_rules::privacy::MissingPrivacyManifestRule;
+use verifyos_cli::parsers::plist_reader::InfoPlist;
+use verifyos_cli::rules::core::{AppStoreRule, ArtifactContext};
+use verifyos_cli::rules::permissions::CameraUsageDescriptionRule;
+use verifyos_cli::rules::privacy::MissingPrivacyManifestRule;
 
 fn get_fixture_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
