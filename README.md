@@ -73,28 +73,28 @@ Baseline matching currently uses `rule_id + evidence` for failing findings.
 
 ### Example Passing Output
 ```text
- Analysis complete!                                                       
-╭──────────────────────────────────┬─────────────┬──────────┬────────┬────────────────╮
-│ Rule                             ┆ Category    ┆ Severity ┆ Status ┆ Message        │
-╞══════════════════════════════════╪═════════════╪══════════╪════════╪════════════════╡
-│ Missing Privacy Manifest         ┆ Privacy     ┆ ERROR    ┆ PASS   ┆ PASS           │
-├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-│ Missing Camera Usage Description ┆ Permissions ┆ ERROR    ┆ PASS   ┆ PASS           │
-├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-│ Debug Entitlements Present       ┆ Entitlements┆ ERROR    ┆ PASS   ┆ PASS           │
-╰──────────────────────────────────┴─────────────┴──────────┴────────┴────────────────╯
+Analysis complete!
+╭──────────────────────────────────┬─────────────┬──────────┬────────┬─────────╮
+│ Rule                             ┆ Category    ┆ Severity ┆ Status ┆ Message │
+╞══════════════════════════════════╪═════════════╪══════════╪════════╪═════════╡
+│ Missing Privacy Manifest         ┆ Privacy     ┆ ERROR    ┆ PASS   ┆ PASS    │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+│ Missing Camera Usage Description ┆ Permissions ┆ ERROR    ┆ PASS   ┆ PASS    │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+│ Debug Entitlements Present       ┆ Entitlements┆ ERROR    ┆ PASS   ┆ PASS    │
+╰──────────────────────────────────┴─────────────┴──────────┴────────┴─────────╯
 ```
 
 ### Example Failing Output (Exits with code 1)
 ```text
- Analysis complete!                                                       
-╭──────────────────────────────────┬─────────────┬──────────┬────────┬──────────────────────────────────────────────╮
-│ Rule                             ┆ Category    ┆ Severity ┆ Status ┆ Message                                      │
-╞══════════════════════════════════╪═════════════╪══════════╪════════╪══════════════════════════════════════════════╡
-│ Missing Privacy Manifest         ┆ Privacy     ┆ ERROR    ┆ FAIL   ┆ Missing PrivacyInfo.xcprivacy                │
+Analysis complete!
+╭──────────────────────────────────┬─────────────┬──────────┬────────┬────────────────────────────────────────────────────────────╮
+│ Rule                             ┆ Category    ┆ Severity ┆ Status ┆ Message                                                    │
+╞══════════════════════════════════╪═════════════╪══════════╪════════╪════════════════════════════════════════════════════════════╡
+│ Missing Privacy Manifest         ┆ Privacy     ┆ ERROR    ┆ FAIL   ┆ Missing PrivacyInfo.xcprivacy                              │
 ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-│ Missing required usage description keys ┆ Privacy ┆ WARNING ┆ FAIL ┆ Missing required usage description keys      │
-╰──────────────────────────────────┴─────────────┴──────────┴────────┴──────────────────────────────────────────────╯
+│ Missing required usage description keys ┆ Privacy ┆ WARNING ┆ FAIL ┆ Missing required usage description keys                    │
+╰──────────────────────────────────┴─────────────┴──────────┴────────┴────────────────────────────────────────────────────────────╯
 ```
 
 ## Architecture
