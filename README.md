@@ -1,6 +1,6 @@
 # verifyOS-cli
 
-![verifyOS icon](icons/verifyOS.png)
+<img src="icons/verifyOS.png" alt="verifyOS icon" width="260" />
 
 [![Crates.io](https://img.shields.io/crates/v/verifyos-cli.svg)](https://crates.io/crates/verifyos-cli)
 [![Docs.rs](https://img.shields.io/docsrs/verifyos-cli)](https://docs.rs/verifyos-cli)
