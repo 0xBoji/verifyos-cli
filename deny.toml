@@ -1,0 +1,9 @@
+[advisories]
+db-urls = ["https://github.com/RustSec/advisory-db"]
+vulnerability = "deny"
+
+[bans]
+multiple-versions = "warn"
+
+[licenses]
+allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Zlib"]
