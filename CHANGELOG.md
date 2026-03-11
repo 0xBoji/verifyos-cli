@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/0xBoji/verifyos-cli/compare/v0.2.0...v0.2.1) - 2026-03-11
+
+### Added
+
+- *(info-plist)* audit device capabilities
+
+### Other
+
+- *(cli)* ship voc as the only binary
+- *(cli)* switch examples to voc
+- use voc in baseline example
+- *(release)* fix release pr title
+
 ## [0.2.0](https://github.com/0xBoji/verifyos-cli/compare/v0.1.7...v0.2.0) - 2026-03-11
 
 ### Added
