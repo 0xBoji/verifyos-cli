@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/0xBoji/verifyos-cli/compare/v0.1.7...v0.2.0) - 2026-03-11
+
+### Added
+
+- *(info-plist)* audit LSApplicationQueriesSchemes
+- *(signing)* check embedded team id consistency
+
 ## [0.1.7](https://github.com/0xBoji/verifyos-cli/compare/v0.1.6...v0.1.7) - 2026-03-11
 
 ### Added
