@@ -1,5 +1,7 @@
 # verifyOS-cli
 
+![verifyOS icon](icons/verifyOS.png)
+
 [![Crates.io](https://img.shields.io/crates/v/verifyos-cli.svg)](https://crates.io/crates/verifyos-cli)
 [![Docs.rs](https://img.shields.io/docsrs/verifyos-cli)](https://docs.rs/verifyos-cli)
 [![CI](https://github.com/0xBoji/verifyos-cli/actions/workflows/rust.yml/badge.svg)](https://github.com/0xBoji/verifyos-cli/actions/workflows/rust.yml)
