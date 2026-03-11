@@ -5,5 +5,5 @@ release_pr_name = "chore(release): release ${version}"
 branch = "chore/release-plz"
 # Always keep changelog updated
 changelog_update = true
-# GFM alerts in changelogs
-git_release_type = "gfm"
+# Release type
+release_type = "prod"
