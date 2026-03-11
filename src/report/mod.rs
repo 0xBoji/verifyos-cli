@@ -134,7 +134,7 @@ pub fn render_table(report: &ReportData) -> String {
         ]);
     }
 
-    format!("\n{}", table)
+    format!("{}", table)
 }
 
 pub fn render_json(report: &ReportData) -> Result<String, serde_json::Error> {
