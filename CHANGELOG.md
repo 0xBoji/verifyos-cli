@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/0xBoji/verifyos-cli/compare/v0.3.1...v0.4.0) - 2026-03-12
+
+### Added
+
+- *(ci)* add voc analysis workflow
+- *(cli)* add doctor and init output assets
+- *(cli)* add init shell script
+- *(cli)* add init command hints
+- *(cli)* add init agent pack bundle
+- *(cli)* support init baseline filtering
+- *(cli)* add init from scan
+- *(report)* add agent patch hints
+- *(cli)* add agents bootstrap
+- *(report)* add agent pack bundle formats
+- *(report)* add agent pack output
+- *(cli)* add rule detail lookup
+
+### Fixed
+
+- *(cli)* keep init agent outputs consistent
+
 ## [0.3.1](https://github.com/0xBoji/verifyos-cli/compare/v0.3.0...v0.3.1) - 2026-03-12
 
 ### Added
