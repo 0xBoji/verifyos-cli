@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2](https://github.com/0xBoji/verifyos-cli/compare/v0.2.1...v0.2.2) - 2026-03-12
+
+### Added
+
+- *(privacy)* cross-check sdk usage
+- *(extensions)* validate entitlements
+- *(info-plist)* validate versioning
+- *(bundle)* detect sensitive files
+- *(ats)* flag overly broad exceptions
+
+### Fixed
+
+- *(ci)* resolve clippy warnings
+
+### Other
+
+- *(ci)* mention clippy
+- center logo and title in readme
+- resize readme icon
+- add verifyOS icon
+
 ## [0.2.1](https://github.com/0xBoji/verifyos-cli/compare/v0.2.0...v0.2.1) - 2026-03-11
 
 ### Added
