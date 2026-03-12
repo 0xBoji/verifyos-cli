@@ -63,6 +63,9 @@ pub struct AgentFinding {
     pub evidence: Option<String>,
     pub recommendation: String,
     pub suggested_fix_scope: String,
+    pub target_files: Vec<String>,
+    pub patch_hint: String,
+    pub why_it_fails_review: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -200,6 +203,9 @@ pub fn build_agent_pack(report: &ReportData) -> AgentPack {
             evidence: item.evidence.clone(),
             recommendation: item.recommendation.clone(),
             suggested_fix_scope: suggested_fix_scope(item),
+            target_files: target_files(item),
+            patch_hint: patch_hint(item),
+            why_it_fails_review: why_it_fails_review(item),
         })
         .collect();
 
@@ -252,6 +258,17 @@ pub fn render_agent_pack_markdown(pack: &AgentPack) -> String {
         if let Some(evidence) = &finding.evidence {
             out.push_str(&format!("  - Evidence: {}\n", evidence));
         }
+        if !finding.target_files.is_empty() {
+            out.push_str(&format!(
+                "  - Target files: {}\n",
+                finding.target_files.join(", ")
+            ));
+        }
+        out.push_str(&format!(
+            "  - Why it fails review: {}\n",
+            finding.why_it_fails_review
+        ));
+        out.push_str(&format!("  - Patch hint: {}\n", finding.patch_hint));
         out.push_str(&format!("  - Recommendation: {}\n", finding.recommendation));
     }
 
@@ -581,5 +598,139 @@ fn suggested_fix_scope(item: &ReportItem) -> String {
         RuleCategory::Ats => "ats-config".to_string(),
         RuleCategory::ThirdParty => "dependencies".to_string(),
         RuleCategory::Other => "app-bundle".to_string(),
+    }
+}
+
+fn target_files(item: &ReportItem) -> Vec<String> {
+    match item.rule_id.as_str() {
+        "RULE_USAGE_DESCRIPTIONS"
+        | "RULE_USAGE_DESCRIPTIONS_VALUE"
+        | "RULE_CAMERA_USAGE_DESCRIPTION"
+        | "RULE_LSAPPLICATIONQUERIESSCHEMES"
+        | "RULE_UIREQUIREDDEVICECAPABILITIES"
+        | "RULE_INFO_PLIST_VERSIONING" => vec!["Info.plist".to_string()],
+        "RULE_PRIVACY_MANIFEST" | "RULE_PRIVACY_SDK_CROSSCHECK" => {
+            vec!["PrivacyInfo.xcprivacy".to_string()]
+        }
+        "RULE_ATS_AUDIT" => vec!["Info.plist (NSAppTransportSecurity)".to_string()],
+        "RULE_BUNDLE_RESOURCE_LEAKAGE" => vec!["App bundle resources".to_string()],
+        "RULE_ENTITLEMENTS_MISMATCH"
+        | "RULE_ENTITLEMENTS_PROVISIONING_MISMATCH"
+        | "RULE_EXTENSION_ENTITLEMENTS"
+        | "RULE_DEBUG_ENTITLEMENTS" => vec![
+            "App entitlements plist".to_string(),
+            "embedded.mobileprovision".to_string(),
+        ],
+        "RULE_EMBEDDED_SIGNING_CONSISTENCY" => vec![
+            "Main app executable signature".to_string(),
+            "Embedded frameworks/extensions".to_string(),
+        ],
+        "RULE_PRIVATE_API" => vec!["Linked SDKs or app binary".to_string()],
+        _ => match item.category {
+            RuleCategory::Privacy | RuleCategory::Permissions | RuleCategory::Metadata => {
+                vec!["Info.plist".to_string()]
+            }
+            RuleCategory::Entitlements | RuleCategory::Signing => {
+                vec!["App signing and entitlements".to_string()]
+            }
+            RuleCategory::Bundling => vec!["App bundle resources".to_string()],
+            RuleCategory::Ats => vec!["Info.plist (NSAppTransportSecurity)".to_string()],
+            RuleCategory::ThirdParty => vec!["Embedded SDKs or dependencies".to_string()],
+            RuleCategory::Other => vec!["App bundle".to_string()],
+        },
+    }
+}
+
+fn patch_hint(item: &ReportItem) -> String {
+    match item.rule_id.as_str() {
+        "RULE_USAGE_DESCRIPTIONS"
+        | "RULE_USAGE_DESCRIPTIONS_VALUE"
+        | "RULE_CAMERA_USAGE_DESCRIPTION" => {
+            "Update Info.plist with the required NS*UsageDescription keys and give each key a user-facing reason that matches the in-app behavior.".to_string()
+        }
+        "RULE_LSAPPLICATIONQUERIESSCHEMES" => {
+            "Trim LSApplicationQueriesSchemes to only the schemes the app really probes, remove duplicates, and avoid private or overly broad schemes.".to_string()
+        }
+        "RULE_UIREQUIREDDEVICECAPABILITIES" => {
+            "Align UIRequiredDeviceCapabilities with real binary usage so review devices are not excluded by mistake and unsupported hardware is not declared.".to_string()
+        }
+        "RULE_INFO_PLIST_VERSIONING" => {
+            "Set a valid CFBundleShortVersionString and increment CFBundleVersion before the next submission.".to_string()
+        }
+        "RULE_PRIVACY_MANIFEST" => {
+            "Add PrivacyInfo.xcprivacy to the shipped bundle and declare the accessed APIs and collected data used by the app or bundled SDKs.".to_string()
+        }
+        "RULE_PRIVACY_SDK_CROSSCHECK" => {
+            "Review bundled SDKs and extend PrivacyInfo.xcprivacy so their accessed APIs and collected data are explicitly declared.".to_string()
+        }
+        "RULE_ATS_AUDIT" => {
+            "Narrow NSAppTransportSecurity exceptions, remove arbitrary loads when possible, and scope domain exceptions to the smallest set that works.".to_string()
+        }
+        "RULE_BUNDLE_RESOURCE_LEAKAGE" => {
+            "Remove secrets, certificates, provisioning artifacts, debug leftovers, and environment files from the packaged app bundle before archiving.".to_string()
+        }
+        "RULE_ENTITLEMENTS_MISMATCH" | "RULE_ENTITLEMENTS_PROVISIONING_MISMATCH" => {
+            "Make the exported entitlements match the provisioning profile and enabled capabilities for APNs, keychain groups, and iCloud.".to_string()
+        }
+        "RULE_EXTENSION_ENTITLEMENTS" => {
+            "Make each extension entitlement set a valid subset of the host app and add the extension-specific capabilities it actually needs.".to_string()
+        }
+        "RULE_DEBUG_ENTITLEMENTS" => {
+            "Strip debug-only entitlements like get-task-allow from release builds and regenerate the final signed archive.".to_string()
+        }
+        "RULE_EMBEDDED_SIGNING_CONSISTENCY" => {
+            "Re-sign embedded frameworks, dylibs, and extensions with the same Team ID and release identity as the host app.".to_string()
+        }
+        "RULE_PRIVATE_API" => {
+            "Remove or replace private API references in the app binary or third-party SDKs, then rebuild so the shipped binary no longer exposes them.".to_string()
+        }
+        _ => format!(
+            "Patch the {} scope first, then re-run voc to confirm the finding disappears.",
+            suggested_fix_scope(item)
+        ),
+    }
+}
+
+fn why_it_fails_review(item: &ReportItem) -> String {
+    match item.rule_id.as_str() {
+        "RULE_USAGE_DESCRIPTIONS"
+        | "RULE_USAGE_DESCRIPTIONS_VALUE"
+        | "RULE_CAMERA_USAGE_DESCRIPTION" => {
+            "App Review rejects binaries that touch protected APIs without clear, user-facing usage descriptions in Info.plist.".to_string()
+        }
+        "RULE_LSAPPLICATIONQUERIESSCHEMES" => {
+            "Overreaching canOpenURL allowlists look like app enumeration and often trigger manual review questions or rejection.".to_string()
+        }
+        "RULE_UIREQUIREDDEVICECAPABILITIES" => {
+            "Incorrect device capability declarations can exclude valid review devices or misrepresent the hardware the app actually requires.".to_string()
+        }
+        "RULE_INFO_PLIST_VERSIONING" => {
+            "Invalid or non-incrementing version metadata blocks submission and confuses App Store release processing.".to_string()
+        }
+        "RULE_PRIVACY_MANIFEST" | "RULE_PRIVACY_SDK_CROSSCHECK" => {
+            "Apple now expects accurate privacy manifests for apps and bundled SDKs, and missing declarations can block review.".to_string()
+        }
+        "RULE_ATS_AUDIT" => {
+            "Broad ATS exceptions weaken transport security and are a common reason App Review asks teams to justify or remove insecure settings.".to_string()
+        }
+        "RULE_BUNDLE_RESOURCE_LEAKAGE" => {
+            "Shipping secrets, certificates, or provisioning artifacts in the final bundle is treated as a serious distribution and security issue.".to_string()
+        }
+        "RULE_ENTITLEMENTS_MISMATCH"
+        | "RULE_ENTITLEMENTS_PROVISIONING_MISMATCH"
+        | "RULE_EXTENSION_ENTITLEMENTS"
+        | "RULE_DEBUG_ENTITLEMENTS" => {
+            "Entitlements that do not match the signed capabilities or release profile frequently cause validation failures or manual rejection.".to_string()
+        }
+        "RULE_EMBEDDED_SIGNING_CONSISTENCY" => {
+            "Embedded code signed with a different identity or Team ID can fail notarization-style checks during App Store validation.".to_string()
+        }
+        "RULE_PRIVATE_API" => {
+            "Private API usage is one of the clearest App Store rejection reasons because it relies on unsupported system behavior.".to_string()
+        }
+        _ => format!(
+            "This finding maps to the {} scope and signals metadata, signing, or bundle state that App Review may treat as invalid or risky.",
+            suggested_fix_scope(item)
+        ),
     }
 }

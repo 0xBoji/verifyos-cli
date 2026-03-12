@@ -193,6 +193,16 @@ fn build_agent_pack_extracts_fix_focused_findings() {
     assert_eq!(pack.findings[0].rule_id, "RULE_PRIVATE_API");
     assert_eq!(pack.findings[0].priority, "high");
     assert_eq!(pack.findings[0].suggested_fix_scope, "dependencies");
+    assert_eq!(
+        pack.findings[0].target_files,
+        vec!["Linked SDKs or app binary".to_string()]
+    );
+    assert!(pack.findings[0]
+        .patch_hint
+        .contains("Remove or replace private API references"));
+    assert!(pack.findings[0]
+        .why_it_fails_review
+        .contains("Private API usage"));
 }
 
 #[test]
@@ -220,4 +230,30 @@ fn render_agent_pack_markdown_groups_findings_by_scope() {
     assert!(markdown.contains("### bundle-resources"));
     assert!(markdown.contains("`RULE_USAGE_DESCRIPTIONS`"));
     assert!(markdown.contains("`RULE_BUNDLE_LEAKAGE`"));
+    assert!(markdown.contains("Why it fails review"));
+    assert!(markdown.contains("Patch hint"));
+}
+
+#[test]
+fn build_agent_pack_targets_info_plist_rules() {
+    let mut item = sample_item(Severity::Warning, RuleStatus::Fail);
+    item.rule_id = "RULE_USAGE_DESCRIPTIONS".to_string();
+    item.rule_name = "Missing required usage description keys".to_string();
+    item.category = RuleCategory::Privacy;
+    item.message = Some("Missing NSCameraUsageDescription".to_string());
+    item.recommendation = "Add usage descriptions".to_string();
+
+    let pack = build_agent_pack(&sample_report(vec![item]));
+
+    assert_eq!(pack.findings.len(), 1);
+    assert_eq!(
+        pack.findings[0].target_files,
+        vec!["Info.plist".to_string()]
+    );
+    assert!(pack.findings[0]
+        .patch_hint
+        .contains("Update Info.plist with the required NS*UsageDescription"));
+    assert!(pack.findings[0]
+        .why_it_fails_review
+        .contains("protected APIs"));
 }

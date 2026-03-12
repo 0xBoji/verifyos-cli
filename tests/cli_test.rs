@@ -178,6 +178,9 @@ fn test_agent_pack_writes_fix_json() {
     assert!(value["findings"].as_array().is_some());
     assert!(value["findings"][0].get("rule_id").is_some());
     assert!(value["findings"][0].get("suggested_fix_scope").is_some());
+    assert!(value["findings"][0].get("target_files").is_some());
+    assert!(value["findings"][0].get("patch_hint").is_some());
+    assert!(value["findings"][0].get("why_it_fails_review").is_some());
 }
 
 #[test]
