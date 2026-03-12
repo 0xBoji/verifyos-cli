@@ -278,6 +278,12 @@ Generate a PR-ready brief alongside the refreshed agent assets:
 voc doctor --output-dir .verifyos --fix --from-scan path/to/YourApp.ipa --profile basic --open-pr-brief
 ```
 
+Generate a shorter PR comment draft for sticky comments or manual updates:
+
+```bash
+voc doctor --output-dir .verifyos --fix --from-scan path/to/YourApp.ipa --profile basic --open-pr-comment
+```
+
 `voc doctor` validates:
 - config parsing
 - `AGENTS.md` presence
@@ -305,6 +311,11 @@ When `--open-pr-brief` is added, `voc doctor` also writes `pr-brief.md` with:
 - current findings in patch order
 - target files and patch hints
 - validation commands for the next review loop
+
+When `--open-pr-comment` is added, `voc doctor` also writes `pr-comment.md` with:
+- a shorter review summary for GitHub PR comments
+- top risks only
+- quick validation commands
 
 You can also combine `--baseline old-report.json` with `--fix --from-scan` to keep only new or regressed risks in the repaired setup.
 
@@ -541,6 +552,7 @@ The design goal is to keep scanning concerns, report rendering, and AI-agent onb
    - `.verifyos-agent/next-steps.sh`
    - `fix-prompt.md`
    - `pr-brief.md` when `--open-pr-brief` is enabled
+   - `pr-comment.md` when `--open-pr-comment` is enabled
 8. **CI / PR integration**
    The reusable workflow `.github/workflows/voc-analysis.yml` runs scans in GitHub Actions, uploads SARIF and agent assets, and can post a sticky PR summary comment.
 9. **Repair / refresh loop**

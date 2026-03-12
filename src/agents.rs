@@ -15,6 +15,7 @@ pub struct CommandHints {
     pub shell_script: bool,
     pub fix_prompt_path: Option<String>,
     pub pr_brief_path: Option<String>,
+    pub pr_comment_path: Option<String>,
 }
 
 pub fn write_agents_file(
@@ -145,6 +146,9 @@ fn append_next_commands(out: &mut String, hints: &CommandHints) {
     if let Some(pr_brief_path) = hints.pr_brief_path.as_deref() {
         out.push_str(&format!("- PR brief: `{}`\n\n", pr_brief_path));
     }
+    if let Some(pr_comment_path) = hints.pr_comment_path.as_deref() {
+        out.push_str(&format!("- PR comment draft: `{}`\n\n", pr_comment_path));
+    }
     out.push_str("```bash\n");
     out.push_str(&format!(
         "voc --app {} --profile {}\n",
@@ -174,6 +178,9 @@ fn append_next_commands(out: &mut String, hints: &CommandHints) {
         }
         if hints.pr_brief_path.is_some() {
             cmd.push_str(" --open-pr-brief");
+        }
+        if hints.pr_comment_path.is_some() {
+            cmd.push_str(" --open-pr-comment");
         }
         out.push_str(&format!("{cmd}\n"));
     } else if let Some(baseline) = hints.baseline_path.as_deref() {
@@ -385,6 +392,51 @@ pub fn render_pr_brief(pack: &AgentPack, hints: &CommandHints) -> String {
     out
 }
 
+pub fn render_pr_comment(pack: &AgentPack, hints: &CommandHints) -> String {
+    let mut out = String::new();
+    out.push_str("## verifyOS review summary\n\n");
+    out.push_str(&format!("- Findings in scope: `{}`\n", pack.total_findings));
+    if let Some(app_path) = hints.app_path.as_deref() {
+        out.push_str(&format!("- App artifact: `{}`\n", app_path));
+    }
+    if let Some(profile) = hints.profile.as_deref() {
+        out.push_str(&format!("- Scan profile: `{}`\n", profile));
+    }
+    out.push('\n');
+
+    if pack.findings.is_empty() {
+        out.push_str("- No open findings after the latest scan.\n\n");
+    } else {
+        out.push_str("### Top risks\n\n");
+        for finding in pack.findings.iter().take(5) {
+            out.push_str(&format!(
+                "- **{}** (`{}`) [{}/{}]\n",
+                finding.rule_name, finding.rule_id, finding.priority, finding.suggested_fix_scope
+            ));
+            out.push_str(&format!(
+                "  - Why it matters: {}\n",
+                finding.why_it_fails_review
+            ));
+            out.push_str(&format!("  - Patch hint: {}\n", finding.patch_hint));
+        }
+        out.push('\n');
+    }
+
+    out.push_str("### Validation\n\n");
+    if let Some(app_path) = hints.app_path.as_deref() {
+        let profile = hints.profile.as_deref().unwrap_or("full");
+        out.push_str("```bash\n");
+        out.push_str(&format!(
+            "voc --app {} --profile {}\n",
+            shell_quote(app_path),
+            profile
+        ));
+        out.push_str("```\n");
+    }
+
+    out
+}
+
 fn append_current_project_risks(out: &mut String, pack: &AgentPack, agent_pack_dir: &str) {
     out.push_str("### Current Project Risks\n\n");
     out.push_str(&format!(
@@ -565,6 +617,7 @@ Keep this
             shell_script: true,
             fix_prompt_path: Some(".verifyos-agent/fix-prompt.md".to_string()),
             pr_brief_path: Some(".verifyos-agent/pr-brief.md".to_string()),
+            pr_comment_path: Some(".verifyos-agent/pr-comment.md".to_string()),
         };
 
         let block = build_managed_block(None, Some(Path::new(".verifyos-agent")), Some(&hints));
@@ -576,5 +629,6 @@ Keep this
         assert!(block.contains(".verifyos-agent/next-steps.sh"));
         assert!(block.contains(".verifyos-agent/fix-prompt.md"));
         assert!(block.contains(".verifyos-agent/pr-brief.md"));
+        assert!(block.contains(".verifyos-agent/pr-comment.md"));
     }
 }

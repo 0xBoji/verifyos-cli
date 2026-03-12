@@ -769,6 +769,48 @@ fn test_doctor_fix_from_scan_can_generate_pr_brief() {
 }
 
 #[test]
+fn test_doctor_fix_from_scan_can_generate_pr_comment() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--fix",
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--profile",
+            "basic",
+            "--open-pr-comment",
+        ])
+        .output()
+        .expect("doctor --fix --open-pr-comment should run");
+
+    assert!(doctor.status.success());
+
+    let agents =
+        std::fs::read_to_string(output_dir.join("AGENTS.md")).expect("agents file should exist");
+    assert!(agents.contains("pr-comment.md"));
+    assert!(agents.contains("--open-pr-comment"));
+
+    let comment =
+        std::fs::read_to_string(output_dir.join("pr-comment.md")).expect("pr comment should exist");
+    assert!(comment.contains("## verifyOS review summary"));
+    assert!(comment.contains("### Top risks"));
+    assert!(comment.contains("### Validation"));
+    assert!(comment.contains("Missing Privacy Manifest"));
+    assert!(comment.contains("bad_app.ipa"));
+
+    let script = std::fs::read_to_string(output_dir.join(".verifyos-agent/next-steps.sh"))
+        .expect("script should exist");
+    assert!(script.contains("--open-pr-comment"));
+}
+
+#[test]
 fn test_doctor_fix_preserves_existing_context_without_from_scan() {
     let dir = tempdir().expect("temp dir");
     let output_dir = dir.path().join("artifacts");

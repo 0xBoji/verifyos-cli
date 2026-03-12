@@ -5,7 +5,9 @@ use miette::{IntoDiagnostic, Result};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use verifyos_cli::agents::{render_fix_prompt, render_pr_brief, write_agents_file, CommandHints};
+use verifyos_cli::agents::{
+    render_fix_prompt, render_pr_brief, render_pr_comment, write_agents_file, CommandHints,
+};
 use verifyos_cli::config::{load_file_config, resolve_runtime_config, CliOverrides};
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::doctor::{run_doctor, DoctorReport, DoctorStatus};
@@ -216,6 +218,10 @@ struct DoctorArgs {
     /// Generate pr-brief.md for PR review and agent handoff
     #[arg(long)]
     open_pr_brief: bool,
+
+    /// Generate pr-comment.md for sticky PR comments or manual GitHub updates
+    #[arg(long)]
+    open_pr_comment: bool,
 }
 
 fn main() -> Result<()> {
@@ -268,6 +274,7 @@ fn main() -> Result<()> {
                     .fix_prompt
                     .then(|| effective_fix_prompt_path.display().to_string()),
                 pr_brief_path: None,
+                pr_comment_path: None,
             };
             write_next_steps_script(&script_path, &command_hints)?;
         }
@@ -289,6 +296,7 @@ fn main() -> Result<()> {
                     .fix_prompt
                     .then(|| effective_fix_prompt_path.display().to_string()),
                 pr_brief_path: None,
+                pr_comment_path: None,
             });
         if init.fix_prompt {
             let pack = agent_pack.as_ref().ok_or_else(|| {
@@ -324,6 +332,7 @@ fn main() -> Result<()> {
                 doctor.baseline.as_deref(),
                 doctor.profile,
                 doctor.open_pr_brief,
+                doctor.open_pr_comment,
             )?;
         }
         let report = run_doctor(doctor.config.as_deref(), &agents_path);
@@ -469,6 +478,9 @@ fn write_next_steps_script(path: &std::path::Path, hints: &CommandHints) -> Resu
         if hints.pr_brief_path.is_some() {
             cmd.push_str(" --open-pr-brief");
         }
+        if hints.pr_comment_path.is_some() {
+            cmd.push_str(" --open-pr-comment");
+        }
         script.push_str(&format!("{cmd}\n"));
     } else if let Some(baseline) = hints.baseline_path.as_deref() {
         script.push_str(&format!(
@@ -524,6 +536,19 @@ fn write_pr_brief_file(
     Ok(())
 }
 
+fn write_pr_comment_file(
+    path: &std::path::Path,
+    pack: &verifyos_cli::report::AgentPack,
+    hints: &CommandHints,
+) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).into_diagnostic()?;
+    }
+    let comment = render_pr_comment(pack, hints);
+    std::fs::write(path, comment).into_diagnostic()?;
+    Ok(())
+}
+
 fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<()> {
     match format {
         OutputFormat::Table => {
@@ -561,6 +586,7 @@ fn repair_doctor_setup(
     baseline_path: Option<&std::path::Path>,
     profile: Profile,
     open_pr_brief: bool,
+    open_pr_comment: bool,
 ) -> Result<()> {
     std::fs::create_dir_all(output_dir).into_diagnostic()?;
 
@@ -569,11 +595,13 @@ fn repair_doctor_setup(
     let script_path = agent_pack_dir.join("next-steps.sh");
     let fix_prompt_path = output_dir.join("fix-prompt.md");
     let pr_brief_path = output_dir.join("pr-brief.md");
+    let pr_comment_path = output_dir.join("pr-comment.md");
 
     std::fs::create_dir_all(&agent_pack_dir).into_diagnostic()?;
 
     let inferred_hints = infer_existing_command_hints(output_dir, agents_path);
     let should_open_pr_brief = open_pr_brief || inferred_hints.pr_brief_path.is_some();
+    let should_open_pr_comment = open_pr_comment || inferred_hints.pr_comment_path.is_some();
 
     let pack = if let Some(app_path) = from_scan {
         run_scan_for_agent_pack(app_path, profile, baseline_path)?
@@ -602,6 +630,7 @@ fn repair_doctor_setup(
         shell_script: true,
         fix_prompt_path: Some(fix_prompt_path.display().to_string()),
         pr_brief_path: should_open_pr_brief.then(|| pr_brief_path.display().to_string()),
+        pr_comment_path: should_open_pr_comment.then(|| pr_comment_path.display().to_string()),
     };
 
     write_agents_file(
@@ -615,6 +644,9 @@ fn repair_doctor_setup(
     write_fix_prompt_file(&fix_prompt_path, &pack, &command_hints)?;
     if should_open_pr_brief {
         write_pr_brief_file(&pr_brief_path, &pack, &command_hints)?;
+    }
+    if should_open_pr_comment {
+        write_pr_comment_file(&pr_comment_path, &pack, &command_hints)?;
     }
 
     Ok(())
@@ -653,6 +685,10 @@ fn infer_existing_command_hints(
             .join("pr-brief.md")
             .exists()
             .then(|| output_dir.join("pr-brief.md").display().to_string()),
+        pr_comment_path: output_dir
+            .join("pr-comment.md")
+            .exists()
+            .then(|| output_dir.join("pr-comment.md").display().to_string()),
     };
 
     for command in collect_existing_voc_commands(output_dir, agents_path) {
@@ -688,6 +724,10 @@ fn infer_existing_command_hints(
                 "--open-pr-brief" => {
                     hints.pr_brief_path =
                         Some(output_dir.join("pr-brief.md").display().to_string());
+                }
+                "--open-pr-comment" => {
+                    hints.pr_comment_path =
+                        Some(output_dir.join("pr-comment.md").display().to_string());
                 }
                 _ => {}
             }
