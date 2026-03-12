@@ -27,6 +27,7 @@ use verifyos_cli::rules::nested_bundles::NestedBundleEntitlementsRule;
 use verifyos_cli::rules::permissions::CameraUsageDescriptionRule;
 use verifyos_cli::rules::privacy::MissingPrivacyManifestRule;
 use verifyos_cli::rules::privacy_manifest::PrivacyManifestCompletenessRule;
+use verifyos_cli::rules::privacy_sdk::PrivacyManifestSdkCrossCheckRule;
 use verifyos_cli::rules::private_api::PrivateApiRule;
 use verifyos_cli::rules::signing::EmbeddedCodeSignatureTeamRule;
 
@@ -78,6 +79,7 @@ fn main() -> Result<()> {
     // Register the current rules
     engine.register_rule(Box::new(MissingPrivacyManifestRule));
     engine.register_rule(Box::new(PrivacyManifestCompletenessRule));
+    engine.register_rule(Box::new(PrivacyManifestSdkCrossCheckRule));
     engine.register_rule(Box::new(CameraUsageDescriptionRule));
     engine.register_rule(Box::new(UsageDescriptionsRule));
     engine.register_rule(Box::new(UsageDescriptionsValueRule));

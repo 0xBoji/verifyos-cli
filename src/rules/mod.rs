@@ -10,5 +10,6 @@ pub mod nested_bundles;
 pub mod permissions;
 pub mod privacy;
 pub mod privacy_manifest;
+pub mod privacy_sdk;
 pub mod private_api;
 pub mod signing;

@@ -33,12 +33,23 @@ pub struct PrivateApiScan {
     pub hits: Vec<&'static str>,
 }
 
+#[derive(Debug, Default)]
+pub struct SdkScan {
+    pub hits: Vec<&'static str>,
+}
+
 pub fn scan_private_api_from_app_bundle(
     app_bundle_path: &Path,
 ) -> Result<PrivateApiScan, UsageScanError> {
     let executable =
         resolve_executable_path(app_bundle_path).ok_or(UsageScanError::MissingExecutable)?;
     scan_private_api_from_executable(&executable)
+}
+
+pub fn scan_sdks_from_app_bundle(app_bundle_path: &Path) -> Result<SdkScan, UsageScanError> {
+    let executable =
+        resolve_executable_path(app_bundle_path).ok_or(UsageScanError::MissingExecutable)?;
+    scan_sdks_from_executable(&executable)
 }
 
 pub fn scan_capabilities_from_app_bundle(
@@ -94,6 +105,22 @@ fn scan_private_api_from_executable(path: &Path) -> Result<PrivateApiScan, Usage
     let mut scan = PrivateApiScan::default();
 
     for signature in PRIVATE_API_SIGNATURES {
+        if contains_subslice(&bytes, signature.as_bytes()) {
+            scan.hits.push(*signature);
+        }
+    }
+
+    scan.hits.sort_unstable();
+    scan.hits.dedup();
+
+    Ok(scan)
+}
+
+fn scan_sdks_from_executable(path: &Path) -> Result<SdkScan, UsageScanError> {
+    let bytes = std::fs::read(path)?;
+    let mut scan = SdkScan::default();
+
+    for signature in SDK_SIGNATURES {
         if contains_subslice(&bytes, signature.as_bytes()) {
             scan.hits.push(*signature);
         }
@@ -207,6 +234,20 @@ const PRIVATE_API_SIGNATURES: &[&str] = &[
     "UICallApplication",
     "UIGetScreenImage",
     "_MGCopyAnswer",
+];
+
+const SDK_SIGNATURES: &[&str] = &[
+    "FirebaseApp",
+    "FIRApp",
+    "GADMobileAds",
+    "FBSDKCoreKit",
+    "FBSDKLoginKit",
+    "Amplitude",
+    "Mixpanel",
+    "Segment",
+    "SentrySDK",
+    "AppsFlyerLib",
+    "Adjust",
 ];
 
 const CAPABILITY_SIGNATURES: &[(&str, &str)] = &[

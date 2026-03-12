@@ -36,6 +36,7 @@ The App Store Connect validation step is historically a "black box" that costs d
 - **Bundle leakage**: Fails if sensitive files (e.g., `.p12`, `.pem`, `.mobileprovision`, `.env`) are found inside the app bundle.
 - **Versioning**: Ensures `CFBundleShortVersionString` and `CFBundleVersion` are valid and present.
 - **Extension entitlements**: Validates extension entitlements are a subset of the host app and required keys exist for common extension types.
+- **Privacy SDK cross-check**: Warns if common SDK signatures are detected but PrivacyInfo.xcprivacy lacks declarations.
 - **Entitlements**: Detects debug-only entitlements (like `get-task-allow=true`) and flags mismatches between app entitlements and `embedded.mobileprovision` (APNs, keychain groups, iCloud containers).
 - **Signing**: Ensures embedded frameworks/extensions are signed with the same Team ID as the app binary.
 - **CI-friendly reports**: Outputs `table`, `json`, or `sarif` with evidence and remediation recommendations.
@@ -117,6 +118,8 @@ Analysis complete!
 ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
 │ Extension Entitlements Compatibility   ┆ Entitlements┆ WARNING  ┆ PASS   ┆ PASS    │
 ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
+│ Privacy Manifest vs SDK Usage          ┆ Privacy     ┆ WARNING  ┆ PASS   ┆ PASS    │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┤
 │ Debug Entitlements Present             ┆ Entitlements┆ ERROR    ┆ PASS   ┆ PASS    │
 ╰────────────────────────────────────────┴─────────────┴──────────┴────────┴─────────╯
 ```
@@ -142,6 +145,8 @@ Analysis complete!
 │ Info.plist Versioning Consistency      ┆ Metadata    ┆ WARNING  ┆ PASS   ┆ PASS                                                       │
 ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
 │ Extension Entitlements Compatibility   ┆ Entitlements┆ WARNING  ┆ PASS   ┆ PASS                                                       │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ Privacy Manifest vs SDK Usage          ┆ Privacy     ┆ WARNING  ┆ PASS   ┆ PASS                                                       │
 ╰────────────────────────────────────────┴─────────────┴──────────┴────────┴────────────────────────────────────────────────────────────╯
 ```
 

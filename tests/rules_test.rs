@@ -11,6 +11,7 @@ use verifyos_cli::rules::info_plist::LSApplicationQueriesSchemesAuditRule;
 use verifyos_cli::rules::info_plist::UIRequiredDeviceCapabilitiesAuditRule;
 use verifyos_cli::rules::permissions::CameraUsageDescriptionRule;
 use verifyos_cli::rules::privacy::MissingPrivacyManifestRule;
+use verifyos_cli::rules::privacy_sdk::PrivacyManifestSdkCrossCheckRule;
 use verifyos_cli::rules::signing::EmbeddedCodeSignatureTeamRule;
 
 fn get_fixture_path() -> PathBuf {
@@ -317,4 +318,17 @@ fn test_extension_entitlements_rule_passes_without_extensions() {
     let rule = ExtensionEntitlementsCompatibilityRule;
     let result = rule.evaluate(&context).expect("Rule should evaluate");
     assert_eq!(result.status, RuleStatus::Pass);
+}
+
+#[test]
+fn test_privacy_sdk_crosscheck_skips_without_manifest() {
+    let app_path = PathBuf::from("does_not_exist.app");
+    let context = ArtifactContext {
+        app_bundle_path: &app_path,
+        info_plist: None,
+    };
+
+    let rule = PrivacyManifestSdkCrossCheckRule;
+    let result = rule.evaluate(&context).expect("Rule should evaluate");
+    assert_eq!(result.status, RuleStatus::Skip);
 }

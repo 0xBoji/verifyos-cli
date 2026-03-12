@@ -10,6 +10,7 @@ use verifyos_cli::rules::info_plist::LSApplicationQueriesSchemesAuditRule;
 use verifyos_cli::rules::info_plist::UIRequiredDeviceCapabilitiesAuditRule;
 use verifyos_cli::rules::permissions::CameraUsageDescriptionRule;
 use verifyos_cli::rules::privacy::MissingPrivacyManifestRule;
+use verifyos_cli::rules::privacy_sdk::PrivacyManifestSdkCrossCheckRule;
 use verifyos_cli::rules::signing::EmbeddedCodeSignatureTeamRule;
 
 fn get_example_path(filename: &str) -> PathBuf {
@@ -30,6 +31,7 @@ fn create_engine() -> Engine {
     engine.register_rule(Box::new(BundleResourceLeakageRule));
     engine.register_rule(Box::new(InfoPlistVersionConsistencyRule));
     engine.register_rule(Box::new(ExtensionEntitlementsCompatibilityRule));
+    engine.register_rule(Box::new(PrivacyManifestSdkCrossCheckRule));
     engine
 }
 
