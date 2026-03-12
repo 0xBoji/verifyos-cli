@@ -167,6 +167,14 @@ Markdown report (agent-friendly):
 voc --app path/to/YourApp.ipa --md-out report.md
 ```
 
+Agent fix pack:
+
+```bash
+voc --app path/to/YourApp.ipa --agent-pack fixes.json
+```
+
+The agent pack writes a machine-readable JSON file with failing findings only, including `rule_id`, `message`, `evidence`, `recommendation`, `priority`, and `suggested_fix_scope`.
+
 Timing summary:
 
 ```bash

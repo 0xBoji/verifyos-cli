@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::process::Command;
+use tempfile::tempdir;
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::profiles::{register_rules, RuleSelection, ScanProfile};
 use verifyos_cli::rules::core::{RuleStatus, Severity};
@@ -149,4 +150,32 @@ fn test_show_rule_json_output() {
     assert_eq!(value["rule_id"], "RULE_PRIVATE_API");
     assert!(value.get("recommendation").is_some());
     assert!(value.get("default_profiles").is_some());
+}
+
+#[test]
+fn test_agent_pack_writes_fix_json() {
+    let dir = tempdir().expect("temp dir");
+    let output_path = dir.path().join("fixes.json");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "--app",
+            get_example_path("bad_app.ipa").to_str().expect("utf8 path"),
+            "--agent-pack",
+            output_path.to_str().expect("utf8 output path"),
+        ])
+        .output()
+        .expect("agent-pack run should succeed");
+
+    assert!(
+        !output.status.success(),
+        "bad_app should still fail exit threshold"
+    );
+
+    let contents = std::fs::read_to_string(&output_path).expect("agent pack should be written");
+    let value: serde_json::Value = serde_json::from_str(&contents).expect("valid agent pack");
+    assert!(value["total_findings"].as_u64().unwrap_or_default() >= 1);
+    assert!(value["findings"].as_array().is_some());
+    assert!(value["findings"][0].get("rule_id").is_some());
+    assert!(value["findings"][0].get("suggested_fix_scope").is_some());
 }

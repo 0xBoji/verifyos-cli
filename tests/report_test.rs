@@ -1,6 +1,6 @@
 use verifyos_cli::report::{
-    render_json, render_markdown, render_sarif, render_table, should_exit_with_failure,
-    top_slow_rules, FailOn, ReportData, ReportItem, SlowRule, TimingMode,
+    build_agent_pack, render_json, render_markdown, render_sarif, render_table,
+    should_exit_with_failure, top_slow_rules, FailOn, ReportData, ReportItem, SlowRule, TimingMode,
 };
 use verifyos_cli::rules::core::{
     ArtifactCacheStats, CacheCounter, RuleCategory, RuleStatus, Severity,
@@ -169,4 +169,27 @@ fn render_sarif_includes_perf_metadata() {
         value["runs"][0]["invocations"][0]["properties"]["cacheStats"]["usage_scan"]["hits"],
         serde_json::Value::from(2)
     );
+}
+
+#[test]
+fn build_agent_pack_extracts_fix_focused_findings() {
+    let mut pass_item = sample_item(Severity::Info, RuleStatus::Pass);
+    pass_item.rule_id = "RULE_PASS".to_string();
+
+    let mut fail_item = sample_item(Severity::Error, RuleStatus::Fail);
+    fail_item.rule_id = "RULE_PRIVATE_API".to_string();
+    fail_item.rule_name = "Private API Usage Detected".to_string();
+    fail_item.category = RuleCategory::ThirdParty;
+    fail_item.message = Some("Private API signatures found".to_string());
+    fail_item.evidence = Some("LSApplicationWorkspace".to_string());
+    fail_item.recommendation =
+        "Remove private API usage or replace with public alternatives.".to_string();
+
+    let report = sample_report(vec![pass_item, fail_item]);
+    let pack = build_agent_pack(&report);
+
+    assert_eq!(pack.total_findings, 1);
+    assert_eq!(pack.findings[0].rule_id, "RULE_PRIVATE_API");
+    assert_eq!(pack.findings[0].priority, "high");
+    assert_eq!(pack.findings[0].suggested_fix_scope, "dependencies");
 }

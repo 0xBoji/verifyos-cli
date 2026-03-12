@@ -10,3 +10,4 @@ exclude = []
 # Optional output paths
 # baseline = "baseline.json"
 # md_out = "report.md"
+# agent_pack = "fixes.json"

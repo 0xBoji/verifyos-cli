@@ -45,6 +45,26 @@ pub struct BaselineSummary {
     pub suppressed: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentPack {
+    pub generated_at_unix: u64,
+    pub total_findings: usize,
+    pub findings: Vec<AgentFinding>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentFinding {
+    pub rule_id: String,
+    pub rule_name: String,
+    pub severity: Severity,
+    pub category: RuleCategory,
+    pub priority: String,
+    pub message: String,
+    pub evidence: Option<String>,
+    pub recommendation: String,
+    pub suggested_fix_scope: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FailOn {
     Off,
@@ -152,6 +172,34 @@ pub fn should_exit_with_failure(report: &ReportData, fail_on: FailOn) -> bool {
             matches!(item.status, RuleStatus::Fail | RuleStatus::Error)
                 && matches!(item.severity, Severity::Error | Severity::Warning)
         }),
+    }
+}
+
+pub fn build_agent_pack(report: &ReportData) -> AgentPack {
+    let findings: Vec<AgentFinding> = report
+        .results
+        .iter()
+        .filter(|item| matches!(item.status, RuleStatus::Fail | RuleStatus::Error))
+        .map(|item| AgentFinding {
+            rule_id: item.rule_id.clone(),
+            rule_name: item.rule_name.clone(),
+            severity: item.severity,
+            category: item.category,
+            priority: agent_priority(item.severity).to_string(),
+            message: item
+                .message
+                .clone()
+                .unwrap_or_else(|| item.rule_name.clone()),
+            evidence: item.evidence.clone(),
+            recommendation: item.recommendation.clone(),
+            suggested_fix_scope: suggested_fix_scope(item),
+        })
+        .collect();
+
+    AgentPack {
+        generated_at_unix: report.generated_at_unix,
+        total_findings: findings.len(),
+        findings,
     }
 }
 
@@ -458,4 +506,25 @@ fn sarif_slow_rules(items: &[SlowRule]) -> Vec<serde_json::Value> {
             })
         })
         .collect()
+}
+
+fn agent_priority(severity: Severity) -> &'static str {
+    match severity {
+        Severity::Error => "high",
+        Severity::Warning => "medium",
+        Severity::Info => "low",
+    }
+}
+
+fn suggested_fix_scope(item: &ReportItem) -> String {
+    match item.category {
+        RuleCategory::Privacy | RuleCategory::Permissions | RuleCategory::Metadata => {
+            "Info.plist".to_string()
+        }
+        RuleCategory::Entitlements | RuleCategory::Signing => "entitlements".to_string(),
+        RuleCategory::Bundling => "bundle-resources".to_string(),
+        RuleCategory::Ats => "ats-config".to_string(),
+        RuleCategory::ThirdParty => "dependencies".to_string(),
+        RuleCategory::Other => "app-bundle".to_string(),
+    }
 }

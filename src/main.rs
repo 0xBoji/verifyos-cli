@@ -12,8 +12,8 @@ use verifyos_cli::profiles::{
     RuleDetailItem, RuleInventoryItem, RuleSelection, ScanProfile,
 };
 use verifyos_cli::report::{
-    apply_baseline, build_report, render_json, render_markdown, render_sarif, render_table,
-    should_exit_with_failure, FailOn, TimingMode,
+    apply_baseline, build_agent_pack, build_report, render_json, render_markdown, render_sarif,
+    render_table, should_exit_with_failure, FailOn, TimingMode,
 };
 
 const HELP_BANNER: &str = r#"
@@ -75,6 +75,10 @@ struct Args {
     #[arg(long)]
     md_out: Option<PathBuf>,
 
+    /// Write a machine-readable fix pack for AI agents
+    #[arg(long)]
+    agent_pack: Option<PathBuf>,
+
     /// Scan profile: basic or full
     #[arg(long, value_enum)]
     profile: Option<Profile>,
@@ -114,6 +118,7 @@ fn main() -> Result<()> {
             format: args.format.map(output_format_key),
             baseline: args.baseline.clone(),
             md_out: args.md_out.clone(),
+            agent_pack: args.agent_pack.clone(),
             profile: args.profile.map(profile_key),
             fail_on: args.fail_on.map(fail_on_key),
             timings: args.timings.map(timing_key),
@@ -179,6 +184,12 @@ fn main() -> Result<()> {
     if let Some(path) = runtime.md_out {
         let markdown = render_markdown(&report, suppressed, timing_mode);
         std::fs::write(path, markdown).into_diagnostic()?;
+    }
+
+    if let Some(path) = runtime.agent_pack {
+        let agent_pack = build_agent_pack(&report);
+        let json = serde_json::to_string_pretty(&agent_pack).into_diagnostic()?;
+        std::fs::write(path, json).into_diagnostic()?;
     }
 
     // 8. Exit with code 1 if findings meet the configured threshold
