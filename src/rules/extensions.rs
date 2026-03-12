@@ -1,9 +1,7 @@
-use crate::parsers::macho_parser::MachOExecutable;
 use crate::parsers::plist_reader::InfoPlist;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
 };
-use std::path::Path;
 
 pub struct ExtensionEntitlementsCompatibilityRule;
 
@@ -53,7 +51,8 @@ impl AppStoreRule for ExtensionEntitlementsCompatibilityRule {
             });
         }
 
-        let Some(app_entitlements) = load_entitlements_plist(artifact.app_bundle_path)? else {
+        let Some(app_entitlements) = artifact.entitlements_for_bundle(artifact.app_bundle_path)?
+        else {
             return Ok(RuleReport {
                 status: RuleStatus::Skip,
                 message: Some("Host app entitlements not found".to_string()),
@@ -64,10 +63,9 @@ impl AppStoreRule for ExtensionEntitlementsCompatibilityRule {
         let mut issues = Vec::new();
 
         for extension in extensions {
-            let plist_path = extension.bundle_path.join("Info.plist");
-            let plist = match InfoPlist::from_file(&plist_path) {
-                Ok(plist) => plist,
-                Err(_) => continue,
+            let plist = match artifact.bundle_info_plist(&extension.bundle_path) {
+                Ok(Some(plist)) => plist,
+                Ok(None) | Err(_) => continue,
             };
 
             let extension_point = plist
@@ -77,7 +75,8 @@ impl AppStoreRule for ExtensionEntitlementsCompatibilityRule {
                 .unwrap_or("unknown")
                 .to_string();
 
-            let Some(ext_entitlements) = load_entitlements_for_bundle(&extension.bundle_path)?
+            let Some(ext_entitlements) =
+                artifact.entitlements_for_bundle(&extension.bundle_path)?
             else {
                 continue;
             };
@@ -126,65 +125,6 @@ impl AppStoreRule for ExtensionEntitlementsCompatibilityRule {
     }
 }
 
-fn load_entitlements_plist(app_bundle_path: &Path) -> Result<Option<InfoPlist>, RuleError> {
-    let app_name = app_bundle_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .trim_end_matches(".app");
-
-    if app_name.is_empty() {
-        return Ok(None);
-    }
-
-    let executable_path = app_bundle_path.join(app_name);
-    if !executable_path.exists() {
-        return Ok(None);
-    }
-
-    let macho = MachOExecutable::from_file(&executable_path)
-        .map_err(crate::rules::entitlements::EntitlementsError::MachO)
-        .map_err(RuleError::Entitlements)?;
-    let Some(entitlements_xml) = macho.entitlements else {
-        return Ok(None);
-    };
-
-    let plist = InfoPlist::from_bytes(entitlements_xml.as_bytes())
-        .map_err(|_| crate::rules::entitlements::EntitlementsError::ParseFailure)?;
-
-    Ok(Some(plist))
-}
-
-fn load_entitlements_for_bundle(bundle_path: &Path) -> Result<Option<InfoPlist>, RuleError> {
-    let bundle_name = bundle_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .trim_end_matches(".appex")
-        .trim_end_matches(".app");
-
-    if bundle_name.is_empty() {
-        return Ok(None);
-    }
-
-    let executable_path = bundle_path.join(bundle_name);
-    if !executable_path.exists() {
-        return Ok(None);
-    }
-
-    let macho = MachOExecutable::from_file(&executable_path)
-        .map_err(crate::rules::entitlements::EntitlementsError::MachO)
-        .map_err(RuleError::Entitlements)?;
-    let Some(entitlements_xml) = macho.entitlements else {
-        return Ok(None);
-    };
-
-    let plist = InfoPlist::from_bytes(entitlements_xml.as_bytes())
-        .map_err(|_| crate::rules::entitlements::EntitlementsError::ParseFailure)?;
-
-    Ok(Some(plist))
-}
-
 fn compare_entitlements(app: &InfoPlist, ext: &InfoPlist) -> Vec<String> {
     let mut issues = Vec::new();
 
@@ -213,7 +153,7 @@ fn compare_entitlements(app: &InfoPlist, ext: &InfoPlist) -> Vec<String> {
             let app_values = app.get_array_strings(key).unwrap_or_default();
             let missing: Vec<String> = values
                 .into_iter()
-                .filter(|value| !app_values.contains(value))
+                .filter(|value| !app_values.iter().any(|app_value| app_value == value))
                 .collect();
             if !missing.is_empty() {
                 issues.push(format!(

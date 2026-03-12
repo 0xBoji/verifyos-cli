@@ -9,6 +9,7 @@ pub enum PlistError {
     NotADictionary,
 }
 
+#[derive(Debug, Clone)]
 pub struct InfoPlist {
     pub root: Value,
 }

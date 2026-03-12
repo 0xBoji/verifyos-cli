@@ -1,6 +1,4 @@
-use crate::parsers::macho_parser::MachOExecutable;
 use crate::parsers::plist_reader::InfoPlist;
-use crate::parsers::provisioning_profile::ProvisioningProfile;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
 };
@@ -50,34 +48,13 @@ impl AppStoreRule for EntitlementsMismatchRule {
     }
 
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
-        let app_name = artifact
-            .app_bundle_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .trim_end_matches(".app");
-
-        let executable_path = artifact.app_bundle_path.join(app_name);
-
-        if executable_path.exists() {
-            let macho =
-                MachOExecutable::from_file(&executable_path).map_err(EntitlementsError::MachO)?;
-
-            if let Some(entitlements_xml) = macho.entitlements {
-                // Parse the XML using the plist reader since entitlements are a plist
-                let plist = crate::parsers::plist_reader::InfoPlist::from_bytes(
-                    entitlements_xml.as_bytes(),
-                )
-                .map_err(|_| EntitlementsError::ParseFailure)?;
-
-                // For App Store submission, get-task-allow must NOT be true.
-                if let Some(true) = plist.get_bool("get-task-allow") {
-                    return Ok(RuleReport {
-                        status: RuleStatus::Fail,
-                        message: Some("get-task-allow entitlement is true".to_string()),
-                        evidence: Some("Entitlements plist has get-task-allow=true".to_string()),
-                    });
-                }
+        if let Some(plist) = artifact.entitlements_for_bundle(artifact.app_bundle_path)? {
+            if let Some(true) = plist.get_bool("get-task-allow") {
+                return Ok(RuleReport {
+                    status: RuleStatus::Fail,
+                    message: Some("get-task-allow entitlement is true".to_string()),
+                    evidence: Some("Entitlements plist has get-task-allow=true".to_string()),
+                });
             }
         }
 
@@ -121,17 +98,17 @@ impl AppStoreRule for EntitlementsProvisioningMismatchRule {
             });
         };
 
-        let provisioning_path = artifact.app_bundle_path.join("embedded.mobileprovision");
-        if !provisioning_path.exists() {
+        let Some(profile) = artifact
+            .provisioning_profile_for_bundle(artifact.app_bundle_path)
+            .map_err(RuleError::Provisioning)?
+        else {
+            let provisioning_path = artifact.app_bundle_path.join("embedded.mobileprovision");
             return Ok(RuleReport {
                 status: RuleStatus::Skip,
                 message: Some("embedded.mobileprovision not found".to_string()),
                 evidence: Some(provisioning_path.display().to_string()),
             });
-        }
-
-        let profile = ProvisioningProfile::from_embedded_file(&provisioning_path)
-            .map_err(RuleError::Provisioning)?;
+        };
         let provisioning_entitlements = profile.entitlements;
 
         let mut mismatches = Vec::new();
@@ -188,27 +165,7 @@ impl AppStoreRule for EntitlementsProvisioningMismatchRule {
 }
 
 fn load_entitlements_plist(artifact: &ArtifactContext) -> Result<Option<InfoPlist>, RuleError> {
-    let app_name = artifact
-        .app_bundle_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .trim_end_matches(".app");
-
-    let executable_path = artifact.app_bundle_path.join(app_name);
-    if !executable_path.exists() {
-        return Ok(None);
-    }
-
-    let macho = MachOExecutable::from_file(&executable_path).map_err(EntitlementsError::MachO)?;
-    let Some(entitlements_xml) = macho.entitlements else {
-        return Ok(None);
-    };
-
-    let plist = crate::parsers::plist_reader::InfoPlist::from_bytes(entitlements_xml.as_bytes())
-        .map_err(|_| EntitlementsError::ParseFailure)?;
-
-    Ok(Some(plist))
+    artifact.entitlements_for_bundle(artifact.app_bundle_path)
 }
 
 fn diff_string_array(entitlements: &InfoPlist, profile: &InfoPlist, key: &str) -> Vec<String> {

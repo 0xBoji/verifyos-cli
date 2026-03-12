@@ -2,7 +2,6 @@ use crate::parsers::plist_reader::InfoPlist;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
 };
-use std::path::{Path, PathBuf};
 
 pub struct EmbeddedCodeSignatureTeamRule;
 
@@ -30,26 +29,24 @@ impl AppStoreRule for EmbeddedCodeSignatureTeamRule {
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
         let info_plist = match artifact.info_plist {
             Some(plist) => plist,
-            None => {
-                let plist_path = artifact.app_bundle_path.join("Info.plist");
-                if !plist_path.exists() {
+            None => match artifact.bundle_info_plist(artifact.app_bundle_path) {
+                Ok(Some(plist)) => return evaluate_with_plist(artifact, &plist),
+                Ok(None) => {
                     return Ok(RuleReport {
                         status: RuleStatus::Skip,
                         message: Some("Info.plist not found".to_string()),
                         evidence: None,
+                    })
+                }
+                Err(err) => {
+                    let plist_path = artifact.app_bundle_path.join("Info.plist");
+                    return Ok(RuleReport {
+                        status: RuleStatus::Skip,
+                        message: Some(format!("Failed to parse Info.plist: {err}")),
+                        evidence: Some(plist_path.display().to_string()),
                     });
                 }
-                match InfoPlist::from_file(&plist_path) {
-                    Ok(plist) => return evaluate_with_plist(artifact, &plist),
-                    Err(err) => {
-                        return Ok(RuleReport {
-                            status: RuleStatus::Skip,
-                            message: Some(format!("Failed to parse Info.plist: {err}")),
-                            evidence: Some(plist_path.display().to_string()),
-                        })
-                    }
-                }
-            }
+            },
         };
 
         evaluate_with_plist(artifact, info_plist)
@@ -128,7 +125,7 @@ fn evaluate_with_plist(
     let mut mismatches = Vec::new();
 
     for bundle in bundles {
-        let Some(executable_path) = resolve_bundle_executable(&bundle.bundle_path) else {
+        let Some(executable_path) = artifact.executable_path_for_bundle(&bundle.bundle_path) else {
             mismatches.push(format!(
                 "{}: Missing CFBundleExecutable",
                 bundle.display_name
@@ -190,37 +187,4 @@ fn evaluate_with_plist(
         message: Some("Embedded bundle signing mismatch".to_string()),
         evidence: Some(mismatches.join(" | ")),
     })
-}
-
-fn resolve_bundle_executable(bundle_path: &Path) -> Option<PathBuf> {
-    let plist_path = bundle_path.join("Info.plist");
-    if plist_path.exists() {
-        if let Ok(plist) = InfoPlist::from_file(&plist_path) {
-            if let Some(executable) = plist.get_string("CFBundleExecutable") {
-                let candidate = bundle_path.join(executable);
-                if candidate.exists() {
-                    return Some(candidate);
-                }
-            }
-        }
-    }
-
-    let bundle_name = bundle_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .trim_end_matches(".app")
-        .trim_end_matches(".appex")
-        .trim_end_matches(".framework");
-
-    if bundle_name.is_empty() {
-        return None;
-    }
-
-    let fallback = bundle_path.join(bundle_name);
-    if fallback.exists() {
-        Some(fallback)
-    } else {
-        None
-    }
 }

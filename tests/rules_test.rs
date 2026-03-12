@@ -182,6 +182,44 @@ fn test_artifact_context_caches_usage_scan_results() {
 }
 
 #[test]
+fn test_artifact_context_caches_bundle_plist_results() {
+    let dir = tempdir().expect("temp dir");
+    let app_dir = dir.path().join("TestApp.app");
+    fs::create_dir_all(&app_dir).expect("create app dir");
+
+    let mut dict = plist::Dictionary::new();
+    dict.insert(
+        "CFBundleIdentifier".to_string(),
+        plist::Value::String("com.example.test".to_string()),
+    );
+    let plist_path = app_dir.join("Info.plist");
+    plist::Value::Dictionary(dict)
+        .to_file_xml(&plist_path)
+        .expect("write plist");
+
+    let context = ArtifactContext::new(&app_dir, None);
+    let first_plist = context
+        .bundle_info_plist(&app_dir)
+        .expect("plist load should succeed")
+        .expect("plist should exist");
+    assert_eq!(
+        first_plist.get_string("CFBundleIdentifier"),
+        Some("com.example.test")
+    );
+
+    fs::remove_file(&plist_path).expect("remove plist after cache warmup");
+
+    let second_plist = context
+        .bundle_info_plist(&app_dir)
+        .expect("cached plist load should succeed")
+        .expect("cached plist should exist");
+    assert_eq!(
+        second_plist.get_string("CFBundleIdentifier"),
+        Some("com.example.test")
+    );
+}
+
+#[test]
 fn test_ats_granularity_fails_on_broad_exception() {
     let mut ats = plist::Dictionary::new();
     ats.insert(

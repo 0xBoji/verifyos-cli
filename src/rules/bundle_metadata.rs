@@ -1,4 +1,3 @@
-use crate::parsers::plist_reader::InfoPlist;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
 };
@@ -64,14 +63,9 @@ impl AppStoreRule for BundleMetadataConsistencyRule {
                 continue;
             }
 
-            let plist_path = bundle.bundle_path.join("Info.plist");
-            if !plist_path.exists() {
-                continue;
-            }
-
-            let plist = match InfoPlist::from_file(&plist_path) {
-                Ok(plist) => plist,
-                Err(_) => continue,
+            let plist = match artifact.bundle_info_plist(&bundle.bundle_path) {
+                Ok(Some(plist)) => plist,
+                Ok(None) | Err(_) => continue,
             };
 
             if let (Some(app_id), Some(child_id)) =

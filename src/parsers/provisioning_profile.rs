@@ -13,6 +13,7 @@ pub enum ProvisioningError {
     MissingEntitlements,
 }
 
+#[derive(Debug, Clone)]
 pub struct ProvisioningProfile {
     pub entitlements: InfoPlist,
 }
