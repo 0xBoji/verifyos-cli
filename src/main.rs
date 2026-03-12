@@ -13,9 +13,9 @@ use verifyos_cli::profiles::{
     RuleDetailItem, RuleInventoryItem, RuleSelection, ScanProfile,
 };
 use verifyos_cli::report::{
-    apply_baseline, build_agent_pack, build_report, render_agent_pack_markdown, render_json,
-    render_markdown, render_sarif, render_table, should_exit_with_failure, AgentPackFormat, FailOn,
-    TimingMode,
+    apply_agent_pack_baseline, apply_baseline, build_agent_pack, build_report,
+    render_agent_pack_markdown, render_json, render_markdown, render_sarif, render_table,
+    should_exit_with_failure, AgentPackFormat, FailOn, TimingMode,
 };
 
 const HELP_BANNER: &str = r#"
@@ -147,6 +147,10 @@ struct InitArgs {
     #[arg(long)]
     from_scan: Option<PathBuf>,
 
+    /// Baseline JSON report used to keep only new or regressed risks in Current Project Risks
+    #[arg(long)]
+    baseline: Option<PathBuf>,
+
     /// Scan profile to use with --from-scan
     #[arg(long, value_enum, default_value = "full")]
     profile: Profile,
@@ -157,7 +161,11 @@ fn main() -> Result<()> {
     let args = Args::parse();
     if let Some(Commands::Init(init)) = args.command {
         let agent_pack = if let Some(app) = init.from_scan.as_deref() {
-            Some(run_scan_for_agent_pack(app, init.profile)?)
+            Some(run_scan_for_agent_pack(
+                app,
+                init.profile,
+                init.baseline.as_deref(),
+            )?)
         } else {
             None
         };
@@ -391,6 +399,7 @@ fn write_agent_pack(
 fn run_scan_for_agent_pack(
     app_path: &std::path::Path,
     profile: Profile,
+    baseline_path: Option<&std::path::Path>,
 ) -> Result<verifyos_cli::report::AgentPack> {
     let mut engine = Engine::new();
     let selection = RuleSelection::default();
@@ -401,7 +410,14 @@ fn run_scan_for_agent_pack(
         .run(app_path)
         .map_err(|e| miette::miette!("Engine orchestrator failed: {}", e))?;
     let report = build_report(run.results, run.total_duration_ms, run.cache_stats);
-    Ok(build_agent_pack(&report))
+    let mut agent_pack = build_agent_pack(&report);
+    if let Some(path) = baseline_path {
+        let baseline_raw = std::fs::read_to_string(path).into_diagnostic()?;
+        let baseline: verifyos_cli::report::ReportData =
+            serde_json::from_str(&baseline_raw).into_diagnostic()?;
+        apply_agent_pack_baseline(&mut agent_pack, &baseline);
+    }
+    Ok(agent_pack)
 }
 
 fn build_rule_selection(

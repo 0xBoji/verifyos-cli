@@ -175,11 +175,19 @@ Use a lighter profile when you only want a quick playbook refresh:
 voc init --from-scan path/to/YourApp.ipa --profile basic
 ```
 
+Keep only new or regressed risks relative to an older report:
+
+```bash
+voc init --from-scan path/to/YourApp.ipa --baseline old-report.json
+```
+
 The generated block includes:
 - a recommended `voc` workflow for quick and release scans
 - AI agent fix-loop rules
 - a live rule inventory with `rule_id`, category, severity, and default profiles
 - an optional `Current Project Risks` section with priority order and suggested fix scopes from the latest scan
+
+When `--baseline` is provided with `--from-scan`, the `Current Project Risks` section only keeps findings that are new or regressed compared with the older JSON report. That keeps the playbook focused on what changed in the current branch.
 
 `voc init` uses a managed block, so you can safely keep your own notes above or below it.
 

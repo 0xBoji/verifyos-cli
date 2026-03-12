@@ -3,6 +3,7 @@ use std::process::Command;
 use tempfile::tempdir;
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::profiles::{register_rules, RuleSelection, ScanProfile};
+use verifyos_cli::report::build_report;
 use verifyos_cli::rules::core::{RuleStatus, Severity};
 
 fn get_example_path(filename: &str) -> PathBuf {
@@ -315,4 +316,45 @@ fn test_init_from_scan_injects_current_project_risks() {
     assert!(contents.contains("### Current Project Risks"));
     assert!(contents.contains("#### Suggested Patch Order"));
     assert!(contents.contains("Missing Privacy Manifest"));
+}
+
+#[test]
+fn test_init_from_scan_with_baseline_keeps_only_new_risks() {
+    let dir = tempdir().expect("temp dir");
+    let agents_path = dir.path().join("AGENTS.md");
+    let baseline_path = dir.path().join("baseline.json");
+
+    let engine = create_engine();
+    let run = engine
+        .run(get_example_path("bad_app.ipa"))
+        .expect("engine should scan bad app");
+    let report = build_report(run.results, run.total_duration_ms, run.cache_stats);
+    std::fs::write(
+        &baseline_path,
+        serde_json::to_string_pretty(&report).expect("baseline json"),
+    )
+    .expect("write baseline");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "init",
+            "--path",
+            agents_path.to_str().expect("utf8 agents path"),
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--baseline",
+            baseline_path.to_str().expect("utf8 baseline path"),
+        ])
+        .output()
+        .expect("init from scan with baseline should run");
+
+    assert!(output.status.success());
+
+    let contents = std::fs::read_to_string(&agents_path).expect("agents file should exist");
+    assert!(contents.contains("### Current Project Risks"));
+    assert!(contents.contains("No new or regressed risks"));
+    assert!(!contents.contains("| `high` | `RULE_PRIVACY_MANIFEST` |"));
+    assert!(!contents.contains("- **Missing Privacy Manifest** (`RULE_PRIVACY_MANIFEST`)"));
 }

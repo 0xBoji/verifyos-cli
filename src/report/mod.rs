@@ -144,12 +144,12 @@ pub fn apply_baseline(report: &mut ReportData, baseline: &ReportData) -> Baselin
     let baseline_keys: HashSet<String> = baseline
         .results
         .iter()
-        .filter(|r| r.status == RuleStatus::Fail)
+        .filter(|r| matches!(r.status, RuleStatus::Fail | RuleStatus::Error))
         .map(finding_key)
         .collect();
 
     report.results.retain(|r| {
-        if r.status != RuleStatus::Fail {
+        if !matches!(r.status, RuleStatus::Fail | RuleStatus::Error) {
             return true;
         }
         let key = finding_key(r);
@@ -169,6 +169,18 @@ fn finding_key(item: &ReportItem) -> String {
         item.rule_id,
         item.evidence.clone().unwrap_or_default()
     )
+}
+
+fn agent_pack_baseline_key_from_report(item: &ReportItem) -> String {
+    format!(
+        "{}|{}",
+        item.rule_id,
+        item.message.clone().unwrap_or_default().trim()
+    )
+}
+
+fn agent_pack_baseline_key_from_finding(item: &AgentFinding) -> String {
+    format!("{}|{}", item.rule_id, item.message.trim())
 }
 
 pub fn should_exit_with_failure(report: &ReportData, fail_on: FailOn) -> bool {
@@ -214,6 +226,21 @@ pub fn build_agent_pack(report: &ReportData) -> AgentPack {
         total_findings: findings.len(),
         findings,
     }
+}
+
+pub fn apply_agent_pack_baseline(pack: &mut AgentPack, baseline: &ReportData) {
+    let baseline_keys: HashSet<String> = baseline
+        .results
+        .iter()
+        .filter(|item| matches!(item.status, RuleStatus::Fail | RuleStatus::Error))
+        .map(agent_pack_baseline_key_from_report)
+        .collect();
+
+    pack.findings.retain(|finding| {
+        let key = agent_pack_baseline_key_from_finding(finding);
+        !baseline_keys.contains(&key)
+    });
+    pack.total_findings = pack.findings.len();
 }
 
 pub fn render_agent_pack_markdown(pack: &AgentPack) -> String {

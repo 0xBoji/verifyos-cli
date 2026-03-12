@@ -96,7 +96,7 @@ fn append_current_project_risks(out: &mut String, pack: &AgentPack) {
     out.push_str("### Current Project Risks\n\n");
     if pack.findings.is_empty() {
         out.push_str(
-            "- Current scan is clean. Re-run `voc` before release to keep this section fresh.\n\n",
+            "- No new or regressed risks after applying the latest scan context. Re-run `voc` before release to keep this section fresh.\n\n",
         );
         return;
     }
