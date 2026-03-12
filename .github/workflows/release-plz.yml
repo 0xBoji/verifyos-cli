@@ -21,8 +21,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Ensure Rust toolchain
+        run: rustup default stable
       - name: Run release-plz release
         uses: release-plz/action@v0.5
         with:
@@ -47,8 +47,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Ensure Rust toolchain
+        run: rustup default stable
       - name: Run release-plz release-pr
         uses: release-plz/action@v0.5
         with:
