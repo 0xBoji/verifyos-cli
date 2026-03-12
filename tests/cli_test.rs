@@ -4,6 +4,7 @@ use verifyos_cli::rules::ats::AtsExceptionsGranularityRule;
 use verifyos_cli::rules::bundle_leakage::BundleResourceLeakageRule;
 use verifyos_cli::rules::core::{RuleStatus, Severity};
 use verifyos_cli::rules::entitlements::EntitlementsMismatchRule;
+use verifyos_cli::rules::extensions::ExtensionEntitlementsCompatibilityRule;
 use verifyos_cli::rules::info_plist::InfoPlistVersionConsistencyRule;
 use verifyos_cli::rules::info_plist::LSApplicationQueriesSchemesAuditRule;
 use verifyos_cli::rules::info_plist::UIRequiredDeviceCapabilitiesAuditRule;
@@ -28,6 +29,7 @@ fn create_engine() -> Engine {
     engine.register_rule(Box::new(AtsExceptionsGranularityRule));
     engine.register_rule(Box::new(BundleResourceLeakageRule));
     engine.register_rule(Box::new(InfoPlistVersionConsistencyRule));
+    engine.register_rule(Box::new(ExtensionEntitlementsCompatibilityRule));
     engine
 }
 

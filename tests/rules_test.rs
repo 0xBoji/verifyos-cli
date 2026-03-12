@@ -5,6 +5,7 @@ use verifyos_cli::parsers::plist_reader::InfoPlist;
 use verifyos_cli::rules::ats::AtsExceptionsGranularityRule;
 use verifyos_cli::rules::bundle_leakage::BundleResourceLeakageRule;
 use verifyos_cli::rules::core::{AppStoreRule, ArtifactContext, RuleStatus};
+use verifyos_cli::rules::extensions::ExtensionEntitlementsCompatibilityRule;
 use verifyos_cli::rules::info_plist::InfoPlistVersionConsistencyRule;
 use verifyos_cli::rules::info_plist::LSApplicationQueriesSchemesAuditRule;
 use verifyos_cli::rules::info_plist::UIRequiredDeviceCapabilitiesAuditRule;
@@ -303,4 +304,17 @@ fn test_info_plist_versioning_fails_on_invalid() {
     let rule = InfoPlistVersionConsistencyRule;
     let result = rule.evaluate(&context).expect("Rule should evaluate");
     assert_eq!(result.status, RuleStatus::Fail);
+}
+
+#[test]
+fn test_extension_entitlements_rule_passes_without_extensions() {
+    let app_path = get_fixture_path();
+    let context = ArtifactContext {
+        app_bundle_path: &app_path,
+        info_plist: None,
+    };
+
+    let rule = ExtensionEntitlementsCompatibilityRule;
+    let result = rule.evaluate(&context).expect("Rule should evaluate");
+    assert_eq!(result.status, RuleStatus::Pass);
 }

@@ -4,6 +4,7 @@ pub mod bundle_metadata;
 pub mod core;
 pub mod entitlements;
 pub mod export_compliance;
+pub mod extensions;
 pub mod info_plist;
 pub mod nested_bundles;
 pub mod permissions;

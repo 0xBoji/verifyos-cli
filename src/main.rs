@@ -14,6 +14,7 @@ use verifyos_cli::rules::core::{RuleStatus, Severity};
 use verifyos_cli::rules::entitlements::EntitlementsMismatchRule;
 use verifyos_cli::rules::entitlements::EntitlementsProvisioningMismatchRule;
 use verifyos_cli::rules::export_compliance::ExportComplianceRule;
+use verifyos_cli::rules::extensions::ExtensionEntitlementsCompatibilityRule;
 use verifyos_cli::rules::info_plist::InfoPlistCapabilitiesRule;
 use verifyos_cli::rules::info_plist::InfoPlistRequiredKeysRule;
 use verifyos_cli::rules::info_plist::InfoPlistVersionConsistencyRule;
@@ -96,6 +97,7 @@ fn main() -> Result<()> {
     engine.register_rule(Box::new(PrivateApiRule));
     engine.register_rule(Box::new(EmbeddedCodeSignatureTeamRule));
     engine.register_rule(Box::new(BundleResourceLeakageRule));
+    engine.register_rule(Box::new(ExtensionEntitlementsCompatibilityRule));
 
     // 4. Run the Engine
     let results = engine
