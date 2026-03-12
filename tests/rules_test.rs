@@ -4,7 +4,7 @@ use tempfile::tempdir;
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::parsers::plist_reader::InfoPlist;
 use verifyos_cli::profiles::{
-    normalize_rule_id, register_rules, rule_inventory, RuleSelection, ScanProfile,
+    normalize_rule_id, register_rules, rule_detail, rule_inventory, RuleSelection, ScanProfile,
 };
 use verifyos_cli::rules::ats::AtsExceptionsGranularityRule;
 use verifyos_cli::rules::bundle_leakage::BundleResourceLeakageRule;
@@ -473,4 +473,13 @@ fn test_rule_inventory_includes_profile_membership() {
         .expect("private api rule should exist");
 
     assert_eq!(private_api.default_profiles, vec!["full"]);
+}
+
+#[test]
+fn test_rule_detail_exposes_recommendation() {
+    let detail = rule_detail("RULE_PRIVATE_API").expect("rule detail should exist");
+
+    assert_eq!(detail.rule_id, "RULE_PRIVATE_API");
+    assert!(detail.recommendation.contains("public alternatives"));
+    assert_eq!(detail.default_profiles, vec!["full"]);
 }

@@ -43,6 +43,16 @@ pub struct RuleInventoryItem {
     pub default_profiles: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct RuleDetailItem {
+    pub rule_id: String,
+    pub name: String,
+    pub severity: Severity,
+    pub category: RuleCategory,
+    pub recommendation: String,
+    pub default_profiles: Vec<String>,
+}
+
 impl RuleSelection {
     pub fn allows(&self, rule_id: &str) -> bool {
         let normalized = normalize_rule_id(rule_id);
@@ -101,6 +111,38 @@ pub fn rule_inventory() -> Vec<RuleInventoryItem> {
     }
 
     items.into_values().collect()
+}
+
+pub fn rule_detail(rule_id: &str) -> Option<RuleDetailItem> {
+    let normalized = normalize_rule_id(rule_id);
+    let mut detail: Option<RuleDetailItem> = None;
+
+    for (profile_name, profile) in [("basic", ScanProfile::Basic), ("full", ScanProfile::Full)] {
+        for rule in profile_rules(profile) {
+            if normalize_rule_id(rule.id()) != normalized {
+                continue;
+            }
+
+            let entry = detail.get_or_insert_with(|| RuleDetailItem {
+                rule_id: normalize_rule_id(rule.id()),
+                name: rule.name().to_string(),
+                severity: rule.severity(),
+                category: rule.category(),
+                recommendation: rule.recommendation().to_string(),
+                default_profiles: Vec::new(),
+            });
+
+            if !entry
+                .default_profiles
+                .iter()
+                .any(|name| name == profile_name)
+            {
+                entry.default_profiles.push(profile_name.to_string());
+            }
+        }
+    }
+
+    detail
 }
 
 fn profile_rules(profile: ScanProfile) -> Vec<Box<dyn AppStoreRule>> {

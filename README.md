@@ -113,6 +113,13 @@ Machine-readable inventory for agents and CI:
 voc --list-rules --format json
 ```
 
+Inspect one rule in detail:
+
+```bash
+voc --show-rule RULE_PRIVATE_API
+voc --show-rule RULE_PRIVATE_API --format json
+```
+
 ### Config file
 
 If `verifyos.toml` exists in the current working directory, `voc` will load it automatically. You can also point to a specific config file:

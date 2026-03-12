@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use verifyos_cli::config::{load_file_config, resolve_runtime_config, CliOverrides};
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::profiles::{
-    available_rule_ids, normalize_rule_id, register_rules, rule_inventory, RuleInventoryItem,
-    RuleSelection, ScanProfile,
+    available_rule_ids, normalize_rule_id, register_rules, rule_detail, rule_inventory,
+    RuleDetailItem, RuleInventoryItem, RuleSelection, ScanProfile,
 };
 use verifyos_cli::report::{
     apply_baseline, build_report, render_json, render_markdown, render_sarif, render_table,
@@ -56,7 +56,7 @@ enum TimingLevel {
 #[command(author, version, about, long_about = None, before_help = HELP_BANNER)]
 struct Args {
     /// Path to the iOS App Bundle (.ipa or .app)
-    #[arg(short, long, required_unless_present = "list_rules")]
+    #[arg(short, long, required_unless_present_any = ["list_rules", "show_rule"])]
     app: Option<PathBuf>,
 
     /// Optional config file path. If omitted, verifyos.toml is used when present
@@ -98,6 +98,10 @@ struct Args {
     /// List all available rules and exit
     #[arg(long)]
     list_rules: bool,
+
+    /// Show details for a single rule ID and exit
+    #[arg(long)]
+    show_rule: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -120,6 +124,10 @@ fn main() -> Result<()> {
     let output_format = parse_output_format(&runtime.format)?;
     if args.list_rules {
         render_rule_inventory(output_format)?;
+        return Ok(());
+    }
+    if let Some(rule_id) = args.show_rule.as_deref() {
+        render_rule_detail(rule_id, output_format)?;
         return Ok(());
     }
     let profile = parse_profile(&runtime.profile)?;
@@ -334,5 +342,40 @@ fn render_rule_inventory_table(items: &[RuleInventoryItem]) -> String {
         ]);
     }
 
+    table.to_string()
+}
+
+fn render_rule_detail(rule_id: &str, output_format: OutputFormat) -> Result<()> {
+    let Some(detail) = rule_detail(rule_id) else {
+        return Err(miette::miette!("Unknown rule ID `{}`", rule_id));
+    };
+
+    match output_format {
+        OutputFormat::Table => {
+            println!("{}", render_rule_detail_table(&detail));
+            Ok(())
+        }
+        OutputFormat::Json => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&detail).into_diagnostic()?
+            );
+            Ok(())
+        }
+        OutputFormat::Sarif => Err(miette::miette!(
+            "`--show-rule` supports only table or json output"
+        )),
+    }
+}
+
+fn render_rule_detail_table(item: &RuleDetailItem) -> String {
+    let mut table = Table::new();
+    table.set_header(vec!["Field", "Value"]);
+    table.add_row(vec!["Rule ID", item.rule_id.as_str()]);
+    table.add_row(vec!["Name", item.name.as_str()]);
+    table.add_row(vec!["Category", &format!("{:?}", item.category)]);
+    table.add_row(vec!["Severity", &format!("{:?}", item.severity)]);
+    table.add_row(vec!["Default Profiles", &item.default_profiles.join(", ")]);
+    table.add_row(vec!["Recommendation", item.recommendation.as_str()]);
     table.to_string()
 }

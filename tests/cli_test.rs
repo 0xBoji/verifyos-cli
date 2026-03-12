@@ -119,3 +119,34 @@ fn test_list_rules_json_output() {
     assert!(first.get("category").is_some());
     assert!(first.get("default_profiles").is_some());
 }
+
+#[test]
+fn test_show_rule_table_output() {
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args(["--show-rule", "RULE_PRIVATE_API"])
+        .output()
+        .expect("show-rule should run");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf8");
+    assert!(stdout.contains("Rule ID"));
+    assert!(stdout.contains("RULE_PRIVATE_API"));
+    assert!(stdout.contains("Recommendation"));
+}
+
+#[test]
+fn test_show_rule_json_output() {
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args(["--show-rule", "RULE_PRIVATE_API", "--format", "json"])
+        .output()
+        .expect("show-rule json should run");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf8");
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("valid json");
+    assert_eq!(value["rule_id"], "RULE_PRIVATE_API");
+    assert!(value.get("recommendation").is_some());
+    assert!(value.get("default_profiles").is_some());
+}
