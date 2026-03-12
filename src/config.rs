@@ -8,6 +8,7 @@ pub struct FileConfig {
     pub md_out: Option<PathBuf>,
     pub profile: Option<String>,
     pub fail_on: Option<String>,
+    pub timings: Option<bool>,
     pub include: Option<Vec<String>>,
     pub exclude: Option<Vec<String>>,
 }
@@ -19,6 +20,7 @@ pub struct CliOverrides {
     pub md_out: Option<PathBuf>,
     pub profile: Option<String>,
     pub fail_on: Option<String>,
+    pub timings: Option<bool>,
     pub include: Vec<String>,
     pub exclude: Vec<String>,
 }
@@ -30,6 +32,7 @@ pub struct RuntimeConfig {
     pub md_out: Option<PathBuf>,
     pub profile: String,
     pub fail_on: String,
+    pub timings: bool,
     pub include: Vec<String>,
     pub exclude: Vec<String>,
 }
@@ -61,6 +64,7 @@ pub fn resolve_runtime_config(file: FileConfig, cli: CliOverrides) -> RuntimeCon
             .fail_on
             .or(file.fail_on)
             .unwrap_or_else(|| "error".to_string()),
+        timings: cli.timings.or(file.timings).unwrap_or(false),
         include: if cli.include.is_empty() {
             file.include.unwrap_or_default()
         } else {

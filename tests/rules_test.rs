@@ -377,7 +377,10 @@ fn test_basic_profile_excludes_non_core_rules() {
     let app_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("examples")
         .join("good_app.ipa");
-    let results = engine.run(&app_path).expect("Engine orchestrator failed");
+    let results = engine
+        .run(&app_path)
+        .expect("Engine orchestrator failed")
+        .results;
     let rule_ids: Vec<&str> = results.iter().map(|res| res.rule_id).collect();
 
     assert!(rule_ids.contains(&"RULE_ATS_AUDIT"));
@@ -402,7 +405,10 @@ fn test_include_rule_selection_keeps_only_requested_rules() {
     let app_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("examples")
         .join("good_app.ipa");
-    let results = engine.run(&app_path).expect("Engine orchestrator failed");
+    let results = engine
+        .run(&app_path)
+        .expect("Engine orchestrator failed")
+        .results;
     let rule_ids: Vec<&str> = results.iter().map(|res| res.rule_id).collect();
 
     assert_eq!(rule_ids, vec!["RULE_PRIVATE_API"]);
@@ -421,7 +427,10 @@ fn test_exclude_rule_selection_removes_requested_rule() {
     let app_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("examples")
         .join("good_app.ipa");
-    let results = engine.run(&app_path).expect("Engine orchestrator failed");
+    let results = engine
+        .run(&app_path)
+        .expect("Engine orchestrator failed")
+        .results;
     let rule_ids: Vec<&str> = results.iter().map(|res| res.rule_id).collect();
 
     assert!(!rule_ids.contains(&"RULE_PRIVATE_API"));

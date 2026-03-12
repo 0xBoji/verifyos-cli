@@ -113,6 +113,7 @@ Example config:
 format = "table"
 profile = "full"
 fail_on = "error"
+timings = false
 include = []
 exclude = []
 ```
@@ -144,6 +145,14 @@ Markdown report (agent-friendly):
 ```bash
 voc --app path/to/YourApp.ipa --md-out report.md
 ```
+
+Timing summary:
+
+```bash
+voc --app path/to/YourApp.ipa --timings
+```
+
+When enabled, the table output includes per-rule execution time and the total scan time. JSON and Markdown reports also carry timing data for automation and profiling.
 
 ### Baseline Mode
 

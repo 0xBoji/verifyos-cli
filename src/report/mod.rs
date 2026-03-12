@@ -12,6 +12,7 @@ use textwrap::wrap;
 pub struct ReportData {
     pub ruleset_version: String,
     pub generated_at_unix: u64,
+    pub total_duration_ms: u128,
     pub results: Vec<ReportItem>,
 }
 
@@ -25,6 +26,7 @@ pub struct ReportItem {
     pub message: Option<String>,
     pub evidence: Option<String>,
     pub recommendation: String,
+    pub duration_ms: u128,
 }
 
 #[derive(Debug, Clone)]
@@ -39,7 +41,7 @@ pub enum FailOn {
     Warning,
 }
 
-pub fn build_report(results: Vec<EngineResult>) -> ReportData {
+pub fn build_report(results: Vec<EngineResult>, total_duration_ms: u128) -> ReportData {
     let generated_at_unix = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -66,12 +68,14 @@ pub fn build_report(results: Vec<EngineResult>) -> ReportData {
             message,
             evidence,
             recommendation: res.recommendation.to_string(),
+            duration_ms: res.duration_ms,
         });
     }
 
     ReportData {
         ruleset_version: RULESET_VERSION.to_string(),
         generated_at_unix,
+        total_duration_ms,
         results: items,
     }
 }
@@ -122,12 +126,16 @@ pub fn should_exit_with_failure(report: &ReportData, fail_on: FailOn) -> bool {
     }
 }
 
-pub fn render_table(report: &ReportData) -> String {
+pub fn render_table(report: &ReportData, show_timings: bool) -> String {
     let mut table = Table::new();
+    let mut header = vec!["Rule", "Category", "Severity", "Status", "Message"];
+    if show_timings {
+        header.push("Time");
+    }
     table
         .load_preset(UTF8_FULL)
         .apply_modifier(UTF8_ROUND_CORNERS)
-        .set_header(vec!["Rule", "Category", "Severity", "Status", "Message"]);
+        .set_header(header);
 
     for res in &report.results {
         let severity_cell = match res.severity {
@@ -146,16 +154,27 @@ pub fn render_table(report: &ReportData) -> String {
         let message = res.message.clone().unwrap_or_else(|| "PASS".to_string());
         let wrapped = wrap(&message, 50).join("\n");
 
-        table.add_row(vec![
+        let mut row = vec![
             Cell::new(res.rule_name.clone()),
             Cell::new(format!("{:?}", res.category)),
             severity_cell,
             status_cell,
             Cell::new(wrapped),
-        ]);
+        ];
+        if show_timings {
+            row.push(Cell::new(format!("{} ms", res.duration_ms)));
+        }
+        table.add_row(row);
     }
 
-    format!("{}", table)
+    if show_timings {
+        format!(
+            "{}\nTotal scan time: {} ms",
+            table, report.total_duration_ms
+        )
+    } else {
+        format!("{}", table)
+    }
 }
 
 pub fn render_json(report: &ReportData) -> Result<String, serde_json::Error> {
@@ -168,14 +187,15 @@ pub fn render_sarif(report: &ReportData) -> Result<String, serde_json::Error> {
 
     for item in &report.results {
         rules.push(serde_json::json!({
-            "id": item.rule_id,
-            "name": item.rule_name,
-            "shortDescription": { "text": item.rule_name },
-            "fullDescription": { "text": item.message.clone().unwrap_or_default() },
-            "help": { "text": item.recommendation },
+        "id": item.rule_id,
+        "name": item.rule_name,
+        "shortDescription": { "text": item.rule_name },
+        "fullDescription": { "text": item.message.clone().unwrap_or_default() },
+        "help": { "text": item.recommendation },
             "properties": {
                 "category": format!("{:?}", item.category),
                 "severity": format!("{:?}", item.severity),
+                "durationMs": item.duration_ms,
             }
         }));
 
@@ -189,6 +209,7 @@ pub fn render_sarif(report: &ReportData) -> Result<String, serde_json::Error> {
                 "properties": {
                     "category": format!("{:?}", item.category),
                     "evidence": item.evidence.clone().unwrap_or_default(),
+                    "durationMs": item.duration_ms,
                 }
             }));
         }
@@ -222,7 +243,11 @@ fn sarif_level(severity: Severity) -> &'static str {
     }
 }
 
-pub fn render_markdown(report: &ReportData, suppressed: Option<usize>) -> String {
+pub fn render_markdown(
+    report: &ReportData,
+    suppressed: Option<usize>,
+    show_timings: bool,
+) -> String {
     let total = report.results.len();
     let fail_count = report
         .results
@@ -247,6 +272,12 @@ pub fn render_markdown(report: &ReportData, suppressed: Option<usize>) -> String
     out.push_str(&format!(
         "- Severity: error={error_count}, warning={warn_count}\n"
     ));
+    if show_timings {
+        out.push_str(&format!(
+            "- Total scan time: {} ms\n",
+            report.total_duration_ms
+        ));
+    }
     if let Some(suppressed) = suppressed {
         out.push_str(&format!("- Baseline suppressed: {suppressed}\n"));
     }
@@ -280,6 +311,9 @@ pub fn render_markdown(report: &ReportData, suppressed: Option<usize>) -> String
         }
         if !item.recommendation.is_empty() {
             out.push_str(&format!("  - Recommendation: {}\n", item.recommendation));
+        }
+        if show_timings {
+            out.push_str(&format!("  - Time: {} ms\n", item.duration_ms));
         }
     }
 

@@ -65,6 +65,10 @@ struct Args {
     #[arg(long, value_enum)]
     fail_on: Option<FailOnLevel>,
 
+    /// Show per-rule execution times and total scan time
+    #[arg(long)]
+    timings: bool,
+
     /// Only run the listed rule IDs (repeat or comma-separate)
     #[arg(long, value_delimiter = ',', num_args = 1..)]
     include: Vec<String>,
@@ -86,6 +90,7 @@ fn main() -> Result<()> {
             md_out: args.md_out.clone(),
             profile: args.profile.map(profile_key),
             fail_on: args.fail_on.map(fail_on_key),
+            timings: args.timings.then_some(true),
             include: args.include.clone(),
             exclude: args.exclude.clone(),
         },
@@ -111,7 +116,7 @@ fn main() -> Result<()> {
     register_rules(&mut engine, profile, &selection);
 
     // 4. Run the Engine
-    let results = engine
+    let run = engine
         .run(&args.app)
         .map_err(|e| miette::miette!("Engine orchestrator failed: {}", e))?;
 
@@ -119,7 +124,7 @@ fn main() -> Result<()> {
     pb.finish_with_message("Analysis complete!");
 
     // 6. Build report and apply baseline (if any)
-    let mut report = build_report(results);
+    let mut report = build_report(run.results, run.total_duration_ms);
     let mut suppressed = None;
     if let Some(path) = runtime.baseline {
         let baseline_raw = std::fs::read_to_string(path).into_diagnostic()?;
@@ -131,13 +136,13 @@ fn main() -> Result<()> {
 
     // 7. Render output
     match output_format {
-        OutputFormat::Table => println!("{}", render_table(&report)),
+        OutputFormat::Table => println!("{}", render_table(&report, runtime.timings)),
         OutputFormat::Json => println!("{}", render_json(&report).into_diagnostic()?),
         OutputFormat::Sarif => println!("{}", render_sarif(&report).into_diagnostic()?),
     }
 
     if let Some(path) = runtime.md_out {
-        let markdown = render_markdown(&report, suppressed);
+        let markdown = render_markdown(&report, suppressed, runtime.timings);
         std::fs::write(path, markdown).into_diagnostic()?;
     }
 

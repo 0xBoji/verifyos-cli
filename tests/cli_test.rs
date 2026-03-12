@@ -20,7 +20,8 @@ fn test_bad_app_fails_rules() {
     let bad_app = get_example_path("bad_app.ipa");
     let engine = create_engine();
 
-    let results = engine.run(&bad_app).expect("Engine orchestrator failed");
+    let run = engine.run(&bad_app).expect("Engine orchestrator failed");
+    let results = run.results;
 
     let mut has_errors = false;
     for res in results {
@@ -44,7 +45,8 @@ fn test_good_app_passes_rules() {
     let good_app = get_example_path("good_app.ipa");
     let engine = create_engine();
 
-    let results = engine.run(&good_app).expect("Engine orchestrator failed");
+    let run = engine.run(&good_app).expect("Engine orchestrator failed");
+    let results = run.results;
 
     let mut has_errors = false;
     for res in results {

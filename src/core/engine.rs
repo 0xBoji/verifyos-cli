@@ -4,6 +4,7 @@ use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, Severity,
 };
 use std::path::Path;
+use std::time::Instant;
 
 #[derive(Debug, thiserror::Error)]
 pub enum OrchestratorError {
@@ -22,6 +23,12 @@ pub struct EngineResult {
     pub severity: Severity,
     pub recommendation: &'static str,
     pub report: Result<RuleReport, RuleError>,
+    pub duration_ms: u128,
+}
+
+pub struct EngineRun {
+    pub results: Vec<EngineResult>,
+    pub total_duration_ms: u128,
 }
 
 pub struct Engine {
@@ -37,7 +44,8 @@ impl Engine {
         self.rules.push(rule);
     }
 
-    pub fn run<P: AsRef<Path>>(&self, ipa_path: P) -> Result<Vec<EngineResult>, OrchestratorError> {
+    pub fn run<P: AsRef<Path>>(&self, ipa_path: P) -> Result<EngineRun, OrchestratorError> {
+        let run_started = Instant::now();
         let extracted_ipa = extract_ipa(ipa_path)?;
 
         let app_bundle_path = extracted_ipa
@@ -57,6 +65,7 @@ impl Engine {
         let mut results = Vec::new();
 
         for rule in &self.rules {
+            let rule_started = Instant::now();
             let res = rule.evaluate(&context);
             results.push(EngineResult {
                 rule_id: rule.id(),
@@ -65,10 +74,14 @@ impl Engine {
                 severity: rule.severity(),
                 recommendation: rule.recommendation(),
                 report: res,
+                duration_ms: rule_started.elapsed().as_millis(),
             });
         }
 
-        Ok(results)
+        Ok(EngineRun {
+            results,
+            total_duration_ms: run_started.elapsed().as_millis(),
+        })
     }
 }
 

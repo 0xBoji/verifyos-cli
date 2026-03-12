@@ -1,6 +1,7 @@
 format = "table"
 profile = "full"
 fail_on = "error"
+timings = false
 
 # Optional selectors
 include = []
@@ -9,4 +10,3 @@ exclude = []
 # Optional output paths
 # baseline = "baseline.json"
 # md_out = "report.md"
-
