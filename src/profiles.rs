@@ -3,6 +3,7 @@ use crate::rules::ats::{AtsAuditRule, AtsExceptionsGranularityRule};
 use crate::rules::bundle_leakage::BundleResourceLeakageRule;
 use crate::rules::bundle_metadata::BundleMetadataConsistencyRule;
 use crate::rules::core::AppStoreRule;
+use crate::rules::core::{RuleCategory, Severity};
 use crate::rules::entitlements::{EntitlementsMismatchRule, EntitlementsProvisioningMismatchRule};
 use crate::rules::export_compliance::ExportComplianceRule;
 use crate::rules::extensions::ExtensionEntitlementsCompatibilityRule;
@@ -17,6 +18,8 @@ use crate::rules::privacy_manifest::PrivacyManifestCompletenessRule;
 use crate::rules::privacy_sdk::PrivacyManifestSdkCrossCheckRule;
 use crate::rules::private_api::PrivateApiRule;
 use crate::rules::signing::EmbeddedCodeSignatureTeamRule;
+use serde::Serialize;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,6 +32,15 @@ pub enum ScanProfile {
 pub struct RuleSelection {
     pub include: HashSet<String>,
     pub exclude: HashSet<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RuleInventoryItem {
+    pub rule_id: String,
+    pub name: String,
+    pub severity: Severity,
+    pub category: RuleCategory,
+    pub default_profiles: Vec<String>,
 }
 
 impl RuleSelection {
@@ -60,6 +72,35 @@ pub fn available_rule_ids(profile: ScanProfile) -> Vec<String> {
 
 pub fn normalize_rule_id(rule_id: &str) -> String {
     rule_id.trim().to_ascii_uppercase()
+}
+
+pub fn rule_inventory() -> Vec<RuleInventoryItem> {
+    let mut items: BTreeMap<String, RuleInventoryItem> = BTreeMap::new();
+
+    for (profile_name, profile) in [("basic", ScanProfile::Basic), ("full", ScanProfile::Full)] {
+        for rule in profile_rules(profile) {
+            let rule_id = normalize_rule_id(rule.id());
+            let entry = items
+                .entry(rule_id.clone())
+                .or_insert_with(|| RuleInventoryItem {
+                    rule_id,
+                    name: rule.name().to_string(),
+                    severity: rule.severity(),
+                    category: rule.category(),
+                    default_profiles: Vec::new(),
+                });
+
+            if !entry
+                .default_profiles
+                .iter()
+                .any(|name| name == profile_name)
+            {
+                entry.default_profiles.push(profile_name.to_string());
+            }
+        }
+    }
+
+    items.into_values().collect()
 }
 
 fn profile_rules(profile: ScanProfile) -> Vec<Box<dyn AppStoreRule>> {

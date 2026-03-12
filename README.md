@@ -99,6 +99,20 @@ voc --app path/to/YourApp.ipa --exclude RULE_PRIVATE_API
 
 Selectors apply after the chosen `--profile`, so `basic` plus `--include` can narrow the set even further.
 
+### Rule inventory
+
+List available rules and their default profile membership:
+
+```bash
+voc --list-rules
+```
+
+Machine-readable inventory for agents and CI:
+
+```bash
+voc --list-rules --format json
+```
+
 ### Config file
 
 If `verifyos.toml` exists in the current working directory, `voc` will load it automatically. You can also point to a specific config file:

@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use tempfile::tempdir;
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::parsers::plist_reader::InfoPlist;
-use verifyos_cli::profiles::{normalize_rule_id, register_rules, RuleSelection, ScanProfile};
+use verifyos_cli::profiles::{
+    normalize_rule_id, register_rules, rule_inventory, RuleSelection, ScanProfile,
+};
 use verifyos_cli::rules::ats::AtsExceptionsGranularityRule;
 use verifyos_cli::rules::bundle_leakage::BundleResourceLeakageRule;
 use verifyos_cli::rules::core::{AppStoreRule, ArtifactContext, RuleStatus};
@@ -453,4 +455,22 @@ fn test_exclude_rule_selection_removes_requested_rule() {
 
     assert!(!rule_ids.contains(&"RULE_PRIVATE_API"));
     assert!(rule_ids.contains(&"RULE_ATS_AUDIT"));
+}
+
+#[test]
+fn test_rule_inventory_includes_profile_membership() {
+    let inventory = rule_inventory();
+    let privacy_manifest = inventory
+        .iter()
+        .find(|item| item.rule_id == "RULE_PRIVACY_MANIFEST")
+        .expect("privacy manifest rule should exist");
+
+    assert_eq!(privacy_manifest.default_profiles, vec!["basic", "full"]);
+
+    let private_api = inventory
+        .iter()
+        .find(|item| item.rule_id == "RULE_PRIVATE_API")
+        .expect("private api rule should exist");
+
+    assert_eq!(private_api.default_profiles, vec!["full"]);
 }

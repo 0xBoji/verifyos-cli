@@ -1,4 +1,5 @@
 use clap::{Parser, ValueEnum};
+use comfy_table::Table;
 use indicatif::{ProgressBar, ProgressStyle};
 use miette::{IntoDiagnostic, Result};
 use std::collections::HashSet;
@@ -7,7 +8,8 @@ use std::path::PathBuf;
 use verifyos_cli::config::{load_file_config, resolve_runtime_config, CliOverrides};
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::profiles::{
-    available_rule_ids, normalize_rule_id, register_rules, RuleSelection, ScanProfile,
+    available_rule_ids, normalize_rule_id, register_rules, rule_inventory, RuleInventoryItem,
+    RuleSelection, ScanProfile,
 };
 use verifyos_cli::report::{
     apply_baseline, build_report, render_json, render_markdown, render_sarif, render_table,
@@ -54,8 +56,8 @@ enum TimingLevel {
 #[command(author, version, about, long_about = None, before_help = HELP_BANNER)]
 struct Args {
     /// Path to the iOS App Bundle (.ipa or .app)
-    #[arg(short, long)]
-    app: PathBuf,
+    #[arg(short, long, required_unless_present = "list_rules")]
+    app: Option<PathBuf>,
 
     /// Optional config file path. If omitted, verifyos.toml is used when present
     #[arg(long)]
@@ -92,6 +94,10 @@ struct Args {
     /// Skip the listed rule IDs (repeat or comma-separate)
     #[arg(long, value_delimiter = ',', num_args = 1..)]
     exclude: Vec<String>,
+
+    /// List all available rules and exit
+    #[arg(long)]
+    list_rules: bool,
 }
 
 fn main() -> Result<()> {
@@ -112,6 +118,10 @@ fn main() -> Result<()> {
         },
     );
     let output_format = parse_output_format(&runtime.format)?;
+    if args.list_rules {
+        render_rule_inventory(output_format)?;
+        return Ok(());
+    }
     let profile = parse_profile(&runtime.profile)?;
     let fail_on = parse_fail_on(&runtime.fail_on)?;
     let timing_mode = parse_timing_mode(&runtime.timings)?;
@@ -134,7 +144,7 @@ fn main() -> Result<()> {
 
     // 4. Run the Engine
     let run = engine
-        .run(&args.app)
+        .run(args.app.expect("app is required unless list-rules"))
         .map_err(|e| miette::miette!("Engine orchestrator failed: {}", e))?;
 
     // 5. Stop the spinner
@@ -282,4 +292,47 @@ fn normalize_requested_rules(
     }
 
     Ok(normalized)
+}
+
+fn render_rule_inventory(output_format: OutputFormat) -> Result<()> {
+    let inventory = rule_inventory();
+    match output_format {
+        OutputFormat::Table => {
+            println!("{}", render_rule_inventory_table(&inventory));
+            Ok(())
+        }
+        OutputFormat::Json => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&inventory).into_diagnostic()?
+            );
+            Ok(())
+        }
+        OutputFormat::Sarif => Err(miette::miette!(
+            "`--list-rules` supports only table or json output"
+        )),
+    }
+}
+
+fn render_rule_inventory_table(items: &[RuleInventoryItem]) -> String {
+    let mut table = Table::new();
+    table.set_header(vec![
+        "Rule ID",
+        "Name",
+        "Category",
+        "Severity",
+        "Default Profiles",
+    ]);
+
+    for item in items {
+        table.add_row(vec![
+            item.rule_id.clone(),
+            item.name.clone(),
+            format!("{:?}", item.category),
+            format!("{:?}", item.severity),
+            item.default_profiles.join(", "),
+        ]);
+    }
+
+    table.to_string()
 }

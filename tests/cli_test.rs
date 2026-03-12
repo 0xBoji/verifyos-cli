@@ -82,3 +82,40 @@ fn test_help_shows_verify_os_banner() {
     assert!(stdout.contains("verify-OS"));
     assert!(stdout.contains("████"));
 }
+
+#[test]
+fn test_list_rules_table_output() {
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .arg("--list-rules")
+        .output()
+        .expect("list-rules should run");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf8");
+    assert!(stdout.contains("Rule ID"));
+    assert!(stdout.contains("RULE_PRIVACY_MANIFEST"));
+    assert!(stdout.contains("basic, full"));
+}
+
+#[test]
+fn test_list_rules_json_output() {
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args(["--list-rules", "--format", "json"])
+        .output()
+        .expect("list-rules json should run");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout should be utf8");
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("valid json");
+    let first = value
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("items");
+    assert!(first.get("rule_id").is_some());
+    assert!(first.get("name").is_some());
+    assert!(first.get("severity").is_some());
+    assert!(first.get("category").is_some());
+    assert!(first.get("default_profiles").is_some());
+}
