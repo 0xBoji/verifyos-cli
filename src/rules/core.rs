@@ -79,6 +79,7 @@ pub struct ArtifactContext<'a> {
     bundle_plist_cache: RefCell<HashMap<PathBuf, Option<InfoPlist>>>,
     entitlements_cache: RefCell<HashMap<PathBuf, Option<InfoPlist>>>,
     provisioning_profile_cache: RefCell<HashMap<PathBuf, Option<ProvisioningProfile>>>,
+    bundle_file_cache: RefCell<Option<Vec<PathBuf>>>,
 }
 
 impl<'a> ArtifactContext<'a> {
@@ -98,6 +99,7 @@ impl<'a> ArtifactContext<'a> {
             bundle_plist_cache: RefCell::new(HashMap::new()),
             entitlements_cache: RefCell::new(HashMap::new()),
             provisioning_profile_cache: RefCell::new(HashMap::new()),
+            bundle_file_cache: RefCell::new(None),
         }
     }
 
@@ -253,6 +255,26 @@ impl<'a> ArtifactContext<'a> {
             .insert(provisioning_path, profile.clone());
         Ok(profile)
     }
+
+    pub fn bundle_file_paths(&self) -> Vec<PathBuf> {
+        if let Some(paths) = self.bundle_file_cache.borrow().as_ref() {
+            return paths.clone();
+        }
+
+        let mut files = Vec::new();
+        collect_bundle_files(self.app_bundle_path, &mut files);
+        *self.bundle_file_cache.borrow_mut() = Some(files.clone());
+        files
+    }
+
+    pub fn bundle_relative_file(&self, relative_path: &str) -> Option<PathBuf> {
+        self.bundle_file_paths().into_iter().find(|path| {
+            path.strip_prefix(self.app_bundle_path)
+                .ok()
+                .map(|rel| rel == Path::new(relative_path))
+                .unwrap_or(false)
+        })
+    }
 }
 
 fn resolve_bundle_executable_path(bundle_path: &Path) -> Option<PathBuf> {
@@ -273,6 +295,22 @@ fn resolve_bundle_executable_path(bundle_path: &Path) -> Option<PathBuf> {
         Some(fallback)
     } else {
         None
+    }
+}
+
+fn collect_bundle_files(root: &Path, files: &mut Vec<PathBuf>) {
+    let entries = match std::fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_bundle_files(&path, files);
+        } else {
+            files.push(path);
+        }
     }
 }
 

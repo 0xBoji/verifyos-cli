@@ -27,14 +27,13 @@ impl AppStoreRule for PrivacyManifestSdkCrossCheckRule {
     }
 
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
-        let manifest_path = artifact.app_bundle_path.join("PrivacyInfo.xcprivacy");
-        if !manifest_path.exists() {
+        let Some(manifest_path) = artifact.bundle_relative_file("PrivacyInfo.xcprivacy") else {
             return Ok(RuleReport {
                 status: RuleStatus::Skip,
                 message: Some("PrivacyInfo.xcprivacy not found".to_string()),
                 evidence: None,
             });
-        }
+        };
 
         let manifest = InfoPlist::from_file(&manifest_path)
             .map_err(|_| crate::rules::entitlements::EntitlementsError::ParseFailure)?;

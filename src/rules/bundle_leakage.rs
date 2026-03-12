@@ -27,7 +27,7 @@ impl AppStoreRule for BundleResourceLeakageRule {
     }
 
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
-        let offenders = scan_bundle_for_sensitive_files(artifact.app_bundle_path, 80)?;
+        let offenders = scan_bundle_for_sensitive_files(artifact, 80);
 
         if offenders.is_empty() {
             return Ok(RuleReport {
@@ -45,45 +45,23 @@ impl AppStoreRule for BundleResourceLeakageRule {
     }
 }
 
-fn scan_bundle_for_sensitive_files(
-    app_bundle_path: &Path,
-    limit: usize,
-) -> Result<Vec<String>, RuleError> {
+fn scan_bundle_for_sensitive_files(artifact: &ArtifactContext, limit: usize) -> Vec<String> {
     let mut hits = Vec::new();
-    let mut stack = vec![app_bundle_path.to_path_buf()];
 
-    while let Some(path) = stack.pop() {
-        let entries = match std::fs::read_dir(&path) {
-            Ok(entries) => entries,
-            Err(_) => continue,
-        };
-
-        for entry in entries {
-            let entry = match entry {
-                Ok(entry) => entry,
-                Err(_) => continue,
+    for path in artifact.bundle_file_paths() {
+        if is_sensitive_path(&path) {
+            let display = match path.strip_prefix(artifact.app_bundle_path) {
+                Ok(rel) => rel.display().to_string(),
+                Err(_) => path.display().to_string(),
             };
-            let path = entry.path();
-
-            if path.is_dir() {
-                stack.push(path);
-                continue;
-            }
-
-            if is_sensitive_path(&path) {
-                let display = match path.strip_prefix(app_bundle_path) {
-                    Ok(rel) => rel.display().to_string(),
-                    Err(_) => path.display().to_string(),
-                };
-                hits.push(display);
-                if hits.len() >= limit {
-                    return Ok(hits);
-                }
+            hits.push(display);
+            if hits.len() >= limit {
+                return hits;
             }
         }
     }
 
-    Ok(hits)
+    hits
 }
 
 fn is_sensitive_path(path: &Path) -> bool {

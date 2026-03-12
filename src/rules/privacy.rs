@@ -26,12 +26,20 @@ impl AppStoreRule for MissingPrivacyManifestRule {
     }
 
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
-        let manifest_path = artifact.app_bundle_path.join("PrivacyInfo.xcprivacy");
-        if !manifest_path.exists() {
+        if artifact
+            .bundle_relative_file("PrivacyInfo.xcprivacy")
+            .is_none()
+        {
             return Ok(RuleReport {
                 status: RuleStatus::Fail,
                 message: Some("Missing PrivacyInfo.xcprivacy".to_string()),
-                evidence: Some(format!("Not found at {}", manifest_path.display())),
+                evidence: Some(format!(
+                    "Not found at {}",
+                    artifact
+                        .app_bundle_path
+                        .join("PrivacyInfo.xcprivacy")
+                        .display()
+                )),
             });
         }
 

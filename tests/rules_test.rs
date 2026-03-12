@@ -220,6 +220,25 @@ fn test_artifact_context_caches_bundle_plist_results() {
 }
 
 #[test]
+fn test_artifact_context_caches_bundle_file_index() {
+    let dir = tempdir().expect("temp dir");
+    let app_dir = dir.path().join("TestApp.app");
+    fs::create_dir_all(&app_dir).expect("create app dir");
+
+    let manifest_path = app_dir.join("PrivacyInfo.xcprivacy");
+    fs::write(&manifest_path, b"<plist/>").expect("write privacy manifest");
+
+    let context = ArtifactContext::new(&app_dir, None);
+    let first_hit = context.bundle_relative_file("PrivacyInfo.xcprivacy");
+    assert_eq!(first_hit.as_deref(), Some(manifest_path.as_path()));
+
+    fs::remove_file(&manifest_path).expect("remove manifest after cache warmup");
+
+    let second_hit = context.bundle_relative_file("PrivacyInfo.xcprivacy");
+    assert_eq!(second_hit.as_deref(), Some(manifest_path.as_path()));
+}
+
+#[test]
 fn test_ats_granularity_fails_on_broad_exception() {
     let mut ats = plist::Dictionary::new();
     ats.insert(
