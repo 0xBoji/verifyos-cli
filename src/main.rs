@@ -200,6 +200,18 @@ struct DoctorArgs {
     /// Repair a broken or missing agent setup under the chosen output root
     #[arg(long)]
     fix: bool,
+
+    /// Scan an app first and repair agent assets with current findings
+    #[arg(long)]
+    from_scan: Option<PathBuf>,
+
+    /// Baseline JSON report used with --from-scan to keep only new or regressed risks
+    #[arg(long)]
+    baseline: Option<PathBuf>,
+
+    /// Scan profile to use with --from-scan
+    #[arg(long, value_enum, default_value = "full")]
+    profile: Profile,
 }
 
 fn main() -> Result<()> {
@@ -297,7 +309,13 @@ fn main() -> Result<()> {
             .agents
             .unwrap_or_else(|| output_dir.join("AGENTS.md"));
         if doctor.fix {
-            repair_doctor_setup(&output_dir, &agents_path)?;
+            repair_doctor_setup(
+                &output_dir,
+                &agents_path,
+                doctor.from_scan.as_deref(),
+                doctor.baseline.as_deref(),
+                doctor.profile,
+            )?;
         }
         let report = run_doctor(doctor.config.as_deref(), &agents_path);
         render_doctor_report(&report, doctor.format)?;
@@ -500,7 +518,13 @@ fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<(
     Ok(())
 }
 
-fn repair_doctor_setup(output_dir: &std::path::Path, agents_path: &std::path::Path) -> Result<()> {
+fn repair_doctor_setup(
+    output_dir: &std::path::Path,
+    agents_path: &std::path::Path,
+    from_scan: Option<&std::path::Path>,
+    baseline_path: Option<&std::path::Path>,
+    profile: Profile,
+) -> Result<()> {
     std::fs::create_dir_all(output_dir).into_diagnostic()?;
 
     let agent_pack_dir = output_dir.join(".verifyos-agent");
@@ -510,16 +534,24 @@ fn repair_doctor_setup(output_dir: &std::path::Path, agents_path: &std::path::Pa
 
     std::fs::create_dir_all(&agent_pack_dir).into_diagnostic()?;
 
+    let pack = if let Some(app_path) = from_scan {
+        run_scan_for_agent_pack(app_path, profile, baseline_path)?
+    } else {
+        load_agent_pack(&agent_pack_json).unwrap_or_else(empty_agent_pack)
+    };
+
     let command_hints = CommandHints {
-        app_path: Some("<path-to-.ipa-or-.app>".to_string()),
-        baseline_path: None,
+        app_path: Some(
+            from_scan
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| "<path-to-.ipa-or-.app>".to_string()),
+        ),
+        baseline_path: baseline_path.map(|path| path.display().to_string()),
         agent_pack_dir: Some(agent_pack_dir.display().to_string()),
-        profile: Some("full".to_string()),
+        profile: Some(profile_key(profile)),
         shell_script: true,
         fix_prompt_path: Some(fix_prompt_path.display().to_string()),
     };
-
-    let pack = load_agent_pack(&agent_pack_json).unwrap_or_else(empty_agent_pack);
 
     write_agents_file(
         agents_path,

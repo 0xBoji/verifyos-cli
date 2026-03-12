@@ -245,6 +245,12 @@ Repair a broken or missing local agent setup in place:
 voc doctor --output-dir .verifyos --fix
 ```
 
+Repair and refresh the setup from a fresh scan:
+
+```bash
+voc doctor --output-dir .verifyos --fix --from-scan path/to/YourApp.ipa --profile basic
+```
+
 `voc doctor` validates:
 - config parsing
 - `AGENTS.md` presence
@@ -258,6 +264,15 @@ When `--fix` is enabled, `voc doctor` will:
 - recreate `.verifyos-agent/next-steps.sh`
 - recreate `fix-prompt.md`
 - repair the managed `verifyos-cli` block so its pointers line up with the chosen output root again
+
+When `--fix --from-scan` is enabled, `voc doctor` does the same repair work but uses a fresh app scan to repopulate:
+- `Current Project Risks`
+- `agent-pack.json`
+- `agent-pack.md`
+- `fix-prompt.md`
+- follow-up commands that point back to the scanned artifact
+
+You can also combine `--baseline old-report.json` with `--fix --from-scan` to keep only new or regressed risks in the repaired setup.
 
 ### GitHub Actions wrapper
 
@@ -444,11 +459,56 @@ Analysis complete!
 
 ## Architecture
 
-This project is structured with modularity in mind:
+`verifyOS-cli` is organized as a layered scanner plus an AI-agent handoff system:
 
-- **`core/`**: Orchestrator and logic execution engine.
-- **`parsers/`**: Format handlers (`zip` extraction, `plist` mapping, `goblin`/`apple-codesign` Mach-O inspection).
-- **`rules/`**: Trait-based rule engine representing the validation checks.
+- **`src/main.rs`**: CLI entrypoint, subcommands (`scan`, `init`, `doctor`), output routing, and exit policy.
+- **`src/core/`**: Scan orchestration, rule execution timing, and artifact-context lifecycle.
+- **`src/parsers/`**: Low-level readers for `.ipa`, `.app`, `Info.plist`, provisioning profiles, Mach-O usage/signing/SDK scans, and related bundle metadata.
+- **`src/rules/`**: Trait-based App Store review rules grouped by concern such as privacy, entitlements, signing, ATS, metadata, and bundling.
+- **`src/report/`**: Normalized report model plus renderers for table, JSON, SARIF, Markdown, agent-pack JSON, and agent-pack Markdown.
+- **`src/profiles.rs`**: Rule inventory, default profile membership, and CLI-facing rule metadata.
+- **`src/agents.rs`**: `AGENTS.md` managed block generation, current-risk summaries, next-step commands, and fix-prompt rendering.
+- **`src/doctor.rs`**: Project self-checks for config, `AGENTS.md`, referenced assets, and repair-oriented setup validation.
+- **`tests/`**: CLI, report, config, and rule-level regression coverage for both normal scans and agent workflows.
+
+The design goal is to keep scanning concerns, report rendering, and AI-agent onboarding separate enough that we can keep adding rules without tangling the developer workflow around them.
+
+## One-Page System Data Flow
+
+1. **Input**
+   `voc` receives an `.ipa` or `.app`, optional config, profile, include/exclude filters, baseline, and output targets.
+2. **Artifact preparation**
+   `core::engine` resolves the app bundle, while `parsers/` load plist files, provisioning data, Mach-O metadata, and bundle resources.
+3. **Cached scan context**
+   `ArtifactContext` caches expensive lookups such as usage scans, signing summaries, bundle file indexes, entitlements, and plist reads so multiple rules can reuse them.
+4. **Rule execution**
+   `rules/` run against the shared artifact context and emit normalized results with:
+   - `rule_id`
+   - `category`
+   - `severity`
+   - `message`
+   - `evidence`
+   - `recommendation`
+5. **Report normalization**
+   `report/` converts engine output into a stable report model, applies timing metadata, cache telemetry, and optional baseline suppression.
+6. **Primary outputs**
+   The CLI renders one of:
+   - table
+   - JSON
+   - SARIF
+   - Markdown
+   - agent-pack JSON/Markdown/bundle
+7. **Agent workflow outputs**
+   `voc init` and `voc doctor --fix` can materialize:
+   - `AGENTS.md`
+   - `.verifyos-agent/agent-pack.json`
+   - `.verifyos-agent/agent-pack.md`
+   - `.verifyos-agent/next-steps.sh`
+   - `fix-prompt.md`
+8. **CI / PR integration**
+   The reusable workflow `.github/workflows/voc-analysis.yml` runs scans in GitHub Actions, uploads SARIF and agent assets, and can post a sticky PR summary comment.
+9. **Repair / refresh loop**
+   Developers or AI agents patch the suggested target files, rerun `voc`, compare against the previous baseline or agent pack, and repeat until findings clear.
 
 ## Conventional Commits
 

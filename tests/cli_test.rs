@@ -680,3 +680,45 @@ fn test_doctor_fix_repairs_managed_block_paths_and_keeps_custom_notes() {
     assert!(agents.contains("fix-prompt.md"));
     assert!(!agents.contains("broken/agent-pack.md"));
 }
+
+#[test]
+fn test_doctor_fix_from_scan_refreshes_assets_with_real_findings() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--fix",
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--profile",
+            "basic",
+        ])
+        .output()
+        .expect("doctor --fix --from-scan should run");
+
+    assert!(doctor.status.success());
+
+    let agents =
+        std::fs::read_to_string(output_dir.join("AGENTS.md")).expect("agents file should exist");
+    assert!(agents.contains("### Current Project Risks"));
+    assert!(agents.contains("Missing Privacy Manifest"));
+    assert!(agents.contains("voc --app"));
+    assert!(agents.contains("bad_app.ipa"));
+    assert!(agents.contains("--profile basic"));
+
+    let pack = std::fs::read_to_string(output_dir.join(".verifyos-agent/agent-pack.json"))
+        .expect("agent pack should exist");
+    let value: serde_json::Value = serde_json::from_str(&pack).expect("valid json");
+    assert!(value["total_findings"].as_u64().unwrap_or_default() >= 1);
+
+    let prompt =
+        std::fs::read_to_string(output_dir.join("fix-prompt.md")).expect("prompt should exist");
+    assert!(prompt.contains("# verifyOS Fix Prompt"));
+    assert!(prompt.contains("Missing Privacy Manifest"));
+}
