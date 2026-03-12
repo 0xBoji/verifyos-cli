@@ -1,11 +1,24 @@
-# verifyOS-cli
+<h1 align="center">verifyOS-cli</h1>
 
-<img src="icons/verifyOS.png" alt="verifyOS icon" width="260" />
+<p align="center">
+  <img src="icons/verifyOS.png" alt="verifyOS icon" />
+</p>
 
-[![Crates.io](https://img.shields.io/crates/v/verifyos-cli.svg)](https://crates.io/crates/verifyos-cli)
-[![Docs.rs](https://img.shields.io/docsrs/verifyos-cli)](https://docs.rs/verifyos-cli)
-[![CI](https://github.com/0xBoji/verifyos-cli/actions/workflows/rust.yml/badge.svg)](https://github.com/0xBoji/verifyos-cli/actions/workflows/rust.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+<p align="center">
+  <a href="https://crates.io/crates/verifyos-cli">
+    <img src="https://img.shields.io/crates/v/verifyos-cli.svg" alt="Crates.io" />
+  </a>
+  <a href="https://docs.rs/verifyos-cli">
+    <img src="https://img.shields.io/docsrs/verifyos-cli" alt="Docs.rs" />
+  </a>
+  <a href="https://github.com/0xBoji/verifyos-cli/actions/workflows/rust.yml">
+    <img src="https://github.com/0xBoji/verifyos-cli/actions/workflows/rust.yml/badge.svg" alt="CI" />
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" />
+  </a>
+</p>
 
 `verifyOS-cli` is a pure Rust, cross-platform CLI tool designed to scan Apple app bundles (like `.ipa`, `.app`, `Info.plist`, and Mach-O binaries) for App Store rejection risks before submission. Operating locally or within an automated CI pipeline, it catches potential App Store Connect rejections left of the build process.
 
