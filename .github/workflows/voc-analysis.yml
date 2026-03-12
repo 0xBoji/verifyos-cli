@@ -1,0 +1,321 @@
+name: voc Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_path:
+        description: "Path to the .ipa or .app to scan"
+        required: true
+        default: "examples/good_app.ipa"
+        type: string
+      baseline_path:
+        description: "Optional baseline JSON report path"
+        required: false
+        default: ""
+        type: string
+      profile:
+        description: "Scan profile"
+        required: true
+        default: "full"
+        type: choice
+        options:
+          - basic
+          - full
+      fail_on:
+        description: "Failure threshold"
+        required: true
+        default: "error"
+        type: choice
+        options:
+          - off
+          - error
+          - warning
+      output_dir:
+        description: "Directory to store generated assets"
+        required: true
+        default: ".verifyos-ci"
+        type: string
+      comment_on_pr:
+        description: "Post a PR summary comment when running in PR context"
+        required: true
+        default: true
+        type: boolean
+      pr_number:
+        description: "Optional PR number for manual runs"
+        required: false
+        default: ""
+        type: string
+  workflow_call:
+    inputs:
+      app_path:
+        required: true
+        type: string
+      baseline_path:
+        required: false
+        default: ""
+        type: string
+      profile:
+        required: false
+        default: "full"
+        type: string
+      fail_on:
+        required: false
+        default: "error"
+        type: string
+      output_dir:
+        required: false
+        default: ".verifyos-ci"
+        type: string
+      comment_on_pr:
+        required: false
+        default: true
+        type: boolean
+      pr_number:
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  voc-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure Rust toolchain
+        run: |
+          rustup default stable
+          rustup component add rustfmt clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Prepare output directory
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          output_dir="${{ github.event.inputs.output_dir }}"
+          if [ -z "$output_dir" ]; then
+            output_dir="${{ inputs.output_dir }}"
+          fi
+          if [ -z "$output_dir" ]; then
+            output_dir=".verifyos-ci"
+          fi
+
+          app_path="${{ github.event.inputs.app_path }}"
+          if [ -z "$app_path" ]; then
+            app_path="${{ inputs.app_path }}"
+          fi
+          if [ -z "$app_path" ]; then
+            echo "app_path input is required" >&2
+            exit 1
+          fi
+
+          baseline_path="${{ github.event.inputs.baseline_path }}"
+          if [ -z "$baseline_path" ]; then
+            baseline_path="${{ inputs.baseline_path }}"
+          fi
+
+          profile="${{ github.event.inputs.profile }}"
+          if [ -z "$profile" ]; then
+            profile="${{ inputs.profile }}"
+          fi
+          if [ -z "$profile" ]; then
+            profile="full"
+          fi
+
+          fail_on="${{ github.event.inputs.fail_on }}"
+          if [ -z "$fail_on" ]; then
+            fail_on="${{ inputs.fail_on }}"
+          fi
+          if [ -z "$fail_on" ]; then
+            fail_on="error"
+          fi
+
+          comment_on_pr="${{ github.event.inputs.comment_on_pr }}"
+          if [ -z "$comment_on_pr" ]; then
+            comment_on_pr="${{ inputs.comment_on_pr }}"
+          fi
+          if [ -z "$comment_on_pr" ]; then
+            comment_on_pr="true"
+          fi
+
+          pr_number="${{ github.event.inputs.pr_number }}"
+          if [ -z "$pr_number" ]; then
+            pr_number="${{ inputs.pr_number }}"
+          fi
+
+          {
+            echo "OUTPUT_DIR=$output_dir"
+            echo "APP_PATH=$app_path"
+            echo "BASELINE_PATH=$baseline_path"
+            echo "PROFILE=$profile"
+            echo "FAIL_ON=$fail_on"
+            echo "COMMENT_ON_PR=$comment_on_pr"
+            echo "PR_NUMBER=$pr_number"
+          } >> "$GITHUB_ENV"
+
+          mkdir -p "$output_dir"
+
+      - name: Build voc
+        run: cargo build --release
+
+      - name: Run voc scan and generate agent assets
+        id: scan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          scan_exit=0
+          doctor_exit=0
+
+          scan_cmd=(
+            ./target/release/voc
+            --app "$APP_PATH"
+            --profile "$PROFILE"
+            --fail-on "$FAIL_ON"
+            --format sarif
+          )
+          if [ -n "$BASELINE_PATH" ]; then
+            scan_cmd+=(--baseline "$BASELINE_PATH")
+          fi
+
+          set +e
+          "${scan_cmd[@]}" > "$OUTPUT_DIR/report.sarif"
+          scan_exit=$?
+          set -e
+
+          init_cmd=(
+            ./target/release/voc init
+            --output-dir "$OUTPUT_DIR"
+            --from-scan "$APP_PATH"
+            --profile "$PROFILE"
+            --fix-prompt
+            --write-commands
+            --shell-script
+          )
+          if [ -n "$BASELINE_PATH" ]; then
+            init_cmd+=(--baseline "$BASELINE_PATH")
+          fi
+          "${init_cmd[@]}"
+
+          set +e
+          ./target/release/voc doctor --output-dir "$OUTPUT_DIR" --format json > "$OUTPUT_DIR/doctor.json"
+          doctor_exit=$?
+          set -e
+
+          echo "scan_exit=$scan_exit" >> "$GITHUB_OUTPUT"
+          echo "doctor_exit=$doctor_exit" >> "$GITHUB_OUTPUT"
+
+      - name: Upload analysis artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: voc-analysis
+          path: |
+            ${{ env.OUTPUT_DIR }}/AGENTS.md
+            ${{ env.OUTPUT_DIR }}/fix-prompt.md
+            ${{ env.OUTPUT_DIR }}/doctor.json
+            ${{ env.OUTPUT_DIR }}/report.sarif
+            ${{ env.OUTPUT_DIR }}/.verifyos-agent
+
+      - name: Upload SARIF
+        if: always() && hashFiles(format('{0}/report.sarif', env.OUTPUT_DIR)) != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ env.OUTPUT_DIR }}/report.sarif
+
+      - name: Comment PR summary
+        if: always() && env.COMMENT_ON_PR == 'true' && (github.event_name == 'pull_request' || env.PR_NUMBER != '')
+        uses: actions/github-script@v7
+        env:
+          OUTPUT_DIR: ${{ env.OUTPUT_DIR }}
+          PR_NUMBER: ${{ env.PR_NUMBER }}
+          SCAN_EXIT: ${{ steps.scan.outputs.scan_exit }}
+          DOCTOR_EXIT: ${{ steps.scan.outputs.doctor_exit }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const outDir = process.env.OUTPUT_DIR;
+            const doctorPath = path.join(outDir, 'doctor.json');
+            const agentPackPath = path.join(outDir, '.verifyos-agent', 'agent-pack.json');
+            let findings = 0;
+            let doctorSummary = 'doctor report missing';
+
+            if (fs.existsSync(agentPackPath)) {
+              const agentPack = JSON.parse(fs.readFileSync(agentPackPath, 'utf8'));
+              findings = agentPack.total_findings || 0;
+            }
+
+            if (fs.existsSync(doctorPath)) {
+              const doctor = JSON.parse(fs.readFileSync(doctorPath, 'utf8'));
+              doctorSummary = doctor.checks
+                .map((item) => `${item.name}: ${item.status}`)
+                .join(', ');
+            }
+
+            const body = [
+              '<!-- voc-analysis-comment -->',
+              '## voc analysis',
+              '',
+              `- Findings: **${findings}**`,
+              `- Scan exit code: \`${process.env.SCAN_EXIT}\``,
+              `- Doctor exit code: \`${process.env.DOCTOR_EXIT}\``,
+              `- Assets uploaded from: \`${outDir}\``,
+              `- Includes: \`report.sarif\`, \`AGENTS.md\`, \`fix-prompt.md\`, \`.verifyos-agent/\``,
+              `- Doctor summary: ${doctorSummary}`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = process.env.PR_NUMBER
+              ? Number(process.env.PR_NUMBER)
+              : context.issue.number;
+
+            if (!issue_number) {
+              console.log('No PR number available, skipping comment update.');
+              return;
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+            });
+
+            const previous = comments.find((comment) =>
+              comment.body && comment.body.includes('<!-- voc-analysis-comment -->')
+            );
+
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: previous.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+            }
+
+      - name: Finalize result
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ steps.scan.outputs.scan_exit }}" != "0" ]; then
+            exit "${{ steps.scan.outputs.scan_exit }}"
+          fi
+          if [ "${{ steps.scan.outputs.doctor_exit }}" != "0" ]; then
+            exit "${{ steps.scan.outputs.doctor_exit }}"
+          fi

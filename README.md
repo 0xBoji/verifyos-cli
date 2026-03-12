@@ -245,6 +245,57 @@ voc doctor --output-dir .verifyos
 - referenced agent assets like `agent-pack.json`, `agent-pack.md`, and `next-steps.sh`
 - sample `voc` commands inside `AGENTS.md`
 
+### GitHub Actions wrapper
+
+This repo ships a reusable workflow at `.github/workflows/voc-analysis.yml` for CI and PR review flows.
+
+Manual run from the Actions tab:
+
+```text
+Workflow: voc Analysis
+Inputs:
+- app_path
+- baseline_path (optional)
+- profile
+- fail_on
+- output_dir
+- comment_on_pr
+- pr_number (optional)
+```
+
+Reusable workflow example:
+
+```yaml
+name: App review
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  voc:
+    uses: 0xBoji/verifyos-cli/.github/workflows/voc-analysis.yml@main
+    with:
+      app_path: path/to/YourApp.ipa
+      baseline_path: baseline.json
+      profile: full
+      fail_on: error
+      output_dir: .verifyos-ci
+      comment_on_pr: true
+      pr_number: ${{ github.event.pull_request.number }}
+```
+
+The workflow generates and uploads:
+- `report.sarif`
+- `AGENTS.md`
+- `fix-prompt.md`
+- `doctor.json`
+- `.verifyos-agent/agent-pack.json`
+- `.verifyos-agent/agent-pack.md`
+- `.verifyos-agent/next-steps.sh`
+
+When `comment_on_pr` is enabled and a PR number is available, the workflow also updates a sticky PR comment with a compact analysis summary and links the review flow to the uploaded assets.
+
 ### Output Formats
 
 Table (default):
