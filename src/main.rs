@@ -1,13 +1,14 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use comfy_table::Table;
+use comfy_table::{Cell, Color, Table};
 use indicatif::{ProgressBar, ProgressStyle};
 use miette::{IntoDiagnostic, Result};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use verifyos_cli::agents::{write_agents_file, CommandHints};
+use verifyos_cli::agents::{render_fix_prompt, write_agents_file, CommandHints};
 use verifyos_cli::config::{load_file_config, resolve_runtime_config, CliOverrides};
 use verifyos_cli::core::engine::Engine;
+use verifyos_cli::doctor::{run_doctor, DoctorReport, DoctorStatus};
 use verifyos_cli::profiles::{
     available_rule_ids, normalize_rule_id, register_rules, rule_detail, rule_inventory,
     RuleDetailItem, RuleInventoryItem, RuleSelection, ScanProfile,
@@ -135,13 +136,19 @@ struct Args {
 enum Commands {
     /// Create or update AGENTS.md with verifyOS-cli guidance
     Init(InitArgs),
+    /// Verify verifyOS-cli config and generated agent assets
+    Doctor(DoctorArgs),
 }
 
 #[derive(Debug, Parser)]
 struct InitArgs {
+    /// Root directory for generated init assets like AGENTS.md, agent bundle, script, and prompt
+    #[arg(long)]
+    output_dir: Option<PathBuf>,
+
     /// Path to the AGENTS.md file to create or update
-    #[arg(long, default_value = "AGENTS.md")]
-    path: PathBuf,
+    #[arg(long)]
+    path: Option<PathBuf>,
 
     /// Scan an app first and inject current project risks into the managed block
     #[arg(long)]
@@ -163,19 +170,51 @@ struct InitArgs {
     #[arg(long)]
     shell_script: bool,
 
+    /// Generate fix-prompt.md for AI agents
+    #[arg(long)]
+    fix_prompt: bool,
+
     /// Scan profile to use with --from-scan
     #[arg(long, value_enum, default_value = "full")]
     profile: Profile,
+}
+
+#[derive(Debug, Parser)]
+struct DoctorArgs {
+    /// Root directory that contains AGENTS.md and generated init assets
+    #[arg(long)]
+    output_dir: Option<PathBuf>,
+
+    /// Explicit AGENTS.md path to check
+    #[arg(long)]
+    agents: Option<PathBuf>,
+
+    /// Explicit config path to validate
+    #[arg(long)]
+    config: Option<PathBuf>,
+
+    /// Output format for doctor results
+    #[arg(long, value_enum, default_value = "table")]
+    format: OutputFormat,
 }
 
 fn main() -> Result<()> {
     // 1. Parse CLI arguments
     let args = Args::parse();
     if let Some(Commands::Init(init)) = args.command {
+        let effective_output_dir = init
+            .output_dir
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("."));
+        let effective_agents_path = init
+            .path
+            .clone()
+            .unwrap_or_else(|| effective_output_dir.join("AGENTS.md"));
         let effective_agent_pack_dir = init
             .agent_pack_dir
             .clone()
-            .unwrap_or_else(|| PathBuf::from(".verifyos-agent"));
+            .unwrap_or_else(|| effective_output_dir.join(".verifyos-agent"));
+        let effective_fix_prompt_path = effective_output_dir.join("fix-prompt.md");
         let agent_pack = if let Some(app) = init.from_scan.as_deref() {
             Some(run_scan_for_agent_pack(
                 app,
@@ -204,29 +243,60 @@ fn main() -> Result<()> {
                 agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
                 profile: Some(profile_key(init.profile)),
                 shell_script: true,
+                fix_prompt_path: init
+                    .fix_prompt
+                    .then(|| effective_fix_prompt_path.display().to_string()),
             };
             write_next_steps_script(&script_path, &command_hints)?;
         }
-        let command_hints = (init.write_commands || init.shell_script).then(|| CommandHints {
-            app_path: init
-                .from_scan
-                .as_deref()
-                .map(|path| path.display().to_string()),
-            baseline_path: init
-                .baseline
-                .as_deref()
-                .map(|path| path.display().to_string()),
-            agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
-            profile: Some(profile_key(init.profile)),
-            shell_script: init.shell_script,
-        });
+        let command_hints =
+            (init.write_commands || init.shell_script || init.fix_prompt).then(|| CommandHints {
+                app_path: init
+                    .from_scan
+                    .as_deref()
+                    .map(|path| path.display().to_string()),
+                baseline_path: init
+                    .baseline
+                    .as_deref()
+                    .map(|path| path.display().to_string()),
+                agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
+                profile: Some(profile_key(init.profile)),
+                shell_script: init.shell_script,
+                fix_prompt_path: init
+                    .fix_prompt
+                    .then(|| effective_fix_prompt_path.display().to_string()),
+            });
+        if init.fix_prompt {
+            let pack = agent_pack.as_ref().ok_or_else(|| {
+                miette::miette!(
+                    "`--fix-prompt` requires `--from-scan <path>` so voc has findings to summarize"
+                )
+            })?;
+            write_fix_prompt_file(
+                &effective_fix_prompt_path,
+                pack,
+                command_hints.as_ref().unwrap_or(&CommandHints::default()),
+            )?;
+        }
         write_agents_file(
-            &init.path,
+            &effective_agents_path,
             agent_pack.as_ref(),
             Some(&effective_agent_pack_dir),
             command_hints.as_ref(),
         )?;
-        println!("Updated {}", init.path.display());
+        println!("Updated {}", effective_agents_path.display());
+        return Ok(());
+    }
+    if let Some(Commands::Doctor(doctor)) = args.command {
+        let output_dir = doctor.output_dir.unwrap_or_else(|| PathBuf::from("."));
+        let agents_path = doctor
+            .agents
+            .unwrap_or_else(|| output_dir.join("AGENTS.md"));
+        let report = run_doctor(doctor.config.as_deref(), &agents_path);
+        render_doctor_report(&report, doctor.format)?;
+        if report.has_failures() {
+            std::process::exit(1);
+        }
         return Ok(());
     }
 
@@ -376,6 +446,49 @@ fn write_next_steps_script(path: &std::path::Path, hints: &CommandHints) -> Resu
         let mut perms = std::fs::metadata(path).into_diagnostic()?.permissions();
         perms.set_mode(0o755);
         std::fs::set_permissions(path, perms).into_diagnostic()?;
+    }
+    Ok(())
+}
+
+fn write_fix_prompt_file(
+    path: &std::path::Path,
+    pack: &verifyos_cli::report::AgentPack,
+    hints: &CommandHints,
+) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).into_diagnostic()?;
+    }
+    let prompt = render_fix_prompt(pack, hints);
+    std::fs::write(path, prompt).into_diagnostic()?;
+    Ok(())
+}
+
+fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<()> {
+    match format {
+        OutputFormat::Table => {
+            let mut table = Table::new();
+            table.set_header(vec!["Check", "Status", "Detail"]);
+            for item in &report.checks {
+                let status = match item.status {
+                    DoctorStatus::Pass => Cell::new("PASS").fg(Color::Green),
+                    DoctorStatus::Warn => Cell::new("WARN").fg(Color::Yellow),
+                    DoctorStatus::Fail => Cell::new("FAIL").fg(Color::Red),
+                };
+                table.add_row(vec![Cell::new(&item.name), status, Cell::new(&item.detail)]);
+            }
+            println!("{table}");
+        }
+        OutputFormat::Json => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(report).into_diagnostic()?
+            );
+        }
+        OutputFormat::Sarif => {
+            return Err(miette::miette!(
+                "`doctor` supports only table or json output"
+            ));
+        }
     }
     Ok(())
 }

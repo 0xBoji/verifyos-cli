@@ -492,3 +492,130 @@ fn test_init_shell_script_without_agent_pack_dir_creates_default_bundle() {
     assert!(contents.contains(".verifyos-agent/agent-pack.md"));
     assert!(contents.contains(".verifyos-agent/next-steps.sh"));
 }
+
+#[test]
+fn test_init_output_dir_writes_assets_under_one_root() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "init",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--agent-pack-dir",
+            output_dir
+                .join(".verifyos-agent")
+                .to_str()
+                .expect("utf8 agent pack dir"),
+            "--fix-prompt",
+            "--shell-script",
+        ])
+        .output()
+        .expect("init output dir should run");
+
+    assert!(output.status.success());
+    assert!(output_dir.join("AGENTS.md").exists());
+    assert!(output_dir.join("fix-prompt.md").exists());
+    assert!(output_dir.join(".verifyos-agent/agent-pack.json").exists());
+    assert!(output_dir.join(".verifyos-agent/agent-pack.md").exists());
+    assert!(output_dir.join(".verifyos-agent/next-steps.sh").exists());
+}
+
+#[test]
+fn test_init_fix_prompt_writes_prompt_file() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "init",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--fix-prompt",
+        ])
+        .output()
+        .expect("init fix prompt should run");
+
+    assert!(output.status.success());
+    let prompt =
+        std::fs::read_to_string(output_dir.join("fix-prompt.md")).expect("fix prompt should exist");
+    assert!(prompt.contains("# verifyOS Fix Prompt"));
+    assert!(prompt.contains("## Findings"));
+    assert!(prompt.contains("## Validation Commands"));
+
+    let agents =
+        std::fs::read_to_string(output_dir.join("AGENTS.md")).expect("agents should exist");
+    assert!(agents.contains("fix-prompt.md"));
+}
+
+#[test]
+fn test_doctor_detects_healthy_init_assets() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+
+    let init = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "init",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--fix-prompt",
+            "--shell-script",
+        ])
+        .output()
+        .expect("init should run");
+    assert!(init.status.success());
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+        ])
+        .output()
+        .expect("doctor should run");
+
+    assert!(doctor.status.success());
+    let stdout = String::from_utf8(doctor.stdout).expect("utf8");
+    assert!(stdout.contains("Config"));
+    assert!(stdout.contains("AGENTS.md"));
+    assert!(stdout.contains("Referenced assets"));
+}
+
+#[test]
+fn test_doctor_fails_when_agents_references_missing_assets() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+    std::fs::create_dir_all(&output_dir).expect("create output dir");
+    std::fs::write(
+        output_dir.join("AGENTS.md"),
+        "### Current Project Risks\n\n- Agent bundle: `.verifyos-agent/agent-pack.json` and `.verifyos-agent/agent-pack.md`\n\n### Next Commands\n\n```bash\nvoc --app example.ipa --profile full\n```\n",
+    )
+    .expect("write agents");
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+        ])
+        .output()
+        .expect("doctor should run");
+
+    assert!(!doctor.status.success());
+    let stdout = String::from_utf8(doctor.stdout).expect("utf8");
+    assert!(stdout.contains("Referenced assets"));
+    assert!(stdout.contains("FAIL"));
+}

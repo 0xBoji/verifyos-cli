@@ -163,6 +163,12 @@ Write to a custom path:
 voc init --path docs/AGENTS.md
 ```
 
+Use one root directory for generated init assets:
+
+```bash
+voc init --output-dir .verifyos --from-scan path/to/YourApp.ipa
+```
+
 Scan an app first and inject the current failing rules into `AGENTS.md`:
 
 ```bash
@@ -199,6 +205,12 @@ Generate a runnable follow-up script too:
 voc init --from-scan path/to/YourApp.ipa --agent-pack-dir .verifyos-agent --write-commands --shell-script
 ```
 
+Generate a dedicated AI handoff prompt too:
+
+```bash
+voc init --output-dir .verifyos --from-scan path/to/YourApp.ipa --fix-prompt
+```
+
 The generated block includes:
 - a recommended `voc` workflow for quick and release scans
 - AI agent fix-loop rules
@@ -207,10 +219,31 @@ The generated block includes:
 - an optional pointer to `agent-pack.json` and `agent-pack.md` when `--agent-pack-dir` is used
 - an optional `Next Commands` section with exact re-scan and report refresh commands when `--write-commands` is used
 - an optional `.verifyos-agent/next-steps.sh` when `--shell-script` is used
+- an optional `fix-prompt.md` when `--fix-prompt` is used
 
 When `--baseline` is provided with `--from-scan`, the `Current Project Risks` section only keeps findings that are new or regressed compared with the older JSON report. That keeps the playbook focused on what changed in the current branch.
 
 `voc init` uses a managed block, so you can safely keep your own notes above or below it.
+
+### Doctor
+
+Run a quick self-check on the current setup:
+
+```bash
+voc doctor
+```
+
+Check an output root created by `voc init --output-dir`:
+
+```bash
+voc doctor --output-dir .verifyos
+```
+
+`voc doctor` validates:
+- config parsing
+- `AGENTS.md` presence
+- referenced agent assets like `agent-pack.json`, `agent-pack.md`, and `next-steps.sh`
+- sample `voc` commands inside `AGENTS.md`
 
 ### Output Formats
 
