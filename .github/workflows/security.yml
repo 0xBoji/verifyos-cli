@@ -3,6 +3,7 @@ name: Security Audit
 permissions:
   contents: read
   checks: write
+  actions: read
 
 on:
   push:
@@ -19,8 +20,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Ensure Rust toolchain
+        run: |
+          rustup default stable
       - name: Run cargo audit
         uses: rustsec/audit-check@v1
         with:
@@ -33,8 +35,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Ensure Rust toolchain
+        run: |
+          rustup default stable
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked
       - name: Run cargo deny

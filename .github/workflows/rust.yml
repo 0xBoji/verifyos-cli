@@ -2,6 +2,7 @@ name: Rust CI/CD
 
 permissions:
   contents: read
+  actions: read
 
 on:
   push:
@@ -20,10 +21,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+      - name: Ensure Rust toolchain
+        run: |
+          rustup default stable
+          rustup component add rustfmt clippy
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
@@ -47,8 +48,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Ensure Rust toolchain
+        run: |
+          rustup default stable
+          rustup component add rustfmt clippy
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
