@@ -1,4 +1,3 @@
-use crate::parsers::bundle_scanner::find_nested_bundles;
 use crate::parsers::macho_parser::MachOExecutable;
 use crate::parsers::provisioning_profile::ProvisioningProfile;
 use crate::rules::core::{
@@ -29,7 +28,8 @@ impl AppStoreRule for NestedBundleEntitlementsRule {
     }
 
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
-        let bundles = find_nested_bundles(artifact.app_bundle_path)
+        let bundles = artifact
+            .nested_bundles()
             .map_err(|_| crate::rules::entitlements::EntitlementsError::ParseFailure)?;
 
         if bundles.is_empty() {
@@ -153,7 +153,8 @@ impl AppStoreRule for NestedBundleDebugEntitlementRule {
     }
 
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
-        let bundles = find_nested_bundles(artifact.app_bundle_path)
+        let bundles = artifact
+            .nested_bundles()
             .map_err(|_| crate::rules::entitlements::EntitlementsError::ParseFailure)?;
 
         if bundles.is_empty() {

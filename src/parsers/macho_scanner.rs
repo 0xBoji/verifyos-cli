@@ -9,14 +9,14 @@ pub enum UsageScanError {
     MissingExecutable,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct UsageScan {
     pub required_keys: HashSet<&'static str>,
     pub requires_location_key: bool,
     pub evidence: HashSet<&'static str>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CapabilityScan {
     pub detected: HashSet<&'static str>,
     pub evidence: HashSet<&'static str>,
@@ -28,12 +28,12 @@ pub fn scan_usage_from_app_bundle(app_bundle_path: &Path) -> Result<UsageScan, U
     scan_usage_from_executable(&executable)
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct PrivateApiScan {
     pub hits: Vec<&'static str>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SdkScan {
     pub hits: Vec<&'static str>,
 }

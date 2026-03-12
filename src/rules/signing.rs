@@ -1,5 +1,3 @@
-use crate::parsers::bundle_scanner::find_nested_bundles;
-use crate::parsers::macho_parser::read_macho_signature_summary;
 use crate::parsers::plist_reader::InfoPlist;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
@@ -79,8 +77,9 @@ fn evaluate_with_plist(
         });
     }
 
-    let app_summary =
-        read_macho_signature_summary(&app_executable_path).map_err(RuleError::MachO)?;
+    let app_summary = artifact
+        .signature_summary(&app_executable_path)
+        .map_err(RuleError::MachO)?;
 
     if app_summary.total_slices == 0 {
         return Ok(RuleReport {
@@ -114,7 +113,8 @@ fn evaluate_with_plist(
         });
     };
 
-    let bundles = find_nested_bundles(artifact.app_bundle_path)
+    let bundles = artifact
+        .nested_bundles()
         .map_err(|_| crate::rules::entitlements::EntitlementsError::ParseFailure)?;
 
     if bundles.is_empty() {
@@ -145,7 +145,9 @@ fn evaluate_with_plist(
             continue;
         }
 
-        let summary = read_macho_signature_summary(&executable_path).map_err(RuleError::MachO)?;
+        let summary = artifact
+            .signature_summary(&executable_path)
+            .map_err(RuleError::MachO)?;
 
         if summary.total_slices == 0 {
             mismatches.push(format!("{}: No Mach-O slices found", bundle.display_name));

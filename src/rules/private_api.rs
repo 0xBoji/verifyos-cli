@@ -1,4 +1,3 @@
-use crate::parsers::macho_scanner::scan_private_api_from_app_bundle;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
 };
@@ -27,7 +26,7 @@ impl AppStoreRule for PrivateApiRule {
     }
 
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
-        let scan = match scan_private_api_from_app_bundle(artifact.app_bundle_path) {
+        let scan = match artifact.private_api_scan() {
             Ok(scan) => scan,
             Err(err) => {
                 return Ok(RuleReport {

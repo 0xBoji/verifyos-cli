@@ -1,4 +1,3 @@
-use crate::parsers::macho_scanner::scan_sdks_from_app_bundle;
 use crate::parsers::plist_reader::InfoPlist;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
@@ -40,7 +39,7 @@ impl AppStoreRule for PrivacyManifestSdkCrossCheckRule {
         let manifest = InfoPlist::from_file(&manifest_path)
             .map_err(|_| crate::rules::entitlements::EntitlementsError::ParseFailure)?;
 
-        let scan = match scan_sdks_from_app_bundle(artifact.app_bundle_path) {
+        let scan = match artifact.sdk_scan() {
             Ok(scan) => scan,
             Err(err) => {
                 return Ok(RuleReport {

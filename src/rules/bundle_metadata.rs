@@ -1,4 +1,3 @@
-use crate::parsers::bundle_scanner::find_nested_bundles;
 use crate::parsers::plist_reader::InfoPlist;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
@@ -40,7 +39,8 @@ impl AppStoreRule for BundleMetadataConsistencyRule {
         let app_short_version = app_plist.get_string("CFBundleShortVersionString");
         let app_build_version = app_plist.get_string("CFBundleVersion");
 
-        let bundles = find_nested_bundles(artifact.app_bundle_path)
+        let bundles = artifact
+            .nested_bundles()
             .map_err(|_| crate::rules::entitlements::EntitlementsError::ParseFailure)?;
 
         if bundles.is_empty() {

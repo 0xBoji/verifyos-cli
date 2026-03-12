@@ -52,10 +52,7 @@ impl Engine {
             None
         };
 
-        let context = ArtifactContext {
-            app_bundle_path: &app_bundle_path,
-            info_plist: info_plist.as_ref(),
-        };
+        let context = ArtifactContext::new(&app_bundle_path, info_plist.as_ref());
 
         let mut results = Vec::new();
 

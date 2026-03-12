@@ -1,6 +1,3 @@
-use crate::parsers::macho_scanner::{
-    scan_capabilities_from_app_bundle, scan_usage_from_app_bundle,
-};
 use crate::parsers::plist_reader::InfoPlist;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
@@ -53,7 +50,7 @@ impl AppStoreRule for UsageDescriptionsRule {
             });
         };
 
-        let scan = match scan_usage_from_app_bundle(artifact.app_bundle_path) {
+        let scan = match artifact.usage_scan() {
             Ok(scan) => scan,
             Err(err) => {
                 return Ok(RuleReport {
@@ -135,7 +132,7 @@ impl AppStoreRule for UsageDescriptionsValueRule {
             });
         };
 
-        let scan = match scan_usage_from_app_bundle(artifact.app_bundle_path) {
+        let scan = match artifact.usage_scan() {
             Ok(scan) => scan,
             Err(err) => {
                 return Ok(RuleReport {
@@ -349,7 +346,7 @@ impl AppStoreRule for UIRequiredDeviceCapabilitiesAuditRule {
             });
         }
 
-        let scan = match scan_capabilities_from_app_bundle(artifact.app_bundle_path) {
+        let scan = match artifact.capability_scan() {
             Ok(scan) => scan,
             Err(err) => {
                 return Ok(RuleReport {
