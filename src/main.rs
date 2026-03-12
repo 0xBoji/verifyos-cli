@@ -5,7 +5,7 @@ use miette::{IntoDiagnostic, Result};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use verifyos_cli::agents::{render_fix_prompt, write_agents_file, CommandHints};
+use verifyos_cli::agents::{render_fix_prompt, render_pr_brief, write_agents_file, CommandHints};
 use verifyos_cli::config::{load_file_config, resolve_runtime_config, CliOverrides};
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::doctor::{run_doctor, DoctorReport, DoctorStatus};
@@ -212,6 +212,10 @@ struct DoctorArgs {
     /// Scan profile to use with --from-scan
     #[arg(long, value_enum, default_value = "full")]
     profile: Profile,
+
+    /// Generate pr-brief.md for PR review and agent handoff
+    #[arg(long)]
+    open_pr_brief: bool,
 }
 
 fn main() -> Result<()> {
@@ -262,6 +266,7 @@ fn main() -> Result<()> {
                 fix_prompt_path: init
                     .fix_prompt
                     .then(|| effective_fix_prompt_path.display().to_string()),
+                pr_brief_path: None,
             };
             write_next_steps_script(&script_path, &command_hints)?;
         }
@@ -281,6 +286,7 @@ fn main() -> Result<()> {
                 fix_prompt_path: init
                     .fix_prompt
                     .then(|| effective_fix_prompt_path.display().to_string()),
+                pr_brief_path: None,
             });
         if init.fix_prompt {
             let pack = agent_pack.as_ref().ok_or_else(|| {
@@ -315,6 +321,7 @@ fn main() -> Result<()> {
                 doctor.from_scan.as_deref(),
                 doctor.baseline.as_deref(),
                 doctor.profile,
+                doctor.open_pr_brief,
             )?;
         }
         let report = run_doctor(doctor.config.as_deref(), &agents_path);
@@ -488,6 +495,19 @@ fn write_fix_prompt_file(
     Ok(())
 }
 
+fn write_pr_brief_file(
+    path: &std::path::Path,
+    pack: &verifyos_cli::report::AgentPack,
+    hints: &CommandHints,
+) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).into_diagnostic()?;
+    }
+    let brief = render_pr_brief(pack, hints);
+    std::fs::write(path, brief).into_diagnostic()?;
+    Ok(())
+}
+
 fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<()> {
     match format {
         OutputFormat::Table => {
@@ -524,6 +544,7 @@ fn repair_doctor_setup(
     from_scan: Option<&std::path::Path>,
     baseline_path: Option<&std::path::Path>,
     profile: Profile,
+    open_pr_brief: bool,
 ) -> Result<()> {
     std::fs::create_dir_all(output_dir).into_diagnostic()?;
 
@@ -531,6 +552,7 @@ fn repair_doctor_setup(
     let agent_pack_json = agent_pack_dir.join("agent-pack.json");
     let script_path = agent_pack_dir.join("next-steps.sh");
     let fix_prompt_path = output_dir.join("fix-prompt.md");
+    let pr_brief_path = output_dir.join("pr-brief.md");
 
     std::fs::create_dir_all(&agent_pack_dir).into_diagnostic()?;
 
@@ -551,6 +573,7 @@ fn repair_doctor_setup(
         profile: Some(profile_key(profile)),
         shell_script: true,
         fix_prompt_path: Some(fix_prompt_path.display().to_string()),
+        pr_brief_path: open_pr_brief.then(|| pr_brief_path.display().to_string()),
     };
 
     write_agents_file(
@@ -562,6 +585,9 @@ fn repair_doctor_setup(
     write_agent_pack(&agent_pack_dir, &pack, AgentPackFormat::Bundle)?;
     write_next_steps_script(&script_path, &command_hints)?;
     write_fix_prompt_file(&fix_prompt_path, &pack, &command_hints)?;
+    if open_pr_brief {
+        write_pr_brief_file(&pr_brief_path, &pack, &command_hints)?;
+    }
 
     Ok(())
 }

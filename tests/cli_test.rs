@@ -722,3 +722,41 @@ fn test_doctor_fix_from_scan_refreshes_assets_with_real_findings() {
     assert!(prompt.contains("# verifyOS Fix Prompt"));
     assert!(prompt.contains("Missing Privacy Manifest"));
 }
+
+#[test]
+fn test_doctor_fix_from_scan_can_generate_pr_brief() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--fix",
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--profile",
+            "basic",
+            "--open-pr-brief",
+        ])
+        .output()
+        .expect("doctor --fix --open-pr-brief should run");
+
+    assert!(doctor.status.success());
+
+    let agents =
+        std::fs::read_to_string(output_dir.join("AGENTS.md")).expect("agents file should exist");
+    assert!(agents.contains("pr-brief.md"));
+
+    let brief =
+        std::fs::read_to_string(output_dir.join("pr-brief.md")).expect("pr brief should exist");
+    assert!(brief.contains("# verifyOS PR Brief"));
+    assert!(brief.contains("## Summary"));
+    assert!(brief.contains("## Current Risks"));
+    assert!(brief.contains("## Validation Commands"));
+    assert!(brief.contains("Missing Privacy Manifest"));
+    assert!(brief.contains("bad_app.ipa"));
+}

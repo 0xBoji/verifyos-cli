@@ -13,6 +13,7 @@ pub struct CommandHints {
     pub profile: Option<String>,
     pub shell_script: bool,
     pub fix_prompt_path: Option<String>,
+    pub pr_brief_path: Option<String>,
 }
 
 pub fn write_agents_file(
@@ -140,6 +141,9 @@ fn append_next_commands(out: &mut String, hints: &CommandHints) {
     if let Some(prompt_path) = hints.fix_prompt_path.as_deref() {
         out.push_str(&format!("- Agent fix prompt: `{}`\n\n", prompt_path));
     }
+    if let Some(pr_brief_path) = hints.pr_brief_path.as_deref() {
+        out.push_str(&format!("- PR brief: `{}`\n\n", pr_brief_path));
+    }
     out.push_str("```bash\n");
     out.push_str(&format!(
         "voc --app {} --profile {}\n",
@@ -252,6 +256,100 @@ pub fn render_fix_prompt(pack: &AgentPack, hints: &CommandHints) -> String {
             profile,
             shell_quote(agent_pack_dir)
         ));
+        out.push_str("```\n");
+    }
+
+    out
+}
+
+pub fn render_pr_brief(pack: &AgentPack, hints: &CommandHints) -> String {
+    let mut out = String::new();
+    out.push_str("# verifyOS PR Brief\n\n");
+    out.push_str("## Summary\n\n");
+    out.push_str(&format!("- Findings in scope: `{}`\n", pack.total_findings));
+    if let Some(app_path) = hints.app_path.as_deref() {
+        out.push_str(&format!("- App artifact: `{}`\n", app_path));
+    }
+    if let Some(profile) = hints.profile.as_deref() {
+        out.push_str(&format!("- Scan profile: `{}`\n", profile));
+    }
+    if let Some(baseline) = hints.baseline_path.as_deref() {
+        out.push_str(&format!("- Baseline: `{}`\n", baseline));
+    }
+    out.push('\n');
+
+    out.push_str("## What Changed\n\n");
+    if pack.findings.is_empty() {
+        out.push_str(
+            "- No new or regressed risks are currently in scope after the latest scan.\n\n",
+        );
+    } else {
+        out.push_str(
+            "- This branch still contains findings that can affect App Store review outcomes.\n",
+        );
+        out.push_str(
+            "- The recommended patch order below is sorted for review safety and repair efficiency.\n\n",
+        );
+    }
+
+    out.push_str("## Current Risks\n\n");
+    if pack.findings.is_empty() {
+        out.push_str("- No open findings.\n\n");
+    } else {
+        let mut findings = pack.findings.clone();
+        findings.sort_by(|a, b| {
+            priority_rank(&a.priority)
+                .cmp(&priority_rank(&b.priority))
+                .then_with(|| a.suggested_fix_scope.cmp(&b.suggested_fix_scope))
+                .then_with(|| a.rule_id.cmp(&b.rule_id))
+        });
+
+        for finding in &findings {
+            out.push_str(&format!(
+                "- **{}** (`{}`)\n",
+                finding.rule_name, finding.rule_id
+            ));
+            out.push_str(&format!("  - Priority: `{}`\n", finding.priority));
+            out.push_str(&format!("  - Scope: `{}`\n", finding.suggested_fix_scope));
+            if !finding.target_files.is_empty() {
+                out.push_str(&format!(
+                    "  - Target files: {}\n",
+                    finding.target_files.join(", ")
+                ));
+            }
+            out.push_str(&format!(
+                "  - Why review cares: {}\n",
+                finding.why_it_fails_review
+            ));
+            out.push_str(&format!("  - Patch hint: {}\n", finding.patch_hint));
+        }
+        out.push('\n');
+    }
+
+    out.push_str("## Validation Commands\n\n");
+    if let Some(app_path) = hints.app_path.as_deref() {
+        let profile = hints.profile.as_deref().unwrap_or("full");
+        let agent_pack_dir = hints.agent_pack_dir.as_deref().unwrap_or(".verifyos-agent");
+        out.push_str("```bash\n");
+        out.push_str(&format!(
+            "voc --app {} --profile {}\n",
+            shell_quote(app_path),
+            profile
+        ));
+        out.push_str(&format!(
+            "voc --app {} --profile {} --agent-pack {} --agent-pack-format bundle\n",
+            shell_quote(app_path),
+            profile,
+            shell_quote(agent_pack_dir)
+        ));
+        if let Some(baseline) = hints.baseline_path.as_deref() {
+            out.push_str(&format!(
+                "voc doctor --fix --from-scan {} --profile {} --baseline {} --output-dir .verifyos --open-pr-brief\n",
+                shell_quote(app_path),
+                profile,
+                shell_quote(baseline)
+            ));
+        }
         out.push_str("```\n");
     }
 
@@ -436,6 +534,7 @@ Keep this
             profile: Some("basic".to_string()),
             shell_script: true,
             fix_prompt_path: Some(".verifyos-agent/fix-prompt.md".to_string()),
+            pr_brief_path: Some(".verifyos-agent/pr-brief.md".to_string()),
         };
 
         let block = build_managed_block(None, Some(Path::new(".verifyos-agent")), Some(&hints));
@@ -447,5 +546,6 @@ Keep this
         assert!(block.contains(".verifyos-agent/next-steps.sh"));
         assert!(block.contains("--shell-script"));
         assert!(block.contains(".verifyos-agent/fix-prompt.md"));
+        assert!(block.contains(".verifyos-agent/pr-brief.md"));
     }
 }
