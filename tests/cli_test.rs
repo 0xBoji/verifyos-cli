@@ -419,7 +419,8 @@ fn test_init_write_commands_injects_follow_up_commands() {
     assert!(contents.contains("### Next Commands"));
     assert!(contents.contains("voc --app"));
     assert!(contents.contains("--profile basic"));
-    assert!(contents.contains("--write-commands"));
+    assert!(contents.contains("voc doctor --output-dir"));
+    assert!(contents.contains("--fix --from-scan"));
     assert!(contents.contains(&pack_dir.display().to_string()));
     assert!(contents.contains("agent-pack-format bundle"));
 }
@@ -454,7 +455,8 @@ fn test_init_shell_script_writes_next_steps_and_mentions_it() {
     assert!(script.contains("#!/usr/bin/env bash"));
     assert!(script.contains("voc --app"));
     assert!(script.contains("--agent-pack-format bundle"));
-    assert!(script.contains("--shell-script"));
+    assert!(script.contains("voc doctor --output-dir"));
+    assert!(script.contains("--fix --from-scan"));
 
     let contents = std::fs::read_to_string(&agents_path).expect("agents file should exist");
     assert!(contents.contains("### Next Commands"));
@@ -750,6 +752,7 @@ fn test_doctor_fix_from_scan_can_generate_pr_brief() {
     let agents =
         std::fs::read_to_string(output_dir.join("AGENTS.md")).expect("agents file should exist");
     assert!(agents.contains("pr-brief.md"));
+    assert!(agents.contains("--open-pr-brief"));
 
     let brief =
         std::fs::read_to_string(output_dir.join("pr-brief.md")).expect("pr brief should exist");
@@ -759,4 +762,56 @@ fn test_doctor_fix_from_scan_can_generate_pr_brief() {
     assert!(brief.contains("## Validation Commands"));
     assert!(brief.contains("Missing Privacy Manifest"));
     assert!(brief.contains("bad_app.ipa"));
+
+    let script = std::fs::read_to_string(output_dir.join(".verifyos-agent/next-steps.sh"))
+        .expect("script should exist");
+    assert!(script.contains("--open-pr-brief"));
+}
+
+#[test]
+fn test_doctor_fix_preserves_existing_context_without_from_scan() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+
+    let initial = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--fix",
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--profile",
+            "basic",
+            "--open-pr-brief",
+        ])
+        .output()
+        .expect("initial doctor fix should run");
+    assert!(initial.status.success());
+
+    std::fs::remove_file(output_dir.join("fix-prompt.md")).expect("remove fix prompt");
+
+    let repair = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--fix",
+        ])
+        .output()
+        .expect("doctor repair should run");
+    assert!(repair.status.success());
+
+    let agents =
+        std::fs::read_to_string(output_dir.join("AGENTS.md")).expect("agents file should exist");
+    assert!(agents.contains("bad_app.ipa"));
+    assert!(agents.contains("--profile basic"));
+    assert!(agents.contains("--open-pr-brief"));
+    assert!(agents.contains(&format!(
+        "voc doctor --output-dir {} --fix --from-scan {} --profile basic --open-pr-brief",
+        output_dir.display(),
+        get_example_path("bad_app.ipa").display()
+    )));
 }

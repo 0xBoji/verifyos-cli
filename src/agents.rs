@@ -7,6 +7,7 @@ const MANAGED_END: &str = "<!-- verifyos-cli:agents:end -->";
 
 #[derive(Debug, Clone, Default)]
 pub struct CommandHints {
+    pub output_dir: Option<String>,
     pub app_path: Option<String>,
     pub baseline_path: Option<String>,
     pub agent_pack_dir: Option<String>,
@@ -161,7 +162,21 @@ fn append_next_commands(out: &mut String, hints: &CommandHints) {
         profile,
         shell_quote(agent_pack_dir)
     ));
-    if let Some(baseline) = hints.baseline_path.as_deref() {
+    if let Some(output_dir) = hints.output_dir.as_deref() {
+        let mut cmd = format!(
+            "voc doctor --output-dir {} --fix --from-scan {} --profile {}",
+            shell_quote(output_dir),
+            shell_quote(app_path),
+            profile
+        );
+        if let Some(baseline) = hints.baseline_path.as_deref() {
+            cmd.push_str(&format!(" --baseline {}", shell_quote(baseline)));
+        }
+        if hints.pr_brief_path.is_some() {
+            cmd.push_str(" --open-pr-brief");
+        }
+        out.push_str(&format!("{cmd}\n"));
+    } else if let Some(baseline) = hints.baseline_path.as_deref() {
         let mut cmd = format!(
             "voc init --from-scan {} --profile {} --baseline {} --agent-pack-dir {} --write-commands",
             shell_quote(app_path),
@@ -342,9 +357,23 @@ pub fn render_pr_brief(pack: &AgentPack, hints: &CommandHints) -> String {
             profile,
             shell_quote(agent_pack_dir)
         ));
-        if let Some(baseline) = hints.baseline_path.as_deref() {
+        if let Some(output_dir) = hints.output_dir.as_deref() {
+            let mut cmd = format!(
+                "voc doctor --output-dir {} --fix --from-scan {} --profile {}",
+                shell_quote(output_dir),
+                shell_quote(app_path),
+                profile
+            );
+            if let Some(baseline) = hints.baseline_path.as_deref() {
+                cmd.push_str(&format!(" --baseline {}", shell_quote(baseline)));
+            }
+            if hints.pr_brief_path.is_some() {
+                cmd.push_str(" --open-pr-brief");
+            }
+            out.push_str(&format!("{cmd}\n"));
+        } else if let Some(baseline) = hints.baseline_path.as_deref() {
             out.push_str(&format!(
-                "voc doctor --fix --from-scan {} --profile {} --baseline {} --output-dir .verifyos --open-pr-brief\n",
+                "voc doctor --fix --from-scan {} --profile {} --baseline {} --open-pr-brief\n",
                 shell_quote(app_path),
                 profile,
                 shell_quote(baseline)
@@ -528,6 +557,7 @@ Keep this
     #[test]
     fn build_managed_block_includes_next_commands_when_requested() {
         let hints = CommandHints {
+            output_dir: Some(".verifyos".to_string()),
             app_path: Some("examples/bad_app.ipa".to_string()),
             baseline_path: Some("baseline.json".to_string()),
             agent_pack_dir: Some(".verifyos-agent".to_string()),
@@ -542,9 +572,8 @@ Keep this
         assert!(block.contains("### Next Commands"));
         assert!(block.contains("voc --app examples/bad_app.ipa --profile basic"));
         assert!(block.contains("--baseline baseline.json"));
-        assert!(block.contains("--write-commands"));
+        assert!(block.contains("voc doctor --output-dir .verifyos --fix --from-scan examples/bad_app.ipa --profile basic --baseline baseline.json --open-pr-brief"));
         assert!(block.contains(".verifyos-agent/next-steps.sh"));
-        assert!(block.contains("--shell-script"));
         assert!(block.contains(".verifyos-agent/fix-prompt.md"));
         assert!(block.contains(".verifyos-agent/pr-brief.md"));
     }

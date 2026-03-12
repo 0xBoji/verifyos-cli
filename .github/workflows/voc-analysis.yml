@@ -192,22 +192,20 @@ jobs:
           scan_exit=$?
           set -e
 
-          init_cmd=(
-            ./target/release/voc init
+          doctor_cmd=(
+            ./target/release/voc doctor
             --output-dir "$OUTPUT_DIR"
+            --fix
             --from-scan "$APP_PATH"
             --profile "$PROFILE"
-            --fix-prompt
-            --write-commands
-            --shell-script
+            --open-pr-brief
+            --format json
           )
           if [ -n "$BASELINE_PATH" ]; then
-            init_cmd+=(--baseline "$BASELINE_PATH")
+            doctor_cmd+=(--baseline "$BASELINE_PATH")
           fi
-          "${init_cmd[@]}"
-
           set +e
-          ./target/release/voc doctor --output-dir "$OUTPUT_DIR" --format json > "$OUTPUT_DIR/doctor.json"
+          "${doctor_cmd[@]}" > "$OUTPUT_DIR/doctor.json"
           doctor_exit=$?
           set -e
 
@@ -221,6 +219,7 @@ jobs:
           path: |
             ${{ env.OUTPUT_DIR }}/AGENTS.md
             ${{ env.OUTPUT_DIR }}/fix-prompt.md
+            ${{ env.OUTPUT_DIR }}/pr-brief.md
             ${{ env.OUTPUT_DIR }}/doctor.json
             ${{ env.OUTPUT_DIR }}/report.sarif
             ${{ env.OUTPUT_DIR }}/.verifyos-agent
@@ -270,7 +269,7 @@ jobs:
               `- Scan exit code: \`${process.env.SCAN_EXIT}\``,
               `- Doctor exit code: \`${process.env.DOCTOR_EXIT}\``,
               `- Assets uploaded from: \`${outDir}\``,
-              `- Includes: \`report.sarif\`, \`AGENTS.md\`, \`fix-prompt.md\`, \`.verifyos-agent/\``,
+              `- Includes: \`report.sarif\`, \`AGENTS.md\`, \`fix-prompt.md\`, \`pr-brief.md\`, \`.verifyos-agent/\``,
               `- Doctor summary: ${doctorSummary}`,
             ].join('\n');
 

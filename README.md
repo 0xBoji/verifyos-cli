@@ -49,6 +49,27 @@ cargo install verifyos-cli
 
 This installs the `voc` binary for the CLI.
 
+### From Release (via curl)
+
+Download the pre-built binary for your platform:
+
+```bash
+# macOS (Apple Silicon)
+curl -L https://github.com/0xBoji/verifyos-cli/releases/latest/download/verifyos-cli-macos-arm64 -o voc && chmod +x voc
+
+# macOS (Intel)
+curl -L https://github.com/0xBoji/verifyos-cli/releases/latest/download/verifyos-cli-macos-amd64 -o voc && chmod +x voc
+
+# Linux (amd64)
+curl -L https://github.com/0xBoji/verifyos-cli/releases/latest/download/verifyos-cli-linux-amd64 -o voc && chmod +x voc
+```
+
+Move it to your PATH to use it globally:
+```bash
+mv voc /usr/local/bin/
+```
+
+
 ## Quick start
 
 Run the CLI tool against your `.ipa` or `.app` path:
@@ -276,6 +297,7 @@ When `--fix --from-scan` is enabled, `voc doctor` does the same repair work but 
 - `agent-pack.json`
 - `agent-pack.md`
 - `fix-prompt.md`
+- `next-steps.sh`
 - follow-up commands that point back to the scanned artifact
 
 When `--open-pr-brief` is added, `voc doctor` also writes `pr-brief.md` with:
@@ -330,6 +352,7 @@ The workflow generates and uploads:
 - `report.sarif`
 - `AGENTS.md`
 - `fix-prompt.md`
+- `pr-brief.md`
 - `doctor.json`
 - `.verifyos-agent/agent-pack.json`
 - `.verifyos-agent/agent-pack.md`

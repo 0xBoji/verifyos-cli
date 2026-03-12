@@ -252,6 +252,7 @@ fn main() -> Result<()> {
         if init.shell_script {
             let script_path = effective_agent_pack_dir.join("next-steps.sh");
             let command_hints = CommandHints {
+                output_dir: Some(effective_output_dir.display().to_string()),
                 app_path: init
                     .from_scan
                     .as_deref()
@@ -272,6 +273,7 @@ fn main() -> Result<()> {
         }
         let command_hints =
             (init.write_commands || init.shell_script || init.fix_prompt).then(|| CommandHints {
+                output_dir: Some(effective_output_dir.display().to_string()),
                 app_path: init
                     .from_scan
                     .as_deref()
@@ -454,7 +456,21 @@ fn write_next_steps_script(path: &std::path::Path, hints: &CommandHints) -> Resu
         profile,
         shell_quote(agent_pack_dir)
     ));
-    if let Some(baseline) = hints.baseline_path.as_deref() {
+    if let Some(output_dir) = hints.output_dir.as_deref() {
+        let mut cmd = format!(
+            "voc doctor --output-dir {} --fix --from-scan {} --profile {}",
+            shell_quote(output_dir),
+            shell_quote(app_path),
+            profile
+        );
+        if let Some(baseline) = hints.baseline_path.as_deref() {
+            cmd.push_str(&format!(" --baseline {}", shell_quote(baseline)));
+        }
+        if hints.pr_brief_path.is_some() {
+            cmd.push_str(" --open-pr-brief");
+        }
+        script.push_str(&format!("{cmd}\n"));
+    } else if let Some(baseline) = hints.baseline_path.as_deref() {
         script.push_str(&format!(
             "voc init --from-scan {} --profile {} --baseline {} --agent-pack-dir {} --write-commands --shell-script\n",
             shell_quote(app_path),
@@ -556,6 +572,9 @@ fn repair_doctor_setup(
 
     std::fs::create_dir_all(&agent_pack_dir).into_diagnostic()?;
 
+    let inferred_hints = infer_existing_command_hints(output_dir, agents_path);
+    let should_open_pr_brief = open_pr_brief || inferred_hints.pr_brief_path.is_some();
+
     let pack = if let Some(app_path) = from_scan {
         run_scan_for_agent_pack(app_path, profile, baseline_path)?
     } else {
@@ -563,17 +582,26 @@ fn repair_doctor_setup(
     };
 
     let command_hints = CommandHints {
+        output_dir: Some(output_dir.display().to_string()),
         app_path: Some(
             from_scan
                 .map(|path| path.display().to_string())
+                .or(inferred_hints.app_path)
                 .unwrap_or_else(|| "<path-to-.ipa-or-.app>".to_string()),
         ),
-        baseline_path: baseline_path.map(|path| path.display().to_string()),
+        baseline_path: baseline_path
+            .map(|path| path.display().to_string())
+            .or(inferred_hints.baseline_path),
         agent_pack_dir: Some(agent_pack_dir.display().to_string()),
-        profile: Some(profile_key(profile)),
+        profile: Some(
+            from_scan
+                .map(|_| profile_key(profile))
+                .or(inferred_hints.profile)
+                .unwrap_or_else(|| profile_key(profile)),
+        ),
         shell_script: true,
         fix_prompt_path: Some(fix_prompt_path.display().to_string()),
-        pr_brief_path: open_pr_brief.then(|| pr_brief_path.display().to_string()),
+        pr_brief_path: should_open_pr_brief.then(|| pr_brief_path.display().to_string()),
     };
 
     write_agents_file(
@@ -585,7 +613,7 @@ fn repair_doctor_setup(
     write_agent_pack(&agent_pack_dir, &pack, AgentPackFormat::Bundle)?;
     write_next_steps_script(&script_path, &command_hints)?;
     write_fix_prompt_file(&fix_prompt_path, &pack, &command_hints)?;
-    if open_pr_brief {
+    if should_open_pr_brief {
         write_pr_brief_file(&pr_brief_path, &pack, &command_hints)?;
     }
 
@@ -607,6 +635,121 @@ fn empty_agent_pack() -> AgentPack {
         total_findings: 0,
         findings: Vec::new(),
     }
+}
+
+fn infer_existing_command_hints(
+    output_dir: &std::path::Path,
+    agents_path: &std::path::Path,
+) -> CommandHints {
+    let mut hints = CommandHints {
+        output_dir: Some(output_dir.display().to_string()),
+        app_path: None,
+        baseline_path: None,
+        agent_pack_dir: Some(output_dir.join(".verifyos-agent").display().to_string()),
+        profile: None,
+        shell_script: output_dir.join(".verifyos-agent/next-steps.sh").exists(),
+        fix_prompt_path: Some(output_dir.join("fix-prompt.md").display().to_string()),
+        pr_brief_path: output_dir
+            .join("pr-brief.md")
+            .exists()
+            .then(|| output_dir.join("pr-brief.md").display().to_string()),
+    };
+
+    for command in collect_existing_voc_commands(output_dir, agents_path) {
+        let tokens = split_shell_words(&command);
+        if tokens.first().map(String::as_str) != Some("voc") {
+            continue;
+        }
+
+        let mut index = 1;
+        while index < tokens.len() {
+            match tokens[index].as_str() {
+                "--app" | "--from-scan" => {
+                    if hints.app_path.is_none() {
+                        hints.app_path = tokens.get(index + 1).cloned();
+                    }
+                    index += 1;
+                }
+                "--profile" => {
+                    if hints.profile.is_none() {
+                        hints.profile = tokens.get(index + 1).cloned();
+                    }
+                    index += 1;
+                }
+                "--baseline" => {
+                    if hints.baseline_path.is_none() {
+                        hints.baseline_path = tokens.get(index + 1).cloned();
+                    }
+                    index += 1;
+                }
+                "--shell-script" => {
+                    hints.shell_script = true;
+                }
+                "--open-pr-brief" => {
+                    hints.pr_brief_path =
+                        Some(output_dir.join("pr-brief.md").display().to_string());
+                }
+                _ => {}
+            }
+            index += 1;
+        }
+    }
+
+    hints
+}
+
+fn collect_existing_voc_commands(
+    output_dir: &std::path::Path,
+    agents_path: &std::path::Path,
+) -> Vec<String> {
+    let mut commands = Vec::new();
+
+    if let Ok(contents) = std::fs::read_to_string(agents_path) {
+        commands.extend(
+            contents
+                .lines()
+                .map(str::trim)
+                .filter(|line| line.starts_with("voc "))
+                .map(str::to_string),
+        );
+    }
+
+    let script_path = output_dir.join(".verifyos-agent/next-steps.sh");
+    if let Ok(contents) = std::fs::read_to_string(script_path) {
+        commands.extend(
+            contents
+                .lines()
+                .map(str::trim)
+                .filter(|line| line.starts_with("voc "))
+                .map(str::to_string),
+        );
+    }
+
+    commands
+}
+
+fn split_shell_words(input: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut in_single_quote = false;
+
+    for ch in input.chars() {
+        match ch {
+            '\'' => in_single_quote = !in_single_quote,
+            ' ' | '\t' if !in_single_quote => {
+                if !current.is_empty() {
+                    tokens.push(std::mem::take(&mut current));
+                }
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+
+    tokens
 }
 
 fn shell_quote(value: &str) -> String {
