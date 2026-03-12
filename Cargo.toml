@@ -1,6 +1,6 @@
 [package]
 name = "verifyos-cli"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 authors = ["0xboji"]
 description = "A pure Rust CLI tool to scan Apple app bundles for App Store rejection risks before submission."
