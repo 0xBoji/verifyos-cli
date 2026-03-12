@@ -1,6 +1,6 @@
 use verifyos_cli::report::{
     render_markdown, render_table, should_exit_with_failure, top_slow_rules, FailOn, ReportData,
-    ReportItem,
+    ReportItem, TimingMode,
 };
 use verifyos_cli::rules::core::{
     ArtifactCacheStats, CacheCounter, RuleCategory, RuleStatus, Severity,
@@ -61,7 +61,7 @@ fn fail_on_warning_fails_for_warning_and_error_findings() {
 #[test]
 fn render_table_omits_timings_by_default() {
     let report = sample_report(vec![sample_item(Severity::Error, RuleStatus::Fail)]);
-    let output = render_table(&report, false);
+    let output = render_table(&report, TimingMode::Off);
 
     assert!(!output.contains("Time"));
     assert!(!output.contains("Total scan time"));
@@ -70,7 +70,7 @@ fn render_table_omits_timings_by_default() {
 #[test]
 fn render_table_shows_timings_when_enabled() {
     let report = sample_report(vec![sample_item(Severity::Error, RuleStatus::Fail)]);
-    let output = render_table(&report, true);
+    let output = render_table(&report, TimingMode::Full);
 
     assert!(output.contains("Time"));
     assert!(output.contains("Total scan time: 42 ms"));
@@ -81,13 +81,33 @@ fn render_table_shows_timings_when_enabled() {
 #[test]
 fn render_markdown_shows_timings_when_enabled() {
     let report = sample_report(vec![sample_item(Severity::Warning, RuleStatus::Fail)]);
-    let output = render_markdown(&report, Some(1), true);
+    let output = render_markdown(&report, Some(1), TimingMode::Full);
 
     assert!(output.contains("- Total scan time: 42 ms"));
     assert!(output.contains("- Slowest rules:"));
     assert!(output.contains("- Cache activity:"));
     assert!(output.contains("  - usage_scan h/m=2/1"));
     assert!(output.contains("  - Time: 7 ms"));
+}
+
+#[test]
+fn render_table_summary_mode_hides_per_rule_column() {
+    let report = sample_report(vec![sample_item(Severity::Error, RuleStatus::Fail)]);
+    let output = render_table(&report, TimingMode::Summary);
+
+    assert!(!output.contains("│ Time"));
+    assert!(output.contains("Total scan time: 42 ms"));
+    assert!(output.contains("Slowest rules: RULE_SAMPLE (7 ms)"));
+}
+
+#[test]
+fn render_markdown_summary_mode_hides_per_rule_time_lines() {
+    let report = sample_report(vec![sample_item(Severity::Warning, RuleStatus::Fail)]);
+    let output = render_markdown(&report, Some(1), TimingMode::Summary);
+
+    assert!(output.contains("- Total scan time: 42 ms"));
+    assert!(output.contains("- Cache activity:"));
+    assert!(!output.contains("  - Time: 7 ms"));
 }
 
 #[test]

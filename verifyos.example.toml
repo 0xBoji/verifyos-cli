@@ -1,7 +1,7 @@
 format = "table"
 profile = "full"
 fail_on = "error"
-timings = false
+timings = "off"
 
 # Optional selectors
 include = []

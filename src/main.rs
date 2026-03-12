@@ -11,7 +11,7 @@ use verifyos_cli::profiles::{
 };
 use verifyos_cli::report::{
     apply_baseline, build_report, render_json, render_markdown, render_sarif, render_table,
-    should_exit_with_failure, FailOn,
+    should_exit_with_failure, FailOn, TimingMode,
 };
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -32,6 +32,12 @@ enum FailOnLevel {
     Off,
     Error,
     Warning,
+}
+
+#[derive(Clone, Debug, ValueEnum)]
+enum TimingLevel {
+    Summary,
+    Full,
 }
 
 #[derive(Parser, Debug)]
@@ -65,9 +71,9 @@ struct Args {
     #[arg(long, value_enum)]
     fail_on: Option<FailOnLevel>,
 
-    /// Show per-rule execution times and total scan time
-    #[arg(long)]
-    timings: bool,
+    /// Show timing telemetry: summary or full (defaults to summary when flag is present)
+    #[arg(long, value_enum, num_args = 0..=1, default_missing_value = "summary")]
+    timings: Option<TimingLevel>,
 
     /// Only run the listed rule IDs (repeat or comma-separate)
     #[arg(long, value_delimiter = ',', num_args = 1..)]
@@ -90,7 +96,7 @@ fn main() -> Result<()> {
             md_out: args.md_out.clone(),
             profile: args.profile.map(profile_key),
             fail_on: args.fail_on.map(fail_on_key),
-            timings: args.timings.then_some(true),
+            timings: args.timings.map(timing_key),
             include: args.include.clone(),
             exclude: args.exclude.clone(),
         },
@@ -98,6 +104,7 @@ fn main() -> Result<()> {
     let output_format = parse_output_format(&runtime.format)?;
     let profile = parse_profile(&runtime.profile)?;
     let fail_on = parse_fail_on(&runtime.fail_on)?;
+    let timing_mode = parse_timing_mode(&runtime.timings)?;
 
     // 2. Initialize spinner
     let pb = ProgressBar::new_spinner();
@@ -136,13 +143,13 @@ fn main() -> Result<()> {
 
     // 7. Render output
     match output_format {
-        OutputFormat::Table => println!("{}", render_table(&report, runtime.timings)),
+        OutputFormat::Table => println!("{}", render_table(&report, timing_mode)),
         OutputFormat::Json => println!("{}", render_json(&report).into_diagnostic()?),
         OutputFormat::Sarif => println!("{}", render_sarif(&report).into_diagnostic()?),
     }
 
     if let Some(path) = runtime.md_out {
-        let markdown = render_markdown(&report, suppressed, runtime.timings);
+        let markdown = render_markdown(&report, suppressed, timing_mode);
         std::fs::write(path, markdown).into_diagnostic()?;
     }
 
@@ -177,6 +184,13 @@ fn fail_on_key(value: FailOnLevel) -> String {
     }
 }
 
+fn timing_key(value: TimingLevel) -> String {
+    match value {
+        TimingLevel::Summary => "summary".to_string(),
+        TimingLevel::Full => "full".to_string(),
+    }
+}
+
 fn parse_output_format(value: &str) -> Result<OutputFormat> {
     match value.to_ascii_lowercase().as_str() {
         "table" => Ok(OutputFormat::Table),
@@ -207,6 +221,18 @@ fn parse_fail_on(value: &str) -> Result<FailOn> {
         "warning" => Ok(FailOn::Warning),
         _ => Err(miette::miette!(
             "Unknown fail-on threshold `{}`. Expected one of: off, error, warning",
+            value
+        )),
+    }
+}
+
+fn parse_timing_mode(value: &str) -> Result<TimingMode> {
+    match value.to_ascii_lowercase().as_str() {
+        "off" => Ok(TimingMode::Off),
+        "summary" => Ok(TimingMode::Summary),
+        "full" => Ok(TimingMode::Full),
+        _ => Err(miette::miette!(
+            "Unknown timings mode `{}`. Expected one of: off, summary, full",
             value
         )),
     }

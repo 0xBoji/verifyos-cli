@@ -51,6 +51,13 @@ pub enum FailOn {
     Warning,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimingMode {
+    Off,
+    Summary,
+    Full,
+}
+
 pub fn build_report(
     results: Vec<EngineResult>,
     total_duration_ms: u128,
@@ -160,10 +167,10 @@ pub fn top_slow_rules(report: &ReportData, limit: usize) -> Vec<SlowRule> {
     items
 }
 
-pub fn render_table(report: &ReportData, show_timings: bool) -> String {
+pub fn render_table(report: &ReportData, timing_mode: TimingMode) -> String {
     let mut table = Table::new();
     let mut header = vec!["Rule", "Category", "Severity", "Status", "Message"];
-    if show_timings {
+    if timing_mode == TimingMode::Full {
         header.push("Time");
     }
     table
@@ -195,13 +202,13 @@ pub fn render_table(report: &ReportData, show_timings: bool) -> String {
             status_cell,
             Cell::new(wrapped),
         ];
-        if show_timings {
+        if timing_mode == TimingMode::Full {
             row.push(Cell::new(format!("{} ms", res.duration_ms)));
         }
         table.add_row(row);
     }
 
-    if show_timings {
+    if timing_mode != TimingMode::Off {
         let slow_rules = format_slow_rules(top_slow_rules(report, 3));
         let cache_summary = format_cache_stats(&report.cache_stats);
         format!(
@@ -282,7 +289,7 @@ fn sarif_level(severity: Severity) -> &'static str {
 pub fn render_markdown(
     report: &ReportData,
     suppressed: Option<usize>,
-    show_timings: bool,
+    timing_mode: TimingMode,
 ) -> String {
     let total = report.results.len();
     let fail_count = report
@@ -308,7 +315,7 @@ pub fn render_markdown(
     out.push_str(&format!(
         "- Severity: error={error_count}, warning={warn_count}\n"
     ));
-    if show_timings {
+    if timing_mode != TimingMode::Off {
         out.push_str(&format!(
             "- Total scan time: {} ms\n",
             report.total_duration_ms
@@ -365,7 +372,7 @@ pub fn render_markdown(
         if !item.recommendation.is_empty() {
             out.push_str(&format!("  - Recommendation: {}\n", item.recommendation));
         }
-        if show_timings {
+        if timing_mode == TimingMode::Full {
             out.push_str(&format!("  - Time: {} ms\n", item.duration_ms));
         }
     }

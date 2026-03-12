@@ -113,7 +113,7 @@ Example config:
 format = "table"
 profile = "full"
 fail_on = "error"
-timings = false
+timings = "off"
 include = []
 exclude = []
 ```
@@ -152,7 +152,14 @@ Timing summary:
 voc --app path/to/YourApp.ipa --timings
 ```
 
-When enabled, the table output includes per-rule execution time and the total scan time. JSON and Markdown reports also carry timing data for automation and profiling.
+Full timing details:
+
+```bash
+voc --app path/to/YourApp.ipa --timings full
+```
+
+`--timings` by itself defaults to `summary`, which prints total scan time, slowest rules, and cache activity without adding a per-rule time column. Use `--timings full` when you want the table and markdown outputs to include per-rule execution times too.
+JSON and Markdown reports still carry timing data for automation and profiling.
 The timing summary also highlights the slowest rules so you can spot hot paths quickly.
 It also includes cache hit/miss activity for artifact scans so we can tell whether a slow run is coming from repeated IO or genuinely expensive rules.
 
