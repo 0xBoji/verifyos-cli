@@ -66,6 +66,13 @@ pub struct AgentFinding {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentPackFormat {
+    Json,
+    Markdown,
+    Bundle,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FailOn {
     Off,
     Error,
@@ -201,6 +208,54 @@ pub fn build_agent_pack(report: &ReportData) -> AgentPack {
         total_findings: findings.len(),
         findings,
     }
+}
+
+pub fn render_agent_pack_markdown(pack: &AgentPack) -> String {
+    let mut out = String::new();
+    out.push_str("# verifyOS Agent Fix Pack\n\n");
+    out.push_str(&format!("- Generated at: `{}`\n", pack.generated_at_unix));
+    out.push_str(&format!("- Total findings: `{}`\n\n", pack.total_findings));
+
+    if pack.findings.is_empty() {
+        out.push_str("## Findings\n\n- No failing findings.\n");
+        return out;
+    }
+
+    let mut findings = pack.findings.clone();
+    findings.sort_by(|a, b| {
+        a.suggested_fix_scope
+            .cmp(&b.suggested_fix_scope)
+            .then_with(|| a.rule_id.cmp(&b.rule_id))
+    });
+
+    out.push_str("## Findings by Fix Scope\n\n");
+
+    let mut current_scope: Option<&str> = None;
+    for finding in &findings {
+        let scope = finding.suggested_fix_scope.as_str();
+        if current_scope != Some(scope) {
+            if current_scope.is_some() {
+                out.push('\n');
+            }
+            out.push_str(&format!("### {}\n\n", scope));
+            current_scope = Some(scope);
+        }
+
+        out.push_str(&format!(
+            "- **{}** (`{}`)\n",
+            finding.rule_name, finding.rule_id
+        ));
+        out.push_str(&format!("  - Priority: `{}`\n", finding.priority));
+        out.push_str(&format!("  - Severity: `{:?}`\n", finding.severity));
+        out.push_str(&format!("  - Category: `{:?}`\n", finding.category));
+        out.push_str(&format!("  - Message: {}\n", finding.message));
+        if let Some(evidence) = &finding.evidence {
+            out.push_str(&format!("  - Evidence: {}\n", evidence));
+        }
+        out.push_str(&format!("  - Recommendation: {}\n", finding.recommendation));
+    }
+
+    out
 }
 
 pub fn top_slow_rules(report: &ReportData, limit: usize) -> Vec<SlowRule> {

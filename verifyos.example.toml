@@ -11,3 +11,4 @@ exclude = []
 # baseline = "baseline.json"
 # md_out = "report.md"
 # agent_pack = "fixes.json"
+# agent_pack_format = "bundle"

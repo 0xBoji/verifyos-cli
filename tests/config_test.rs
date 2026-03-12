@@ -10,6 +10,7 @@ fn runtime_config_uses_file_defaults() {
         profile: Some("basic".to_string()),
         fail_on: Some("warning".to_string()),
         agent_pack: Some("fixes.json".into()),
+        agent_pack_format: Some("markdown".to_string()),
         timings: Some("summary".to_string()),
         include: Some(vec!["RULE_ATS_AUDIT".to_string()]),
         ..FileConfig::default()
@@ -24,6 +25,7 @@ fn runtime_config_uses_file_defaults() {
         runtime.agent_pack.as_deref(),
         Some(std::path::Path::new("fixes.json"))
     );
+    assert_eq!(runtime.agent_pack_format, "markdown");
     assert_eq!(runtime.timings, "summary");
     assert_eq!(runtime.include, vec!["RULE_ATS_AUDIT"]);
 }
@@ -35,6 +37,7 @@ fn runtime_config_prefers_cli_over_file() {
         profile: Some("basic".to_string()),
         fail_on: Some("warning".to_string()),
         agent_pack: Some("file-fixes.json".into()),
+        agent_pack_format: Some("json".to_string()),
         timings: Some("off".to_string()),
         include: Some(vec!["RULE_ATS_AUDIT".to_string()]),
         ..FileConfig::default()
@@ -47,6 +50,7 @@ fn runtime_config_prefers_cli_over_file() {
             profile: Some("full".to_string()),
             fail_on: Some("off".to_string()),
             agent_pack: Some("cli-fixes.json".into()),
+            agent_pack_format: Some("bundle".to_string()),
             timings: Some("full".to_string()),
             include: vec!["RULE_PRIVATE_API".to_string()],
             ..CliOverrides::default()
@@ -60,6 +64,7 @@ fn runtime_config_prefers_cli_over_file() {
         runtime.agent_pack.as_deref(),
         Some(std::path::Path::new("cli-fixes.json"))
     );
+    assert_eq!(runtime.agent_pack_format, "bundle");
     assert_eq!(runtime.timings, "full");
     assert_eq!(runtime.include, vec!["RULE_PRIVATE_API"]);
 }
@@ -75,6 +80,7 @@ format = "json"
 profile = "basic"
 fail_on = "warning"
 agent_pack = "fixes.json"
+agent_pack_format = "markdown"
 timings = "summary"
 include = ["RULE_ATS_AUDIT"]
 "#,
@@ -90,6 +96,7 @@ include = ["RULE_ATS_AUDIT"]
         config.agent_pack.as_deref(),
         Some(std::path::Path::new("fixes.json"))
     );
+    assert_eq!(config.agent_pack_format.as_deref(), Some("markdown"));
     assert_eq!(config.timings.as_deref(), Some("summary"));
     assert_eq!(
         config.include.as_deref(),

@@ -175,6 +175,20 @@ voc --app path/to/YourApp.ipa --agent-pack fixes.json
 
 The agent pack writes a machine-readable JSON file with failing findings only, including `rule_id`, `message`, `evidence`, `recommendation`, `priority`, and `suggested_fix_scope`.
 
+Markdown agent pack:
+
+```bash
+voc --app path/to/YourApp.ipa --agent-pack fixes.md --agent-pack-format markdown
+```
+
+Bundle agent pack:
+
+```bash
+voc --app path/to/YourApp.ipa --agent-pack .verifyos-agent --agent-pack-format bundle
+```
+
+`--agent-pack-format` supports `json`, `markdown`, and `bundle`. `bundle` writes both `agent-pack.json` and `agent-pack.md`, with the Markdown output grouped by `suggested_fix_scope` so AI agents and humans can work from the same fix queue.
+
 Timing summary:
 
 ```bash

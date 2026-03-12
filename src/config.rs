@@ -7,6 +7,7 @@ pub struct FileConfig {
     pub baseline: Option<PathBuf>,
     pub md_out: Option<PathBuf>,
     pub agent_pack: Option<PathBuf>,
+    pub agent_pack_format: Option<String>,
     pub profile: Option<String>,
     pub fail_on: Option<String>,
     pub timings: Option<String>,
@@ -20,6 +21,7 @@ pub struct CliOverrides {
     pub baseline: Option<PathBuf>,
     pub md_out: Option<PathBuf>,
     pub agent_pack: Option<PathBuf>,
+    pub agent_pack_format: Option<String>,
     pub profile: Option<String>,
     pub fail_on: Option<String>,
     pub timings: Option<String>,
@@ -33,6 +35,7 @@ pub struct RuntimeConfig {
     pub baseline: Option<PathBuf>,
     pub md_out: Option<PathBuf>,
     pub agent_pack: Option<PathBuf>,
+    pub agent_pack_format: String,
     pub profile: String,
     pub fail_on: String,
     pub timings: String,
@@ -60,6 +63,10 @@ pub fn resolve_runtime_config(file: FileConfig, cli: CliOverrides) -> RuntimeCon
         baseline: cli.baseline.or(file.baseline),
         md_out: cli.md_out.or(file.md_out),
         agent_pack: cli.agent_pack.or(file.agent_pack),
+        agent_pack_format: cli
+            .agent_pack_format
+            .or(file.agent_pack_format)
+            .unwrap_or_else(|| "json".to_string()),
         profile: cli
             .profile
             .or(file.profile)

@@ -12,8 +12,9 @@ use verifyos_cli::profiles::{
     RuleDetailItem, RuleInventoryItem, RuleSelection, ScanProfile,
 };
 use verifyos_cli::report::{
-    apply_baseline, build_agent_pack, build_report, render_json, render_markdown, render_sarif,
-    render_table, should_exit_with_failure, FailOn, TimingMode,
+    apply_baseline, build_agent_pack, build_report, render_agent_pack_markdown, render_json,
+    render_markdown, render_sarif, render_table, should_exit_with_failure, AgentPackFormat, FailOn,
+    TimingMode,
 };
 
 const HELP_BANNER: &str = r#"
@@ -52,6 +53,13 @@ enum TimingLevel {
     Full,
 }
 
+#[derive(Clone, Debug, ValueEnum)]
+enum AgentPackOutput {
+    Json,
+    Markdown,
+    Bundle,
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None, before_help = HELP_BANNER)]
 struct Args {
@@ -78,6 +86,10 @@ struct Args {
     /// Write a machine-readable fix pack for AI agents
     #[arg(long)]
     agent_pack: Option<PathBuf>,
+
+    /// Agent pack output format: json, markdown, bundle
+    #[arg(long, value_enum)]
+    agent_pack_format: Option<AgentPackOutput>,
 
     /// Scan profile: basic or full
     #[arg(long, value_enum)]
@@ -119,6 +131,7 @@ fn main() -> Result<()> {
             baseline: args.baseline.clone(),
             md_out: args.md_out.clone(),
             agent_pack: args.agent_pack.clone(),
+            agent_pack_format: args.agent_pack_format.map(agent_pack_format_key),
             profile: args.profile.map(profile_key),
             fail_on: args.fail_on.map(fail_on_key),
             timings: args.timings.map(timing_key),
@@ -138,6 +151,7 @@ fn main() -> Result<()> {
     let profile = parse_profile(&runtime.profile)?;
     let fail_on = parse_fail_on(&runtime.fail_on)?;
     let timing_mode = parse_timing_mode(&runtime.timings)?;
+    let agent_pack_format = parse_agent_pack_format(&runtime.agent_pack_format)?;
 
     // 2. Initialize spinner
     let pb = ProgressBar::new_spinner();
@@ -188,8 +202,7 @@ fn main() -> Result<()> {
 
     if let Some(path) = runtime.agent_pack {
         let agent_pack = build_agent_pack(&report);
-        let json = serde_json::to_string_pretty(&agent_pack).into_diagnostic()?;
-        std::fs::write(path, json).into_diagnostic()?;
+        write_agent_pack(&path, &agent_pack, agent_pack_format)?;
     }
 
     // 8. Exit with code 1 if findings meet the configured threshold
@@ -227,6 +240,14 @@ fn timing_key(value: TimingLevel) -> String {
     match value {
         TimingLevel::Summary => "summary".to_string(),
         TimingLevel::Full => "full".to_string(),
+    }
+}
+
+fn agent_pack_format_key(value: AgentPackOutput) -> String {
+    match value {
+        AgentPackOutput::Json => "json".to_string(),
+        AgentPackOutput::Markdown => "markdown".to_string(),
+        AgentPackOutput::Bundle => "bundle".to_string(),
     }
 }
 
@@ -275,6 +296,46 @@ fn parse_timing_mode(value: &str) -> Result<TimingMode> {
             value
         )),
     }
+}
+
+fn parse_agent_pack_format(value: &str) -> Result<AgentPackFormat> {
+    match value.to_ascii_lowercase().as_str() {
+        "json" => Ok(AgentPackFormat::Json),
+        "markdown" => Ok(AgentPackFormat::Markdown),
+        "bundle" => Ok(AgentPackFormat::Bundle),
+        _ => Err(miette::miette!(
+            "Unknown agent pack format `{}`. Expected one of: json, markdown, bundle",
+            value
+        )),
+    }
+}
+
+fn write_agent_pack(
+    path: &std::path::Path,
+    agent_pack: &verifyos_cli::report::AgentPack,
+    format: AgentPackFormat,
+) -> Result<()> {
+    match format {
+        AgentPackFormat::Json => {
+            let json = serde_json::to_string_pretty(agent_pack).into_diagnostic()?;
+            std::fs::write(path, json).into_diagnostic()?;
+        }
+        AgentPackFormat::Markdown => {
+            let markdown = render_agent_pack_markdown(agent_pack);
+            std::fs::write(path, markdown).into_diagnostic()?;
+        }
+        AgentPackFormat::Bundle => {
+            std::fs::create_dir_all(path).into_diagnostic()?;
+            let json_path = path.join("agent-pack.json");
+            let markdown_path = path.join("agent-pack.md");
+            let json = serde_json::to_string_pretty(agent_pack).into_diagnostic()?;
+            let markdown = render_agent_pack_markdown(agent_pack);
+            std::fs::write(json_path, json).into_diagnostic()?;
+            std::fs::write(markdown_path, markdown).into_diagnostic()?;
+        }
+    }
+
+    Ok(())
 }
 
 fn build_rule_selection(

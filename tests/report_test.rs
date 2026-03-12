@@ -1,6 +1,7 @@
 use verifyos_cli::report::{
-    build_agent_pack, render_json, render_markdown, render_sarif, render_table,
-    should_exit_with_failure, top_slow_rules, FailOn, ReportData, ReportItem, SlowRule, TimingMode,
+    build_agent_pack, render_agent_pack_markdown, render_json, render_markdown, render_sarif,
+    render_table, should_exit_with_failure, top_slow_rules, FailOn, ReportData, ReportItem,
+    SlowRule, TimingMode,
 };
 use verifyos_cli::rules::core::{
     ArtifactCacheStats, CacheCounter, RuleCategory, RuleStatus, Severity,
@@ -192,4 +193,31 @@ fn build_agent_pack_extracts_fix_focused_findings() {
     assert_eq!(pack.findings[0].rule_id, "RULE_PRIVATE_API");
     assert_eq!(pack.findings[0].priority, "high");
     assert_eq!(pack.findings[0].suggested_fix_scope, "dependencies");
+}
+
+#[test]
+fn render_agent_pack_markdown_groups_findings_by_scope() {
+    let mut privacy = sample_item(Severity::Warning, RuleStatus::Fail);
+    privacy.rule_id = "RULE_USAGE_DESCRIPTIONS".to_string();
+    privacy.rule_name = "Missing required usage description keys".to_string();
+    privacy.category = RuleCategory::Privacy;
+    privacy.message = Some("Missing NSCameraUsageDescription".to_string());
+    privacy.recommendation = "Add the missing usage description key.".to_string();
+
+    let mut bundle = sample_item(Severity::Error, RuleStatus::Fail);
+    bundle.rule_id = "RULE_BUNDLE_LEAKAGE".to_string();
+    bundle.rule_name = "Sensitive Files in Bundle".to_string();
+    bundle.category = RuleCategory::Bundling;
+    bundle.message = Some("Found .env in app bundle".to_string());
+    bundle.evidence = Some(".env".to_string());
+    bundle.recommendation = "Remove sensitive files from the shipped app bundle.".to_string();
+
+    let report = sample_report(vec![privacy, bundle]);
+    let markdown = render_agent_pack_markdown(&build_agent_pack(&report));
+
+    assert!(markdown.contains("# verifyOS Agent Fix Pack"));
+    assert!(markdown.contains("### Info.plist"));
+    assert!(markdown.contains("### bundle-resources"));
+    assert!(markdown.contains("`RULE_USAGE_DESCRIPTIONS`"));
+    assert!(markdown.contains("`RULE_BUNDLE_LEAKAGE`"));
 }

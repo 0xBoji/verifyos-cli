@@ -179,3 +179,56 @@ fn test_agent_pack_writes_fix_json() {
     assert!(value["findings"][0].get("rule_id").is_some());
     assert!(value["findings"][0].get("suggested_fix_scope").is_some());
 }
+
+#[test]
+fn test_agent_pack_writes_markdown() {
+    let dir = tempdir().expect("temp dir");
+    let output_path = dir.path().join("fixes.md");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "--app",
+            get_example_path("bad_app.ipa").to_str().expect("utf8 path"),
+            "--agent-pack",
+            output_path.to_str().expect("utf8 output path"),
+            "--agent-pack-format",
+            "markdown",
+        ])
+        .output()
+        .expect("agent-pack markdown run should succeed");
+
+    assert!(
+        !output.status.success(),
+        "bad_app should still fail exit threshold"
+    );
+
+    let contents = std::fs::read_to_string(&output_path).expect("agent markdown pack exists");
+    assert!(contents.contains("# verifyOS Agent Fix Pack"));
+    assert!(contents.contains("## Findings by Fix Scope"));
+}
+
+#[test]
+fn test_agent_pack_bundle_writes_json_and_markdown() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("agent-pack");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "--app",
+            get_example_path("bad_app.ipa").to_str().expect("utf8 path"),
+            "--agent-pack",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--agent-pack-format",
+            "bundle",
+        ])
+        .output()
+        .expect("agent-pack bundle run should succeed");
+
+    assert!(
+        !output.status.success(),
+        "bad_app should still fail exit threshold"
+    );
+
+    assert!(output_dir.join("agent-pack.json").exists());
+    assert!(output_dir.join("agent-pack.md").exists());
+}
