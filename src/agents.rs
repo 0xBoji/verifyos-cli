@@ -1,10 +1,14 @@
 use crate::profiles::{rule_inventory, RuleInventoryItem};
+use crate::report::AgentPack;
 use std::path::Path;
 
 const MANAGED_START: &str = "<!-- verifyos-cli:agents:start -->";
 const MANAGED_END: &str = "<!-- verifyos-cli:agents:end -->";
 
-pub fn write_agents_file(path: &Path) -> Result<(), miette::Report> {
+pub fn write_agents_file(
+    path: &Path,
+    agent_pack: Option<&AgentPack>,
+) -> Result<(), miette::Report> {
     let existing = if path.exists() {
         Some(std::fs::read_to_string(path).map_err(|err| {
             miette::miette!(
@@ -17,7 +21,7 @@ pub fn write_agents_file(path: &Path) -> Result<(), miette::Report> {
         None
     };
 
-    let managed_block = build_managed_block();
+    let managed_block = build_managed_block(agent_pack);
     let next = merge_agents_content(existing.as_deref(), &managed_block);
     std::fs::write(path, next)
         .map_err(|err| miette::miette!("Failed to write AGENTS.md at {}: {}", path.display(), err))
@@ -53,7 +57,7 @@ pub fn merge_agents_content(existing: Option<&str>, managed_block: &str) -> Stri
     }
 }
 
-pub fn build_managed_block() -> String {
+pub fn build_managed_block(agent_pack: Option<&AgentPack>) -> String {
     let inventory = rule_inventory();
     let mut out = String::new();
     out.push_str(MANAGED_START);
@@ -73,6 +77,9 @@ pub fn build_managed_block() -> String {
     out.push_str("- Fix `high` priority findings before `medium` and `low`.\n");
     out.push_str("- Treat `Info.plist`, `entitlements`, `ats-config`, and `bundle-resources` as the main fix scopes.\n");
     out.push_str("- Re-run `voc` after edits and compare against the previous agent pack to confirm findings were actually removed.\n\n");
+    if let Some(pack) = agent_pack {
+        append_current_project_risks(&mut out, pack);
+    }
     out.push_str("### Rule Inventory\n\n");
     out.push_str("| Rule ID | Name | Category | Severity | Default Profiles |\n");
     out.push_str("| --- | --- | --- | --- | --- |\n");
@@ -83,6 +90,71 @@ pub fn build_managed_block() -> String {
     out.push_str(MANAGED_END);
     out.push('\n');
     out
+}
+
+fn append_current_project_risks(out: &mut String, pack: &AgentPack) {
+    out.push_str("### Current Project Risks\n\n");
+    if pack.findings.is_empty() {
+        out.push_str(
+            "- Current scan is clean. Re-run `voc` before release to keep this section fresh.\n\n",
+        );
+        return;
+    }
+
+    let mut findings = pack.findings.clone();
+    findings.sort_by(|a, b| {
+        priority_rank(&a.priority)
+            .cmp(&priority_rank(&b.priority))
+            .then_with(|| a.suggested_fix_scope.cmp(&b.suggested_fix_scope))
+            .then_with(|| a.rule_id.cmp(&b.rule_id))
+    });
+
+    out.push_str("| Priority | Rule ID | Scope | Why it matters |\n");
+    out.push_str("| --- | --- | --- | --- |\n");
+    for finding in &findings {
+        out.push_str(&format!(
+            "| `{}` | `{}` | `{}` | {} |\n",
+            finding.priority,
+            finding.rule_id,
+            finding.suggested_fix_scope,
+            finding.why_it_fails_review
+        ));
+    }
+    out.push('\n');
+
+    out.push_str("#### Suggested Patch Order\n\n");
+    for finding in &findings {
+        out.push_str(&format!(
+            "- **{}** (`{}`)\n",
+            finding.rule_name, finding.rule_id
+        ));
+        out.push_str(&format!("  - Priority: `{}`\n", finding.priority));
+        out.push_str(&format!(
+            "  - Fix scope: `{}`\n",
+            finding.suggested_fix_scope
+        ));
+        if !finding.target_files.is_empty() {
+            out.push_str(&format!(
+                "  - Target files: {}\n",
+                finding.target_files.join(", ")
+            ));
+        }
+        out.push_str(&format!(
+            "  - Why it fails review: {}\n",
+            finding.why_it_fails_review
+        ));
+        out.push_str(&format!("  - Patch hint: {}\n", finding.patch_hint));
+    }
+    out.push('\n');
+}
+
+fn priority_rank(priority: &str) -> u8 {
+    match priority {
+        "high" => 0,
+        "medium" => 1,
+        "low" => 2,
+        _ => 3,
+    }
 }
 
 fn inventory_row(item: &RuleInventoryItem) -> String {
@@ -105,10 +177,12 @@ fn managed_block_range(content: &str) -> Option<(usize, usize)> {
 #[cfg(test)]
 mod tests {
     use super::{build_managed_block, merge_agents_content};
+    use crate::report::{AgentFinding, AgentPack};
+    use crate::rules::core::{RuleCategory, Severity};
 
     #[test]
     fn merge_agents_content_creates_new_file_when_missing() {
-        let block = build_managed_block();
+        let block = build_managed_block(None);
         let merged = merge_agents_content(None, &block);
 
         assert!(merged.starts_with("# AGENTS.md"));
@@ -118,7 +192,7 @@ mod tests {
 
     #[test]
     fn merge_agents_content_replaces_existing_managed_block() {
-        let block = build_managed_block();
+        let block = build_managed_block(None);
         let existing = r#"# AGENTS.md
 
 Custom note
@@ -139,5 +213,34 @@ Keep this
             merged.matches("<!-- verifyos-cli:agents:start -->").count(),
             1
         );
+    }
+
+    #[test]
+    fn build_managed_block_includes_current_project_risks_when_scan_exists() {
+        let pack = AgentPack {
+            generated_at_unix: 0,
+            total_findings: 1,
+            findings: vec![AgentFinding {
+                rule_id: "RULE_USAGE_DESCRIPTIONS".to_string(),
+                rule_name: "Missing required usage description keys".to_string(),
+                severity: Severity::Warning,
+                category: RuleCategory::Privacy,
+                priority: "medium".to_string(),
+                message: "Missing NSCameraUsageDescription".to_string(),
+                evidence: None,
+                recommendation: "Add usage descriptions".to_string(),
+                suggested_fix_scope: "Info.plist".to_string(),
+                target_files: vec!["Info.plist".to_string()],
+                patch_hint: "Update Info.plist".to_string(),
+                why_it_fails_review: "Protected APIs require usage strings.".to_string(),
+            }],
+        };
+
+        let block = build_managed_block(Some(&pack));
+
+        assert!(block.contains("### Current Project Risks"));
+        assert!(block.contains("#### Suggested Patch Order"));
+        assert!(block.contains("`RULE_USAGE_DESCRIPTIONS`"));
+        assert!(block.contains("Info.plist"));
     }
 }

@@ -35,7 +35,7 @@ enum OutputFormat {
     Sarif,
 }
 
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Copy, Debug, ValueEnum)]
 enum Profile {
     Basic,
     Full,
@@ -142,13 +142,26 @@ struct InitArgs {
     /// Path to the AGENTS.md file to create or update
     #[arg(long, default_value = "AGENTS.md")]
     path: PathBuf,
+
+    /// Scan an app first and inject current project risks into the managed block
+    #[arg(long)]
+    from_scan: Option<PathBuf>,
+
+    /// Scan profile to use with --from-scan
+    #[arg(long, value_enum, default_value = "full")]
+    profile: Profile,
 }
 
 fn main() -> Result<()> {
     // 1. Parse CLI arguments
     let args = Args::parse();
     if let Some(Commands::Init(init)) = args.command {
-        write_agents_file(&init.path)?;
+        let agent_pack = if let Some(app) = init.from_scan.as_deref() {
+            Some(run_scan_for_agent_pack(app, init.profile)?)
+        } else {
+            None
+        };
+        write_agents_file(&init.path, agent_pack.as_ref())?;
         println!("Updated {}", init.path.display());
         return Ok(());
     }
@@ -304,6 +317,13 @@ fn parse_profile(value: &str) -> Result<ScanProfile> {
     }
 }
 
+fn scan_profile_from_cli(value: Profile) -> ScanProfile {
+    match value {
+        Profile::Basic => ScanProfile::Basic,
+        Profile::Full => ScanProfile::Full,
+    }
+}
+
 fn parse_fail_on(value: &str) -> Result<FailOn> {
     match value.to_ascii_lowercase().as_str() {
         "off" => Ok(FailOn::Off),
@@ -366,6 +386,22 @@ fn write_agent_pack(
     }
 
     Ok(())
+}
+
+fn run_scan_for_agent_pack(
+    app_path: &std::path::Path,
+    profile: Profile,
+) -> Result<verifyos_cli::report::AgentPack> {
+    let mut engine = Engine::new();
+    let selection = RuleSelection::default();
+    let profile = scan_profile_from_cli(profile);
+    register_rules(&mut engine, profile, &selection);
+
+    let run = engine
+        .run(app_path)
+        .map_err(|e| miette::miette!("Engine orchestrator failed: {}", e))?;
+    let report = build_report(run.results, run.total_duration_ms, run.cache_stats);
+    Ok(build_agent_pack(&report))
 }
 
 fn build_rule_selection(

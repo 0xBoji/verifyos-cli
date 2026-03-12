@@ -290,3 +290,29 @@ fn test_init_updates_existing_agents_file_without_removing_custom_content() {
         1
     );
 }
+
+#[test]
+fn test_init_from_scan_injects_current_project_risks() {
+    let dir = tempdir().expect("temp dir");
+    let agents_path = dir.path().join("AGENTS.md");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "init",
+            "--path",
+            agents_path.to_str().expect("utf8 agents path"),
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+        ])
+        .output()
+        .expect("init from scan should run");
+
+    assert!(output.status.success());
+
+    let contents = std::fs::read_to_string(&agents_path).expect("agents file should exist");
+    assert!(contents.contains("### Current Project Risks"));
+    assert!(contents.contains("#### Suggested Patch Order"));
+    assert!(contents.contains("Missing Privacy Manifest"));
+}

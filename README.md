@@ -163,10 +163,23 @@ Write to a custom path:
 voc init --path docs/AGENTS.md
 ```
 
+Scan an app first and inject the current failing rules into `AGENTS.md`:
+
+```bash
+voc init --from-scan path/to/YourApp.ipa
+```
+
+Use a lighter profile when you only want a quick playbook refresh:
+
+```bash
+voc init --from-scan path/to/YourApp.ipa --profile basic
+```
+
 The generated block includes:
 - a recommended `voc` workflow for quick and release scans
 - AI agent fix-loop rules
 - a live rule inventory with `rule_id`, category, severity, and default profiles
+- an optional `Current Project Risks` section with priority order and suggested fix scopes from the latest scan
 
 `voc init` uses a managed block, so you can safely keep your own notes above or below it.
 
