@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/0xBoji/verifyos-cli/compare/v0.3.0...v0.3.1) - 2026-03-12
+
+### Added
+
+- *(cli)* add rule inventory
+
+### Other
+
+- *(crate)* improve ai-agent positioning
+- Merge pull request #13 from 0xBoji/chore/release-plz2026-03-12T06-28-25Z
+- *(crate)* add ai keywords
+
 ## [0.3.0](https://github.com/0xBoji/verifyos-cli/compare/v0.2.3...v0.3.0) - 2026-03-12
 
 ### Added
