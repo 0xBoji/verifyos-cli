@@ -172,6 +172,10 @@ fn main() -> Result<()> {
     // 1. Parse CLI arguments
     let args = Args::parse();
     if let Some(Commands::Init(init)) = args.command {
+        let effective_agent_pack_dir = init
+            .agent_pack_dir
+            .clone()
+            .unwrap_or_else(|| PathBuf::from(".verifyos-agent"));
         let agent_pack = if let Some(app) = init.from_scan.as_deref() {
             Some(run_scan_for_agent_pack(
                 app,
@@ -181,15 +185,13 @@ fn main() -> Result<()> {
         } else {
             None
         };
-        if let (Some(dir), Some(pack)) = (init.agent_pack_dir.as_deref(), agent_pack.as_ref()) {
-            write_agent_pack(dir, pack, AgentPackFormat::Bundle)?;
+        if let Some(pack) = agent_pack.as_ref() {
+            if init.agent_pack_dir.is_some() || init.shell_script {
+                write_agent_pack(&effective_agent_pack_dir, pack, AgentPackFormat::Bundle)?;
+            }
         }
         if init.shell_script {
-            let script_path = init
-                .agent_pack_dir
-                .as_deref()
-                .map(|dir| dir.join("next-steps.sh"))
-                .unwrap_or_else(|| PathBuf::from(".verifyos-agent").join("next-steps.sh"));
+            let script_path = effective_agent_pack_dir.join("next-steps.sh");
             let command_hints = CommandHints {
                 app_path: init
                     .from_scan
@@ -199,13 +201,7 @@ fn main() -> Result<()> {
                     .baseline
                     .as_deref()
                     .map(|path| path.display().to_string()),
-                agent_pack_dir: Some(
-                    init.agent_pack_dir
-                        .as_deref()
-                        .unwrap_or_else(|| std::path::Path::new(".verifyos-agent"))
-                        .display()
-                        .to_string(),
-                ),
+                agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
                 profile: Some(profile_key(init.profile)),
                 shell_script: true,
             };
@@ -220,17 +216,14 @@ fn main() -> Result<()> {
                 .baseline
                 .as_deref()
                 .map(|path| path.display().to_string()),
-            agent_pack_dir: init
-                .agent_pack_dir
-                .as_deref()
-                .map(|path| path.display().to_string()),
+            agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
             profile: Some(profile_key(init.profile)),
             shell_script: init.shell_script,
         });
         write_agents_file(
             &init.path,
             agent_pack.as_ref(),
-            init.agent_pack_dir.as_deref(),
+            Some(&effective_agent_pack_dir),
             command_hints.as_ref(),
         )?;
         println!("Updated {}", init.path.display());

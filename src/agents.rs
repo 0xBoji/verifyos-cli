@@ -154,20 +154,28 @@ fn append_next_commands(out: &mut String, hints: &CommandHints) {
         shell_quote(agent_pack_dir)
     ));
     if let Some(baseline) = hints.baseline_path.as_deref() {
-        out.push_str(&format!(
-            "voc init --from-scan {} --profile {} --baseline {} --agent-pack-dir {} --write-commands\n",
+        let mut cmd = format!(
+            "voc init --from-scan {} --profile {} --baseline {} --agent-pack-dir {} --write-commands",
             shell_quote(app_path),
             profile,
             shell_quote(baseline),
             shell_quote(agent_pack_dir)
-        ));
+        );
+        if hints.shell_script {
+            cmd.push_str(" --shell-script");
+        }
+        out.push_str(&format!("{cmd}\n"));
     } else {
-        out.push_str(&format!(
-            "voc init --from-scan {} --profile {} --agent-pack-dir {} --write-commands\n",
+        let mut cmd = format!(
+            "voc init --from-scan {} --profile {} --agent-pack-dir {} --write-commands",
             shell_quote(app_path),
             profile,
             shell_quote(agent_pack_dir)
-        ));
+        );
+        if hints.shell_script {
+            cmd.push_str(" --shell-script");
+        }
+        out.push_str(&format!("{cmd}\n"));
     }
     out.push_str("```\n\n");
 }
@@ -358,5 +366,6 @@ Keep this
         assert!(block.contains("--baseline baseline.json"));
         assert!(block.contains("--write-commands"));
         assert!(block.contains(".verifyos-agent/next-steps.sh"));
+        assert!(block.contains("--shell-script"));
     }
 }

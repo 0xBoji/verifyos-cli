@@ -460,3 +460,35 @@ fn test_init_shell_script_writes_next_steps_and_mentions_it() {
     assert!(contents.contains("### Next Commands"));
     assert!(contents.contains("next-steps.sh"));
 }
+
+#[test]
+fn test_init_shell_script_without_agent_pack_dir_creates_default_bundle() {
+    let dir = tempdir().expect("temp dir");
+    let agents_path = dir.path().join("AGENTS.md");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .current_dir(dir.path())
+        .args([
+            "init",
+            "--path",
+            agents_path.to_str().expect("utf8 agents path"),
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--shell-script",
+        ])
+        .output()
+        .expect("init shell script without dir should run");
+
+    assert!(output.status.success());
+
+    let default_dir = dir.path().join(".verifyos-agent");
+    assert!(default_dir.join("agent-pack.json").exists());
+    assert!(default_dir.join("agent-pack.md").exists());
+    assert!(default_dir.join("next-steps.sh").exists());
+
+    let contents = std::fs::read_to_string(&agents_path).expect("agents file should exist");
+    assert!(contents.contains(".verifyos-agent/agent-pack.md"));
+    assert!(contents.contains(".verifyos-agent/next-steps.sh"));
+}
