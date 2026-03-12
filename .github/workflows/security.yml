@@ -2,6 +2,7 @@ name: Security Audit
 
 permissions:
   contents: read
+  checks: write
 
 on:
   push:
