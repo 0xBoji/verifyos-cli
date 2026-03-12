@@ -18,9 +18,9 @@
   </a>
 </p>
 
-`verifyOS-cli` is a pure Rust, cross-platform CLI tool designed to scan Apple app bundles (like `.ipa`, `.app`, `Info.plist`, and Mach-O binaries) for App Store rejection risks before submission. Operating locally or within an automated CI pipeline, it catches potential App Store Connect rejections left of the build process.
+`verifyOS-cli` is an AI agent-friendly, pure Rust CLI for scanning Apple app bundles (like `.ipa`, `.app`, `Info.plist`, and Mach-O binaries) for App Store rejection risks before submission. It is built for developers, vibecoders, and automation workflows that want fast, local feedback before App Store Connect becomes the bottleneck.
 
-The App Store Connect validation step is historically a "black box" that costs developers hours of waiting. By shifting validation to your local machine—or a fast, cheap Linux runner—verifyOS-cli empowers solo developers and robust teams alike. Unlike Apple's toolchain (`codesign`, `otool`), this tool is built entirely in Rust.
+The App Store Connect validation step is historically a "black box" that costs developers hours of waiting. By shifting validation to your local machine, CI runner, or AI agent loop, verifyOS-cli helps teams catch rejection risks early and produce structured output an agent can use to patch issues faster. Unlike Apple's toolchain (`codesign`, `otool`), this tool is built entirely in Rust.
 
 ## What it does
 
