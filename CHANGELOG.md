@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/0xBoji/verifyos-cli/compare/v0.4.0...v0.5.0) - 2026-03-13
+
+### Added
+
+- *(doctor)* add repair plans and freshness source
+- *(doctor)* support selective repairs
+- *(ci)* add pr comment renderer command
+- *(doctor)* warn on stale agent assets
+- *(config)* add init and doctor defaults
+- *(doctor)* validate next steps script
+- *(cli)* add doctor pr comment output
+- enhance doctor/init commands and add curl installation to README
+- *(cli)* add doctor pr brief output
+- *(cli)* refresh doctor fixes from scans
+
+### Other
+
+- *(ci)* expose doctor repair and comment mode
+- *(cli)* escape config paths for windows
+- *(ci)* use pr comment artifact in workflow
+- *(cli)* make doctor context check path-agnostic
+- *(ci)* align release workflows with voc
+- add commit discipline rules
+
 ## [0.4.0](https://github.com/0xBoji/verifyos-cli/compare/v0.3.1...v0.4.0) - 2026-03-12
 
 ### Added
