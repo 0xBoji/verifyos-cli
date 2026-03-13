@@ -1,4 +1,4 @@
-use crate::{AgentPackOutput, FailOnLevel, OutputFormat, Profile, TimingLevel};
+use crate::{AgentPackOutput, FailOnLevel, OutputFormat, TimingLevel};
 use miette::Result;
 use std::collections::HashSet;
 use verifyos_cli::profiles::{available_rule_ids, normalize_rule_id, RuleSelection, ScanProfile};
@@ -12,10 +12,10 @@ pub fn output_format_key(value: OutputFormat) -> String {
     }
 }
 
-pub fn profile_key(value: Profile) -> String {
+pub fn profile_key(value: ScanProfile) -> String {
     match value {
-        Profile::Basic => "basic".to_string(),
-        Profile::Full => "full".to_string(),
+        ScanProfile::Basic => "basic".to_string(),
+        ScanProfile::Full => "full".to_string(),
     }
 }
 
@@ -65,26 +65,8 @@ pub fn parse_profile(value: &str) -> Result<ScanProfile> {
     }
 }
 
-pub fn parse_cli_profile(value: &str) -> Result<Profile> {
-    match value.to_ascii_lowercase().as_str() {
-        "basic" => Ok(Profile::Basic),
-        "full" => Ok(Profile::Full),
-        _ => Err(miette::miette!(
-            "Unknown profile `{}`. Expected one of: basic, full",
-            value
-        )),
-    }
-}
-
-pub fn parse_optional_cli_profile(value: Option<&str>) -> Result<Option<Profile>> {
-    value.map(parse_cli_profile).transpose()
-}
-
-pub fn scan_profile_from_cli(value: Profile) -> ScanProfile {
-    match value {
-        Profile::Basic => ScanProfile::Basic,
-        Profile::Full => ScanProfile::Full,
-    }
+pub fn parse_optional_cli_profile(value: Option<&str>) -> Result<Option<ScanProfile>> {
+    value.map(parse_profile).transpose()
 }
 
 pub fn parse_fail_on(value: &str) -> Result<FailOn> {

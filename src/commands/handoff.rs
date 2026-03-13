@@ -5,9 +5,10 @@ use std::path::PathBuf;
 
 use verifyos_cli::agent_assets::{AgentAssetLayout, HANDOFF_MANIFEST_NAME};
 use verifyos_cli::config::FileConfig;
+use verifyos_cli::profiles::ScanProfile;
 
 use crate::commands::doctor::{run as run_doctor, DoctorArgs};
-use crate::{OutputFormat, Profile};
+use crate::OutputFormat;
 
 #[derive(Debug, Parser)]
 pub struct HandoffArgs {
@@ -25,7 +26,7 @@ pub struct HandoffArgs {
 
     /// Scan profile to use for the handoff refresh
     #[arg(long, value_enum)]
-    pub profile: Option<Profile>,
+    pub profile: Option<ScanProfile>,
 
     /// Output format for doctor results
     #[arg(long, value_enum)]

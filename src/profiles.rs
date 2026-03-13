@@ -18,11 +18,13 @@ use crate::rules::privacy_manifest::PrivacyManifestCompletenessRule;
 use crate::rules::privacy_sdk::PrivacyManifestSdkCrossCheckRule;
 use crate::rules::private_api::PrivateApiRule;
 use crate::rules::signing::EmbeddedCodeSignatureTeamRule;
+use clap::ValueEnum;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ScanProfile {
     Basic,
     Full,

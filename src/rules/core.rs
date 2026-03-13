@@ -360,7 +360,7 @@ fn collect_bundle_files(root: &Path, files: &mut Vec<PathBuf>) {
     }
 }
 
-pub trait AppStoreRule {
+pub trait AppStoreRule: Send + Sync {
     fn id(&self) -> &'static str;
     fn name(&self) -> &'static str;
     fn category(&self) -> RuleCategory;

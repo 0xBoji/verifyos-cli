@@ -55,6 +55,15 @@ impl Engine {
             .map_err(|e| OrchestratorError::Extraction(ExtractionError::Io(e)))?
             .ok_or(OrchestratorError::AppBundleNotFound)?;
 
+        self.run_on_bundle(&app_bundle_path, run_started)
+    }
+
+    pub fn run_on_bundle<P: AsRef<Path>>(
+        &self,
+        app_bundle_path: P,
+        run_started: Instant,
+    ) -> Result<EngineRun, OrchestratorError> {
+        let app_bundle_path = app_bundle_path.as_ref();
         let info_plist_path = app_bundle_path.join("Info.plist");
         let info_plist = if info_plist_path.exists() {
             Some(InfoPlist::from_file(&info_plist_path)?)
@@ -62,7 +71,7 @@ impl Engine {
             None
         };
 
-        let context = ArtifactContext::new(&app_bundle_path, info_plist.as_ref());
+        let context = ArtifactContext::new(app_bundle_path, info_plist.as_ref());
 
         let mut results = Vec::new();
 

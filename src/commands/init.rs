@@ -9,7 +9,8 @@ use verifyos_cli::config::FileConfig;
 use verifyos_cli::report::{AgentPack, AgentPackFormat};
 
 use crate::commands::support::{parse_optional_cli_profile, profile_key};
-use crate::{run_scan_for_agent_pack, Profile};
+use crate::run_scan_for_agent_pack;
+use verifyos_cli::profiles::ScanProfile;
 
 #[derive(Debug, Parser)]
 pub struct InitArgs {
@@ -47,7 +48,7 @@ pub struct InitArgs {
 
     /// Scan profile to use with --from-scan
     #[arg(long, value_enum)]
-    pub profile: Option<Profile>,
+    pub profile: Option<ScanProfile>,
 }
 
 pub fn run(init: InitArgs, file_config: &FileConfig) -> Result<()> {
@@ -57,7 +58,7 @@ pub fn run(init: InitArgs, file_config: &FileConfig) -> Result<()> {
         .or(parse_optional_cli_profile(
             init_defaults.profile.as_deref(),
         )?)
-        .unwrap_or(Profile::Full);
+        .unwrap_or(ScanProfile::Full);
     let effective_output_dir = init
         .output_dir
         .clone()
@@ -166,7 +167,7 @@ fn build_command_hints(
     effective_output_dir: &Path,
     effective_agent_pack_dir: &Path,
     effective_fix_prompt_path: &Path,
-    init_profile: Profile,
+    init_profile: ScanProfile,
     shell_script: bool,
     fix_prompt: bool,
 ) -> CommandHints {

@@ -10,6 +10,7 @@ use commands::analyze_size::{run as run_analyze_size_command, AnalyzeSizeArgs};
 use commands::doctor::{run as run_doctor_command, DoctorArgs};
 use commands::handoff::{run as run_handoff_command, HandoffArgs};
 use commands::init::{run as run_init_command, InitArgs};
+use commands::lsp::{run as run_lsp_command, LspArgs};
 use commands::pr_comment::{run as run_pr_comment_command, PrCommentArgs};
 use commands::support::{
     agent_pack_format_key, build_rule_selection, fail_on_key, output_format_key,
@@ -21,6 +22,7 @@ use verifyos_cli::config::{load_file_config, resolve_runtime_config, CliOverride
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::profiles::{
     register_rules, rule_detail, rule_inventory, RuleDetailItem, RuleInventoryItem, RuleSelection,
+    ScanProfile,
 };
 use verifyos_cli::report::{
     apply_agent_pack_baseline, apply_baseline, build_agent_pack, build_report,
@@ -43,12 +45,6 @@ enum OutputFormat {
     Table,
     Json,
     Sarif,
-}
-
-#[derive(Clone, Copy, Debug, ValueEnum)]
-enum Profile {
-    Basic,
-    Full,
 }
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -114,7 +110,7 @@ struct Args {
 
     /// Scan profile: basic or full
     #[arg(long, value_enum)]
-    profile: Option<Profile>,
+    profile: Option<ScanProfile>,
 
     /// Exit with code 1 when findings reach this severity threshold
     #[arg(long, value_enum)]
@@ -153,6 +149,8 @@ enum Commands {
     Handoff(HandoffArgs),
     /// Render a sticky PR comment body from an output directory
     PrComment(PrCommentArgs),
+    /// Start the verifyOS Language Server (LSP)
+    Lsp(LspArgs),
 }
 
 fn main() -> Result<()> {
@@ -173,6 +171,9 @@ fn main() -> Result<()> {
     }
     if let Some(Commands::PrComment(pr_comment)) = args.command {
         return run_pr_comment_command(pr_comment);
+    }
+    if let Some(Commands::Lsp(lsp)) = args.command {
+        return run_lsp_command(lsp);
     }
 
     let runtime = resolve_runtime_config(
@@ -294,12 +295,11 @@ fn write_agent_pack(
 
 fn run_scan_for_agent_pack(
     app_path: &std::path::Path,
-    profile: Profile,
+    profile: ScanProfile,
     baseline_path: Option<&std::path::Path>,
 ) -> Result<verifyos_cli::report::AgentPack> {
     let mut engine = Engine::new();
     let selection = RuleSelection::default();
-    let profile = commands::support::scan_profile_from_cli(profile);
     register_rules(&mut engine, profile, &selection);
 
     let run = engine
@@ -343,7 +343,7 @@ fn render_rule_inventory_table(items: &[RuleInventoryItem]) -> String {
         "Name",
         "Category",
         "Severity",
-        "Default Profiles",
+        "Default ScanProfiles",
     ]);
 
     for item in items {
@@ -389,7 +389,10 @@ fn render_rule_detail_table(item: &RuleDetailItem) -> String {
     table.add_row(vec!["Name", item.name.as_str()]);
     table.add_row(vec!["Category", &format!("{:?}", item.category)]);
     table.add_row(vec!["Severity", &format!("{:?}", item.severity)]);
-    table.add_row(vec!["Default Profiles", &item.default_profiles.join(", ")]);
+    table.add_row(vec![
+        "Default ScanProfiles",
+        &item.default_profiles.join(", "),
+    ]);
     table.add_row(vec!["Recommendation", item.recommendation.as_str()]);
     table.to_string()
 }
