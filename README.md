@@ -53,7 +53,7 @@ This installs the `voc` binary for the CLI.
 
 ### VS Code extension
 
-This repo also includes a thin VS Code extension in [`editors/vscode`](/Volumes/0xbojissd/learn/rust/verifyOS-cli/editors/vscode). The extension starts `voc lsp` instead of re-implementing rules in TypeScript, so the Rust CLI stays the single source of truth for diagnostics.
+This repo also includes a thin VS Code extension in [`editors/vscode`](/Volumes/0xbojissd/learn/rust/verifyOS-cli/editors/vscode). The extension starts `voc lsp` instead of re-implementing rules in TypeScript, so the Rust CLI stays the single source of truth for diagnostics. Marketplace builds can also bundle prebuilt `voc` binaries for zero-config startup on supported platforms.
 
 For local development:
 
@@ -66,7 +66,7 @@ npm run compile
 For packaging and publishing:
 
 - `npm run package` builds a `.vsix`
-- `.github/workflows/vscode-extension.yml` packages the extension on tags and can publish to the VS Code Marketplace and Open VSX when credentials are configured
+- `.github/workflows/vscode-extension.yml` packages the extension on tags, bundles prebuilt `voc` binaries for macOS/Linux/Windows, and can publish to the VS Code Marketplace and Open VSX when credentials are configured
 
 ### From Release (via curl)
 
