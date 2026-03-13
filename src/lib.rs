@@ -1,3 +1,4 @@
+pub mod agent_assets;
 pub mod agents;
 pub mod ci_comment;
 pub mod config;

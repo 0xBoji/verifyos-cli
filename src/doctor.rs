@@ -1,3 +1,4 @@
+use crate::agent_assets::RepairPlanItem;
 use crate::config::load_file_config;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -22,13 +23,6 @@ pub struct DoctorReport {
     pub checks: Vec<DoctorCheck>,
     #[serde(default)]
     pub repair_plan: Vec<RepairPlanItem>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RepairPlanItem {
-    pub target: String,
-    pub path: String,
-    pub reason: String,
 }
 
 impl DoctorReport {
@@ -404,6 +398,7 @@ fn resolve_reference(agents_path: &Path, reference: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::{run_doctor, DoctorStatus};
+    use crate::agent_assets::AgentAssetLayout;
     use std::fs;
     use std::time::Duration;
     use tempfile::tempdir;
@@ -411,7 +406,8 @@ mod tests {
     #[test]
     fn doctor_warns_when_agents_is_missing() {
         let dir = tempdir().expect("temp dir");
-        let report = run_doctor(None, &dir.path().join("AGENTS.md"), None);
+        let layout = AgentAssetLayout::from_output_dir(dir.path());
+        let report = run_doctor(None, &layout.agents_path, None);
 
         assert_eq!(report.checks[1].status, DoctorStatus::Warn);
     }
@@ -419,7 +415,8 @@ mod tests {
     #[test]
     fn doctor_fails_when_referenced_assets_are_missing() {
         let dir = tempdir().expect("temp dir");
-        let agents = dir.path().join("AGENTS.md");
+        let layout = AgentAssetLayout::from_output_dir(dir.path());
+        let agents = layout.agents_path.clone();
         fs::write(
             &agents,
             "### Current Project Risks\n\n- Agent bundle: `.verifyos-agent/agent-pack.json` and `.verifyos-agent/agent-pack.md`\n",
@@ -435,8 +432,9 @@ mod tests {
     #[test]
     fn doctor_warns_when_assets_are_older_than_report() {
         let dir = tempdir().expect("temp dir");
-        let agents = dir.path().join("AGENTS.md");
-        let script_dir = dir.path().join(".verifyos-agent");
+        let layout = AgentAssetLayout::from_output_dir(dir.path());
+        let agents = layout.agents_path.clone();
+        let script_dir = layout.agent_bundle_dir.clone();
         fs::create_dir_all(&script_dir).expect("create script dir");
         fs::write(
             script_dir.join("next-steps.sh"),
@@ -461,8 +459,9 @@ mod tests {
     #[test]
     fn doctor_passes_when_assets_are_fresh_against_report() {
         let dir = tempdir().expect("temp dir");
-        let agents = dir.path().join("AGENTS.md");
-        let script_dir = dir.path().join(".verifyos-agent");
+        let layout = AgentAssetLayout::from_output_dir(dir.path());
+        let agents = layout.agents_path.clone();
+        let script_dir = layout.agent_bundle_dir.clone();
         fs::create_dir_all(&script_dir).expect("create script dir");
         fs::write(dir.path().join("report.sarif"), "{}").expect("write report");
         std::thread::sleep(Duration::from_secs(1));
@@ -486,8 +485,9 @@ mod tests {
     #[test]
     fn doctor_fails_when_next_steps_script_drifts_from_agents_block() {
         let dir = tempdir().expect("temp dir");
-        let agents = dir.path().join("AGENTS.md");
-        let script_dir = dir.path().join(".verifyos-agent");
+        let layout = AgentAssetLayout::from_output_dir(dir.path());
+        let agents = layout.agents_path.clone();
+        let script_dir = layout.agent_bundle_dir.clone();
         fs::create_dir_all(&script_dir).expect("create script dir");
         fs::write(
             script_dir.join("next-steps.sh"),
@@ -510,11 +510,12 @@ mod tests {
     #[test]
     fn doctor_passes_when_next_steps_script_matches_agents_block() {
         let dir = tempdir().expect("temp dir");
-        let agents = dir.path().join("AGENTS.md");
-        let script_dir = dir.path().join(".verifyos-agent");
+        let layout = AgentAssetLayout::from_output_dir(dir.path());
+        let agents = layout.agents_path.clone();
+        let script_dir = layout.agent_bundle_dir.clone();
         fs::create_dir_all(&script_dir).expect("create script dir");
-        fs::write(dir.path().join("pr-brief.md"), "brief").expect("write brief");
-        fs::write(dir.path().join("pr-comment.md"), "comment").expect("write comment");
+        fs::write(&layout.pr_brief_path, "brief").expect("write brief");
+        fs::write(&layout.pr_comment_path, "comment").expect("write comment");
         fs::write(
             script_dir.join("next-steps.sh"),
             "#!/usr/bin/env bash\nset -euo pipefail\nvoc --app path/to/app.ipa --profile basic\nvoc doctor --output-dir .verifyos --fix --from-scan path/to/app.ipa --profile basic --open-pr-brief --open-pr-comment\n",

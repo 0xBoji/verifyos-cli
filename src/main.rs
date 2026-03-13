@@ -5,13 +5,14 @@ use miette::{IntoDiagnostic, Result};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use verifyos_cli::agent_assets::{build_repair_plan, AgentAssetLayout, RepairPolicy, RepairTarget};
 use verifyos_cli::agents::{
     render_fix_prompt, render_pr_brief, render_pr_comment, write_agents_file, CommandHints,
 };
 use verifyos_cli::ci_comment::render_workflow_pr_comment;
 use verifyos_cli::config::{load_file_config, resolve_runtime_config, CliOverrides};
 use verifyos_cli::core::engine::Engine;
-use verifyos_cli::doctor::{run_doctor, DoctorReport, DoctorStatus, RepairPlanItem};
+use verifyos_cli::doctor::{run_doctor, DoctorReport, DoctorStatus};
 use verifyos_cli::profiles::{
     available_rule_ids, normalize_rule_id, register_rules, rule_detail, rule_inventory,
     RuleDetailItem, RuleInventoryItem, RuleSelection, ScanProfile,
@@ -65,21 +66,10 @@ enum AgentPackOutput {
     Bundle,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, ValueEnum)]
-enum RepairTarget {
-    Agents,
-    AgentBundle,
-    FixPrompt,
-    PrBrief,
-    PrComment,
-}
-
 #[derive(Debug, Clone)]
 struct DoctorRepairOptions {
     profile: Profile,
-    open_pr_brief: bool,
-    open_pr_comment: bool,
-    repair_targets: HashSet<RepairTarget>,
+    policy: RepairPolicy,
 }
 
 #[derive(Parser, Debug)]
@@ -296,17 +286,19 @@ fn main() -> Result<()> {
             .clone()
             .or(init_defaults.output_dir.clone())
             .unwrap_or_else(|| PathBuf::from("."));
+        let mut layout = AgentAssetLayout::from_output_dir(&effective_output_dir);
         let effective_agents_path = init
             .path
             .clone()
             .or(init_defaults.path.clone())
-            .unwrap_or_else(|| effective_output_dir.join("AGENTS.md"));
+            .unwrap_or_else(|| layout.agents_path.clone());
+        layout = layout.with_agents_path(&effective_agents_path);
         let effective_agent_pack_dir = init
             .agent_pack_dir
             .clone()
             .or(init_defaults.agent_pack_dir.clone())
-            .unwrap_or_else(|| effective_output_dir.join(".verifyos-agent"));
-        let effective_fix_prompt_path = effective_output_dir.join("fix-prompt.md");
+            .unwrap_or_else(|| layout.agent_bundle_dir.clone());
+        let effective_fix_prompt_path = layout.fix_prompt_path.clone();
         let write_commands = init.write_commands || init_defaults.write_commands.unwrap_or(false);
         let shell_script = init.shell_script || init_defaults.shell_script.unwrap_or(false);
         let fix_prompt = init.fix_prompt || init_defaults.fix_prompt.unwrap_or(false);
@@ -405,10 +397,12 @@ fn main() -> Result<()> {
             .output_dir
             .or(doctor_defaults.output_dir.clone())
             .unwrap_or_else(|| PathBuf::from("."));
+        let mut layout = AgentAssetLayout::from_output_dir(&output_dir);
         let agents_path = doctor
             .agents
             .or(doctor_defaults.agents.clone())
-            .unwrap_or_else(|| output_dir.join("AGENTS.md"));
+            .unwrap_or_else(|| layout.agents_path.clone());
+        layout = layout.with_agents_path(&agents_path);
         let repair_targets: HashSet<RepairTarget> = doctor.repair.iter().copied().collect();
         let should_fix =
             doctor.fix || doctor_defaults.fix.unwrap_or(false) || !repair_targets.is_empty();
@@ -418,13 +412,10 @@ fn main() -> Result<()> {
         if should_fix {
             let repair_options = DoctorRepairOptions {
                 profile: doctor_profile,
-                open_pr_brief,
-                open_pr_comment,
-                repair_targets: repair_targets.clone(),
+                policy: RepairPolicy::new(repair_targets.clone(), open_pr_brief, open_pr_comment),
             };
             repair_doctor_setup(
-                &output_dir,
-                &agents_path,
+                &layout,
                 doctor.from_scan.as_deref(),
                 doctor.baseline.as_deref(),
                 &repair_options,
@@ -432,17 +423,12 @@ fn main() -> Result<()> {
         }
         let mut report = run_doctor(
             doctor.config.as_deref(),
-            &agents_path,
+            &layout.agents_path,
             doctor.freshness_against.as_deref(),
         );
         if doctor.plan {
-            report.repair_plan = build_repair_plan(
-                &output_dir,
-                &agents_path,
-                &repair_targets,
-                open_pr_brief,
-                open_pr_comment,
-            );
+            let policy = RepairPolicy::new(repair_targets, open_pr_brief, open_pr_comment);
+            report.repair_plan = build_repair_plan(&layout, &policy);
         }
         render_doctor_report(&report, doctor_format)?;
         if report.has_failures() {
@@ -710,99 +696,31 @@ fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<(
     Ok(())
 }
 
-fn build_repair_plan(
-    output_dir: &std::path::Path,
-    agents_path: &std::path::Path,
-    repair_targets: &HashSet<RepairTarget>,
-    open_pr_brief: bool,
-    open_pr_comment: bool,
-) -> Vec<RepairPlanItem> {
-    let repair_all = repair_targets.is_empty();
-    let mut plan = Vec::new();
-
-    if repair_all || repair_targets.contains(&RepairTarget::Agents) {
-        plan.push(RepairPlanItem {
-            target: "agents".to_string(),
-            path: agents_path.display().to_string(),
-            reason: "refresh managed AGENTS.md block".to_string(),
-        });
-    }
-
-    if repair_all || repair_targets.contains(&RepairTarget::AgentBundle) {
-        plan.push(RepairPlanItem {
-            target: "agent-bundle".to_string(),
-            path: output_dir.join(".verifyos-agent").display().to_string(),
-            reason: "rebuild agent-pack files and next-steps.sh".to_string(),
-        });
-    }
-
-    if repair_all || repair_targets.contains(&RepairTarget::FixPrompt) {
-        plan.push(RepairPlanItem {
-            target: "fix-prompt".to_string(),
-            path: output_dir.join("fix-prompt.md").display().to_string(),
-            reason: "refresh AI fix prompt".to_string(),
-        });
-    }
-
-    if open_pr_brief || repair_targets.contains(&RepairTarget::PrBrief) {
-        plan.push(RepairPlanItem {
-            target: "pr-brief".to_string(),
-            path: output_dir.join("pr-brief.md").display().to_string(),
-            reason: "refresh PR handoff brief".to_string(),
-        });
-    }
-
-    if open_pr_comment || repair_targets.contains(&RepairTarget::PrComment) {
-        plan.push(RepairPlanItem {
-            target: "pr-comment".to_string(),
-            path: output_dir.join("pr-comment.md").display().to_string(),
-            reason: "refresh sticky PR comment draft".to_string(),
-        });
-    }
-
-    plan
-}
-
 fn repair_doctor_setup(
-    output_dir: &std::path::Path,
-    agents_path: &std::path::Path,
+    layout: &AgentAssetLayout,
     from_scan: Option<&std::path::Path>,
     baseline_path: Option<&std::path::Path>,
     options: &DoctorRepairOptions,
 ) -> Result<()> {
-    std::fs::create_dir_all(output_dir).into_diagnostic()?;
+    std::fs::create_dir_all(&layout.output_dir).into_diagnostic()?;
+    std::fs::create_dir_all(&layout.agent_bundle_dir).into_diagnostic()?;
 
-    let agent_pack_dir = output_dir.join(".verifyos-agent");
-    let agent_pack_json = agent_pack_dir.join("agent-pack.json");
-    let script_path = agent_pack_dir.join("next-steps.sh");
-    let fix_prompt_path = output_dir.join("fix-prompt.md");
-    let pr_brief_path = output_dir.join("pr-brief.md");
-    let pr_comment_path = output_dir.join("pr-comment.md");
-
-    std::fs::create_dir_all(&agent_pack_dir).into_diagnostic()?;
-
-    let inferred_hints = infer_existing_command_hints(output_dir, agents_path);
-    let selected = &options.repair_targets;
-    let repair_all = selected.is_empty();
-    let should_repair_agents = repair_all || selected.contains(&RepairTarget::Agents);
-    let should_repair_bundle = repair_all || selected.contains(&RepairTarget::AgentBundle);
-    let should_repair_fix_prompt = repair_all || selected.contains(&RepairTarget::FixPrompt);
-    let should_repair_pr_brief = repair_all || selected.contains(&RepairTarget::PrBrief);
-    let should_repair_pr_comment = repair_all || selected.contains(&RepairTarget::PrComment);
-    let should_open_pr_brief =
-        options.open_pr_brief || inferred_hints.pr_brief_path.is_some() || should_repair_pr_brief;
-    let should_open_pr_comment = options.open_pr_comment
+    let inferred_hints = infer_existing_command_hints(layout);
+    let should_open_pr_brief = options.policy.open_pr_brief
+        || inferred_hints.pr_brief_path.is_some()
+        || options.policy.should_repair_pr_brief();
+    let should_open_pr_comment = options.policy.open_pr_comment
         || inferred_hints.pr_comment_path.is_some()
-        || should_repair_pr_comment;
+        || options.policy.should_repair_pr_comment();
 
     let pack = if let Some(app_path) = from_scan {
         run_scan_for_agent_pack(app_path, options.profile, baseline_path)?
     } else {
-        load_agent_pack(&agent_pack_json).unwrap_or_else(empty_agent_pack)
+        load_agent_pack(&layout.agent_pack_json_path).unwrap_or_else(empty_agent_pack)
     };
 
     let command_hints = CommandHints {
-        output_dir: Some(output_dir.display().to_string()),
+        output_dir: Some(layout.output_dir.display().to_string()),
         app_path: Some(
             from_scan
                 .map(|path| path.display().to_string())
@@ -812,7 +730,7 @@ fn repair_doctor_setup(
         baseline_path: baseline_path
             .map(|path| path.display().to_string())
             .or(inferred_hints.baseline_path),
-        agent_pack_dir: Some(agent_pack_dir.display().to_string()),
+        agent_pack_dir: Some(layout.agent_bundle_dir.display().to_string()),
         profile: Some(
             from_scan
                 .map(|_| profile_key(options.profile))
@@ -820,31 +738,32 @@ fn repair_doctor_setup(
                 .unwrap_or_else(|| profile_key(options.profile)),
         ),
         shell_script: true,
-        fix_prompt_path: Some(fix_prompt_path.display().to_string()),
-        pr_brief_path: should_open_pr_brief.then(|| pr_brief_path.display().to_string()),
-        pr_comment_path: should_open_pr_comment.then(|| pr_comment_path.display().to_string()),
+        fix_prompt_path: Some(layout.fix_prompt_path.display().to_string()),
+        pr_brief_path: should_open_pr_brief.then(|| layout.pr_brief_path.display().to_string()),
+        pr_comment_path: should_open_pr_comment
+            .then(|| layout.pr_comment_path.display().to_string()),
     };
 
-    if should_repair_agents {
+    if options.policy.should_repair_agents() {
         write_agents_file(
-            agents_path,
+            &layout.agents_path,
             Some(&pack),
-            Some(&agent_pack_dir),
+            Some(&layout.agent_bundle_dir),
             Some(&command_hints),
         )?;
     }
-    if should_repair_bundle {
-        write_agent_pack(&agent_pack_dir, &pack, AgentPackFormat::Bundle)?;
-        write_next_steps_script(&script_path, &command_hints)?;
+    if options.policy.should_repair_bundle() {
+        write_agent_pack(&layout.agent_bundle_dir, &pack, AgentPackFormat::Bundle)?;
+        write_next_steps_script(&layout.next_steps_script_path, &command_hints)?;
     }
-    if should_repair_fix_prompt {
-        write_fix_prompt_file(&fix_prompt_path, &pack, &command_hints)?;
+    if options.policy.should_repair_fix_prompt() {
+        write_fix_prompt_file(&layout.fix_prompt_path, &pack, &command_hints)?;
     }
-    if should_repair_pr_brief && should_open_pr_brief {
-        write_pr_brief_file(&pr_brief_path, &pack, &command_hints)?;
+    if options.policy.should_repair_pr_brief() && should_open_pr_brief {
+        write_pr_brief_file(&layout.pr_brief_path, &pack, &command_hints)?;
     }
-    if should_repair_pr_comment && should_open_pr_comment {
-        write_pr_comment_file(&pr_comment_path, &pack, &command_hints)?;
+    if options.policy.should_repair_pr_comment() && should_open_pr_comment {
+        write_pr_comment_file(&layout.pr_comment_path, &pack, &command_hints)?;
     }
 
     Ok(())
@@ -867,29 +786,26 @@ fn empty_agent_pack() -> AgentPack {
     }
 }
 
-fn infer_existing_command_hints(
-    output_dir: &std::path::Path,
-    agents_path: &std::path::Path,
-) -> CommandHints {
+fn infer_existing_command_hints(layout: &AgentAssetLayout) -> CommandHints {
     let mut hints = CommandHints {
-        output_dir: Some(output_dir.display().to_string()),
+        output_dir: Some(layout.output_dir.display().to_string()),
         app_path: None,
         baseline_path: None,
-        agent_pack_dir: Some(output_dir.join(".verifyos-agent").display().to_string()),
+        agent_pack_dir: Some(layout.agent_bundle_dir.display().to_string()),
         profile: None,
-        shell_script: output_dir.join(".verifyos-agent/next-steps.sh").exists(),
-        fix_prompt_path: Some(output_dir.join("fix-prompt.md").display().to_string()),
-        pr_brief_path: output_dir
-            .join("pr-brief.md")
+        shell_script: layout.next_steps_script_path.exists(),
+        fix_prompt_path: Some(layout.fix_prompt_path.display().to_string()),
+        pr_brief_path: layout
+            .pr_brief_path
             .exists()
-            .then(|| output_dir.join("pr-brief.md").display().to_string()),
-        pr_comment_path: output_dir
-            .join("pr-comment.md")
+            .then(|| layout.pr_brief_path.display().to_string()),
+        pr_comment_path: layout
+            .pr_comment_path
             .exists()
-            .then(|| output_dir.join("pr-comment.md").display().to_string()),
+            .then(|| layout.pr_comment_path.display().to_string()),
     };
 
-    for command in collect_existing_voc_commands(output_dir, agents_path) {
+    for command in collect_existing_voc_commands(layout) {
         let tokens = split_shell_words(&command);
         if tokens.first().map(String::as_str) != Some("voc") {
             continue;
@@ -920,12 +836,10 @@ fn infer_existing_command_hints(
                     hints.shell_script = true;
                 }
                 "--open-pr-brief" => {
-                    hints.pr_brief_path =
-                        Some(output_dir.join("pr-brief.md").display().to_string());
+                    hints.pr_brief_path = Some(layout.pr_brief_path.display().to_string());
                 }
                 "--open-pr-comment" => {
-                    hints.pr_comment_path =
-                        Some(output_dir.join("pr-comment.md").display().to_string());
+                    hints.pr_comment_path = Some(layout.pr_comment_path.display().to_string());
                 }
                 _ => {}
             }
@@ -936,13 +850,10 @@ fn infer_existing_command_hints(
     hints
 }
 
-fn collect_existing_voc_commands(
-    output_dir: &std::path::Path,
-    agents_path: &std::path::Path,
-) -> Vec<String> {
+fn collect_existing_voc_commands(layout: &AgentAssetLayout) -> Vec<String> {
     let mut commands = Vec::new();
 
-    if let Ok(contents) = std::fs::read_to_string(agents_path) {
+    if let Ok(contents) = std::fs::read_to_string(&layout.agents_path) {
         commands.extend(
             contents
                 .lines()
@@ -952,8 +863,7 @@ fn collect_existing_voc_commands(
         );
     }
 
-    let script_path = output_dir.join(".verifyos-agent/next-steps.sh");
-    if let Ok(contents) = std::fs::read_to_string(script_path) {
+    if let Ok(contents) = std::fs::read_to_string(&layout.next_steps_script_path) {
         commands.extend(
             contents
                 .lines()

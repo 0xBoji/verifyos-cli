@@ -1,3 +1,4 @@
+use crate::agent_assets::AGENT_BUNDLE_DIR_NAME;
 use crate::profiles::{rule_inventory, RuleInventoryItem};
 use crate::report::AgentPack;
 use std::path::Path;
@@ -80,7 +81,7 @@ pub fn build_managed_block(
     let inventory = rule_inventory();
     let agent_pack_dir_display = agent_pack_dir
         .map(|path| path.display().to_string())
-        .unwrap_or_else(|| ".verifyos-agent".to_string());
+        .unwrap_or_else(|| AGENT_BUNDLE_DIR_NAME.to_string());
     let mut out = String::new();
     out.push_str(MANAGED_START);
     out.push('\n');
@@ -130,7 +131,10 @@ fn append_next_commands(out: &mut String, hints: &CommandHints) {
     };
 
     let profile = hints.profile.as_deref().unwrap_or("full");
-    let agent_pack_dir = hints.agent_pack_dir.as_deref().unwrap_or(".verifyos-agent");
+    let agent_pack_dir = hints
+        .agent_pack_dir
+        .as_deref()
+        .unwrap_or(AGENT_BUNDLE_DIR_NAME);
 
     out.push_str("### Next Commands\n\n");
     out.push_str("Use these exact commands after each patch batch:\n\n");
@@ -265,7 +269,10 @@ pub fn render_fix_prompt(pack: &AgentPack, hints: &CommandHints) -> String {
     out.push_str("## Validation Commands\n\n");
     if let Some(app_path) = hints.app_path.as_deref() {
         let profile = hints.profile.as_deref().unwrap_or("full");
-        let agent_pack_dir = hints.agent_pack_dir.as_deref().unwrap_or(".verifyos-agent");
+        let agent_pack_dir = hints
+            .agent_pack_dir
+            .as_deref()
+            .unwrap_or(AGENT_BUNDLE_DIR_NAME);
         out.push_str("```bash\n");
         out.push_str(&format!(
             "voc --app {} --profile {}\n",
@@ -351,7 +358,10 @@ pub fn render_pr_brief(pack: &AgentPack, hints: &CommandHints) -> String {
     out.push_str("## Validation Commands\n\n");
     if let Some(app_path) = hints.app_path.as_deref() {
         let profile = hints.profile.as_deref().unwrap_or("full");
-        let agent_pack_dir = hints.agent_pack_dir.as_deref().unwrap_or(".verifyos-agent");
+        let agent_pack_dir = hints
+            .agent_pack_dir
+            .as_deref()
+            .unwrap_or(AGENT_BUNDLE_DIR_NAME);
         out.push_str("```bash\n");
         out.push_str(&format!(
             "voc --app {} --profile {}\n",
