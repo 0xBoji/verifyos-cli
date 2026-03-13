@@ -288,6 +288,37 @@ fn test_pr_comment_subcommand_can_use_explicit_plan_path() {
 }
 
 #[test]
+fn test_handoff_subcommand_writes_full_bundle() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("handoff-output");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "handoff",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--profile",
+            "basic",
+        ])
+        .output()
+        .expect("handoff should run");
+
+    assert!(output.status.success());
+    assert!(output_dir.join("AGENTS.md").exists());
+    assert!(output_dir.join("fix-prompt.md").exists());
+    assert!(output_dir.join("repair-plan.md").exists());
+    assert!(output_dir.join("pr-brief.md").exists());
+    assert!(output_dir.join("pr-comment.md").exists());
+    assert!(output_dir.join(".verifyos-agent/agent-pack.json").exists());
+    assert!(output_dir.join(".verifyos-agent/agent-pack.md").exists());
+    assert!(output_dir.join(".verifyos-agent/next-steps.sh").exists());
+}
+
+#[test]
 fn test_agent_pack_writes_fix_json() {
     let dir = tempdir().expect("temp dir");
     let output_path = dir.path().join("fixes.json");

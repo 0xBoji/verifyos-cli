@@ -7,6 +7,7 @@ use std::path::PathBuf;
 mod commands;
 
 use commands::doctor::{run as run_doctor_command, DoctorArgs};
+use commands::handoff::{run as run_handoff_command, HandoffArgs};
 use commands::init::{run as run_init_command, InitArgs};
 use commands::pr_comment::{run as run_pr_comment_command, PrCommentArgs};
 use commands::support::{
@@ -145,6 +146,8 @@ enum Commands {
     Init(InitArgs),
     /// Verify verifyOS-cli config and generated agent assets
     Doctor(DoctorArgs),
+    /// Refresh the full agent handoff bundle from a fresh scan
+    Handoff(HandoffArgs),
     /// Render a sticky PR comment body from an output directory
     PrComment(PrCommentArgs),
 }
@@ -158,6 +161,9 @@ fn main() -> Result<()> {
     }
     if let Some(Commands::Doctor(doctor)) = args.command {
         return run_doctor_command(doctor, &file_config);
+    }
+    if let Some(Commands::Handoff(handoff)) = args.command {
+        return run_handoff_command(handoff, &file_config);
     }
     if let Some(Commands::PrComment(pr_comment)) = args.command {
         return run_pr_comment_command(pr_comment);

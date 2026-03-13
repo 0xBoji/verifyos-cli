@@ -377,6 +377,24 @@ When `--open-pr-comment` is added, `voc doctor` also writes `pr-comment.md` with
 - top risks only
 - quick validation commands
 
+### Handoff
+
+If you want the full agent bundle in one clearer command, use:
+
+```bash
+voc handoff --output-dir .verifyos --from-scan path/to/YourApp.ipa --profile basic
+```
+
+This wraps the common handoff flow and refreshes:
+- `AGENTS.md`
+- `fix-prompt.md`
+- `repair-plan.md`
+- `pr-brief.md`
+- `pr-comment.md`
+- `.verifyos-agent/agent-pack.json`
+- `.verifyos-agent/agent-pack.md`
+- `.verifyos-agent/next-steps.sh`
+
 You can also combine `--baseline old-report.json` with `--fix --from-scan` to keep only new or regressed risks in the repaired setup.
 
 ### GitHub Actions wrapper
