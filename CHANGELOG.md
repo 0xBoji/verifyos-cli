@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2](https://github.com/0xBoji/verifyos-cli/compare/v0.6.1...v0.6.2) - 2026-03-13
+
+### Fixed
+
+- *(release)* target the current release pr branch
+
 ## [0.6.1](https://github.com/0xBoji/verifyos-cli/compare/v0.6.0...v0.6.1) - 2026-03-13
 
 ### Added
