@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0](https://github.com/0xBoji/verifyos-cli/compare/v0.5.0...v0.6.0) - 2026-03-13
+
+### Added
+
+- *(report)* cross-link handoff artifacts
+- *(cli)* support explicit pr comment plan paths
+- *(report)* link repair plans across handoff docs
+- *(ci)* allow pr comments from repair plan
+- *(agents)* surface repair plans in managed block
+- *(config)* support doctor plan output defaults
+- *(doctor)* write markdown repair plans
+- *(doctor)* enrich repair plan context
+- *(config)* extend doctor defaults
+
+### Other
+
+- *(ci)* snapshot plan-based pr comments
+- *(doctor)* snapshot repair plan markdown
+- *(ci)* publish repair plan artifact
+- *(cli)* extract parse support helpers
+- *(ci)* load workflow defaults from config
+- *(cli)* extract agent io helpers
+- *(ci)* add workflow contract coverage
+- *(cli)* split command handlers
+- *(cli)* centralize agent asset layout
+
 ## [0.5.0](https://github.com/0xBoji/verifyos-cli/compare/v0.4.0...v0.5.0) - 2026-03-13
 
 ### Added
