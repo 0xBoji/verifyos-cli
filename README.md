@@ -450,6 +450,7 @@ You can build the same sticky body locally or in custom CI steps with:
 
 ```bash
 voc pr-comment --output-dir .verifyos-ci --from-plan --scan-exit 1 --doctor-exit 0 --sticky-marker
+voc pr-comment --from-plan --plan-path /tmp/repair-plan.md --sticky-marker
 ```
 
 ### Output Formats

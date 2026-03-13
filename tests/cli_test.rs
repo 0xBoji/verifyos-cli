@@ -256,6 +256,38 @@ fn test_pr_comment_subcommand_can_render_from_repair_plan() {
 }
 
 #[test]
+fn test_pr_comment_subcommand_can_use_explicit_plan_path() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+    let plan_dir = dir.path().join("plans");
+    std::fs::create_dir_all(&output_dir).expect("create output dir");
+    std::fs::create_dir_all(&plan_dir).expect("create plan dir");
+    let plan_path = plan_dir.join("repair-plan.md");
+    std::fs::write(
+        &plan_path,
+        "# verifyOS Repair Plan\n\n## Context\n\n- Source: `existing-assets`\n",
+    )
+    .expect("write repair plan");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "pr-comment",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--from-plan",
+            "--plan-path",
+            plan_path.to_str().expect("utf8 plan path"),
+        ])
+        .output()
+        .expect("pr-comment --plan-path should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("utf8");
+    assert!(stdout.contains("# verifyOS Repair Plan"));
+    assert!(stdout.contains("existing-assets"));
+}
+
+#[test]
 fn test_agent_pack_writes_fix_json() {
     let dir = tempdir().expect("temp dir");
     let output_path = dir.path().join("fixes.json");

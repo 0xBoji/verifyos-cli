@@ -11,8 +11,11 @@ pub fn render_workflow_pr_comment(
     doctor_exit: i32,
     sticky_marker: bool,
     from_plan: bool,
+    plan_path: Option<&Path>,
 ) -> Result<String> {
-    let repair_plan_path = output_dir.join("repair-plan.md");
+    let repair_plan_path = plan_path
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| output_dir.join("repair-plan.md"));
     if from_plan && repair_plan_path.exists() {
         let repair_plan = std::fs::read_to_string(&repair_plan_path).into_diagnostic()?;
         return Ok(with_marker(repair_plan.trim(), sticky_marker));
@@ -92,8 +95,8 @@ mod tests {
         )
         .expect("write comment");
 
-        let body =
-            render_workflow_pr_comment(dir.path(), 1, 0, true, false).expect("render comment");
+        let body = render_workflow_pr_comment(dir.path(), 1, 0, true, false, None)
+            .expect("render comment");
 
         assert!(body.contains("<!-- voc-analysis-comment -->"));
         assert!(body.contains("## verifyOS review summary"));
@@ -130,8 +133,8 @@ mod tests {
         )
         .expect("write doctor report");
 
-        let body =
-            render_workflow_pr_comment(dir.path(), 1, 0, false, false).expect("render comment");
+        let body = render_workflow_pr_comment(dir.path(), 1, 0, false, false, None)
+            .expect("render comment");
 
         assert!(body.contains("## voc analysis"));
         assert!(body.contains("Findings: **3**"));
@@ -154,10 +157,29 @@ mod tests {
         )
         .expect("write comment");
 
-        let body =
-            render_workflow_pr_comment(dir.path(), 1, 0, false, true).expect("render comment");
+        let body = render_workflow_pr_comment(dir.path(), 1, 0, false, true, None)
+            .expect("render comment");
 
         assert!(body.contains("# verifyOS Repair Plan"));
         assert!(!body.contains("## verifyOS review summary"));
+    }
+
+    #[test]
+    fn workflow_pr_comment_can_use_explicit_plan_path() {
+        let dir = tempdir().expect("temp dir");
+        let nested = dir.path().join("plans");
+        std::fs::create_dir_all(&nested).expect("create plan dir");
+        let plan_path = nested.join("custom-plan.md");
+        std::fs::write(
+            &plan_path,
+            "# verifyOS Repair Plan\n\n## Context\n\n- Source: `existing-assets`\n",
+        )
+        .expect("write repair plan");
+
+        let body = render_workflow_pr_comment(dir.path(), 0, 0, false, true, Some(&plan_path))
+            .expect("render comment");
+
+        assert!(body.contains("# verifyOS Repair Plan"));
+        assert!(body.contains("existing-assets"));
     }
 }

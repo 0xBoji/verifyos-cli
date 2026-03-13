@@ -29,6 +29,10 @@ pub struct PrCommentArgs {
     /// Reuse repair-plan.md as the source for the generated comment body
     #[arg(long)]
     pub from_plan: bool,
+
+    /// Explicit repair plan file to render instead of resolving from --output-dir
+    #[arg(long)]
+    pub plan_path: Option<PathBuf>,
 }
 
 pub fn run(pr_comment: PrCommentArgs) -> Result<()> {
@@ -39,6 +43,7 @@ pub fn run(pr_comment: PrCommentArgs) -> Result<()> {
         pr_comment.doctor_exit,
         pr_comment.sticky_marker,
         pr_comment.from_plan,
+        pr_comment.plan_path.as_deref(),
     )?;
     if let Some(path) = pr_comment.output.as_deref() {
         if let Some(parent) = path.parent() {
