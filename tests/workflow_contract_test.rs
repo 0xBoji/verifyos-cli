@@ -35,6 +35,7 @@ fn workflow_wires_doctor_repair_and_comment_mode_into_commands() {
     assert!(workflow.contains("doctor_cmd+=(--repair \"$DOCTOR_REPAIR\")"));
     assert!(workflow.contains("--plan-out \"$OUTPUT_DIR/repair-plan.md\""));
     assert!(workflow.contains("if [ \"$COMMENT_MODE\" = \"sticky\" ]; then"));
+    assert!(workflow.contains("--from-plan"));
     assert!(workflow.contains("pr_comment_cmd+=(--sticky-marker)"));
 }
 

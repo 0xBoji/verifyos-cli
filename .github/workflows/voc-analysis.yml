@@ -313,6 +313,7 @@ PY
             ./target/release/voc
             pr-comment
             --output-dir "$OUTPUT_DIR"
+            --from-plan
             --scan-exit "${{ steps.scan.outputs.scan_exit }}"
             --doctor-exit "${{ steps.scan.outputs.doctor_exit }}"
             --output "$OUTPUT_DIR/pr-comment-body.md"

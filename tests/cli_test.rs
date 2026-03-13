@@ -224,6 +224,38 @@ fn test_pr_comment_subcommand_falls_back_to_reports() {
 }
 
 #[test]
+fn test_pr_comment_subcommand_can_render_from_repair_plan() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+    std::fs::create_dir_all(&output_dir).expect("create output dir");
+    std::fs::write(
+        output_dir.join("repair-plan.md"),
+        "# verifyOS Repair Plan\n\n## Context\n\n- Source: `fresh-scan`\n",
+    )
+    .expect("write repair plan");
+    std::fs::write(
+        output_dir.join("pr-comment.md"),
+        "## verifyOS review summary\n\n- Findings in scope: `1`\n",
+    )
+    .expect("write comment");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "pr-comment",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--from-plan",
+        ])
+        .output()
+        .expect("pr-comment --from-plan should run");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("utf8");
+    assert!(stdout.contains("# verifyOS Repair Plan"));
+    assert!(!stdout.contains("## verifyOS review summary"));
+}
+
+#[test]
 fn test_agent_pack_writes_fix_json() {
     let dir = tempdir().expect("temp dir");
     let output_path = dir.path().join("fixes.json");

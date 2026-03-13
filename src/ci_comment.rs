@@ -10,7 +10,14 @@ pub fn render_workflow_pr_comment(
     scan_exit: i32,
     doctor_exit: i32,
     sticky_marker: bool,
+    from_plan: bool,
 ) -> Result<String> {
+    let repair_plan_path = output_dir.join("repair-plan.md");
+    if from_plan && repair_plan_path.exists() {
+        let repair_plan = std::fs::read_to_string(&repair_plan_path).into_diagnostic()?;
+        return Ok(with_marker(repair_plan.trim(), sticky_marker));
+    }
+
     let comment_path = output_dir.join("pr-comment.md");
     if comment_path.exists() {
         let comment = std::fs::read_to_string(&comment_path).into_diagnostic()?;
@@ -29,7 +36,7 @@ pub fn render_workflow_pr_comment(
         &format!("- Scan exit code: `{}`", scan_exit),
         &format!("- Doctor exit code: `{}`", doctor_exit),
         &format!("- Assets uploaded from: `{}`", output_dir.display()),
-        "- Includes: `report.sarif`, `AGENTS.md`, `fix-prompt.md`, `pr-brief.md`, `pr-comment.md`, `.verifyos-agent/`",
+        "- Includes: `report.sarif`, `AGENTS.md`, `fix-prompt.md`, `repair-plan.md`, `pr-brief.md`, `pr-comment.md`, `.verifyos-agent/`",
         &format!("- Doctor summary: {}", doctor_summary),
     ]
     .join("\n");
@@ -85,7 +92,8 @@ mod tests {
         )
         .expect("write comment");
 
-        let body = render_workflow_pr_comment(dir.path(), 1, 0, true).expect("render comment");
+        let body =
+            render_workflow_pr_comment(dir.path(), 1, 0, true, false).expect("render comment");
 
         assert!(body.contains("<!-- voc-analysis-comment -->"));
         assert!(body.contains("## verifyOS review summary"));
@@ -122,12 +130,34 @@ mod tests {
         )
         .expect("write doctor report");
 
-        let body = render_workflow_pr_comment(dir.path(), 1, 0, false).expect("render comment");
+        let body =
+            render_workflow_pr_comment(dir.path(), 1, 0, false, false).expect("render comment");
 
         assert!(body.contains("## voc analysis"));
         assert!(body.contains("Findings: **3**"));
         assert!(body.contains("Scan exit code: `1`"));
         assert!(body.contains("Doctor exit code: `0`"));
         assert!(body.contains("CONFIG: PASS"));
+    }
+
+    #[test]
+    fn workflow_pr_comment_can_reuse_repair_plan() {
+        let dir = tempdir().expect("temp dir");
+        std::fs::write(
+            dir.path().join("repair-plan.md"),
+            "# verifyOS Repair Plan\n\n## Context\n\n- Source: `fresh-scan`\n",
+        )
+        .expect("write repair plan");
+        std::fs::write(
+            dir.path().join("pr-comment.md"),
+            "## verifyOS review summary\n\n- stale\n",
+        )
+        .expect("write comment");
+
+        let body =
+            render_workflow_pr_comment(dir.path(), 1, 0, false, true).expect("render comment");
+
+        assert!(body.contains("# verifyOS Repair Plan"));
+        assert!(!body.contains("## verifyOS review summary"));
     }
 }

@@ -25,6 +25,10 @@ pub struct PrCommentArgs {
     /// Prefix the body with the sticky comment marker used by GitHub workflows
     #[arg(long)]
     pub sticky_marker: bool,
+
+    /// Reuse repair-plan.md as the source for the generated comment body
+    #[arg(long)]
+    pub from_plan: bool,
 }
 
 pub fn run(pr_comment: PrCommentArgs) -> Result<()> {
@@ -34,6 +38,7 @@ pub fn run(pr_comment: PrCommentArgs) -> Result<()> {
         pr_comment.scan_exit,
         pr_comment.doctor_exit,
         pr_comment.sticky_marker,
+        pr_comment.from_plan,
     )?;
     if let Some(path) = pr_comment.output.as_deref() {
         if let Some(parent) = path.parent() {
