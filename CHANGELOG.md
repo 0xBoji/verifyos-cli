@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2](https://github.com/0xBoji/verifyos-cli/compare/v0.7.1...v0.7.2) - 2026-03-13
+
+### Added
+
+- *(vscode)* add action center sidebar
+
+### Fixed
+
+- *(vscode)* activate action center on view
+- *(ci)* add safety guards for PR number in release-plz workflow
+
+### Other
+
+- *(vscode)* release 0.1.4
+- *(vscode)* prepare 0.1.3 release
+- *(vscode)* clarify background diagnostics
+
 ## [0.7.1](https://github.com/0xBoji/verifyos-cli/compare/v0.7.0...v0.7.1) - 2026-03-13
 
 ### Added
