@@ -38,6 +38,7 @@ fn vscode_extension_workflow_packages_and_publishes_vsix() {
     assert!(package_json.contains("\"package\": \"vsce package --allow-missing-repository\""));
     assert!(package_json.contains("\"publish:vsce\": \"vsce publish\""));
     assert!(package_json.contains("\"publish:ovsx\": \"ovsx publish\""));
+    assert!(package_json.contains("\"LICENSE.md\""));
     assert!(workflow.contains("name: VS Code Extension"));
     assert!(workflow.contains("npm ci"));
     assert!(workflow.contains("npm run compile"));

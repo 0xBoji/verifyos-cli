@@ -29,6 +29,7 @@
   "main": "./dist/extension.js",
   "files": [
     "dist/**",
+    "LICENSE.md",
     "README.md",
     "package.json"
   ],
