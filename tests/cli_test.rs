@@ -748,6 +748,8 @@ fn test_doctor_uses_verifyos_toml_defaults() {
 [doctor]
 output_dir = "{}"
 fix = true
+repair = ["pr-comment"]
+freshness_against = "doctor-report.json"
 profile = "basic"
 open_pr_brief = true
 open_pr_comment = true
@@ -756,6 +758,8 @@ open_pr_comment = true
         ),
     )
     .expect("write config");
+    std::fs::create_dir_all(&output_dir).expect("create output dir");
+    std::fs::write(output_dir.join("doctor-report.json"), "{}").expect("write freshness report");
 
     let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
         .args([
@@ -771,14 +775,9 @@ open_pr_comment = true
         .expect("doctor with config defaults should run");
 
     assert!(doctor.status.success());
-    assert!(output_dir.join("AGENTS.md").exists());
-    assert!(output_dir.join("pr-brief.md").exists());
+    assert!(!output_dir.join("AGENTS.md").exists());
     assert!(output_dir.join("pr-comment.md").exists());
-
-    let agents = std::fs::read_to_string(output_dir.join("AGENTS.md")).expect("agents exist");
-    assert!(agents.contains("--profile basic"));
-    assert!(agents.contains("--open-pr-brief"));
-    assert!(agents.contains("--open-pr-comment"));
+    assert!(!output_dir.join("pr-brief.md").exists());
 }
 
 #[test]

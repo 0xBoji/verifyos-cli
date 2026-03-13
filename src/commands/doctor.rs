@@ -104,12 +104,20 @@ pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
         .or(doctor_defaults.agents.clone())
         .unwrap_or_else(|| layout.agents_path.clone());
     layout = layout.with_agents_path(&agents_path);
-    let repair_targets: HashSet<RepairTarget> = doctor.repair.iter().copied().collect();
+    let repair_targets = if doctor.repair.is_empty() {
+        parse_repair_targets(doctor_defaults.repair.as_deref())?
+    } else {
+        doctor.repair.iter().copied().collect()
+    };
     let should_fix =
         doctor.fix || doctor_defaults.fix.unwrap_or(false) || !repair_targets.is_empty();
     let open_pr_brief = doctor.open_pr_brief || doctor_defaults.open_pr_brief.unwrap_or(false);
     let open_pr_comment =
         doctor.open_pr_comment || doctor_defaults.open_pr_comment.unwrap_or(false);
+    let freshness_against = doctor
+        .freshness_against
+        .clone()
+        .or(doctor_defaults.freshness_against.clone());
 
     if should_fix {
         let repair_options = DoctorRepairOptions {
@@ -127,7 +135,7 @@ pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
     let mut report = run_doctor(
         doctor.config.as_deref(),
         &layout.agents_path,
-        doctor.freshness_against.as_deref(),
+        freshness_against.as_deref(),
     );
     if doctor.plan {
         let policy = RepairPolicy::new(repair_targets, open_pr_brief, open_pr_comment);
@@ -138,6 +146,27 @@ pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
         std::process::exit(1);
     }
     Ok(())
+}
+
+fn parse_repair_targets(raw: Option<&[String]>) -> Result<HashSet<RepairTarget>> {
+    let mut targets = HashSet::new();
+    for value in raw.unwrap_or_default() {
+        targets.insert(parse_repair_target(value)?);
+    }
+    Ok(targets)
+}
+
+fn parse_repair_target(value: &str) -> Result<RepairTarget> {
+    match value.to_ascii_lowercase().as_str() {
+        "agents" => Ok(RepairTarget::Agents),
+        "agent-bundle" => Ok(RepairTarget::AgentBundle),
+        "fix-prompt" => Ok(RepairTarget::FixPrompt),
+        "pr-brief" => Ok(RepairTarget::PrBrief),
+        "pr-comment" => Ok(RepairTarget::PrComment),
+        _ => Err(miette::miette!(
+            "Unknown repair target `{value}`. Expected one of: agents, agent-bundle, fix-prompt, pr-brief, pr-comment"
+        )),
+    }
 }
 
 fn repair_doctor_setup(

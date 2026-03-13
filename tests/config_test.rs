@@ -22,6 +22,8 @@ fn runtime_config_uses_file_defaults() {
         doctor: Some(verifyos_cli::config::DoctorDefaults {
             output_dir: Some(".verifyos".into()),
             open_pr_comment: Some(true),
+            repair: Some(vec!["pr-comment".to_string()]),
+            freshness_against: Some("report.json".into()),
             ..Default::default()
         }),
         ..FileConfig::default()
@@ -108,6 +110,8 @@ profile = "basic"
 output_dir = ".verifyos"
 open_pr_brief = true
 open_pr_comment = true
+repair = ["pr-comment"]
+freshness_against = "report.json"
 "#,
     )
     .expect("write config");
@@ -141,4 +145,9 @@ open_pr_comment = true
     );
     assert_eq!(doctor.open_pr_brief, Some(true));
     assert_eq!(doctor.open_pr_comment, Some(true));
+    assert_eq!(doctor.repair, Some(vec!["pr-comment".to_string()]));
+    assert_eq!(
+        doctor.freshness_against.as_deref(),
+        Some(std::path::Path::new("report.json"))
+    );
 }

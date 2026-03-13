@@ -177,6 +177,8 @@ profile = "basic"
 [doctor]
 output_dir = ".verifyos"
 fix = true
+repair = ["pr-comment"]
+freshness_against = "report.json"
 profile = "basic"
 open_pr_brief = true
 open_pr_comment = true
