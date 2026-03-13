@@ -15,6 +15,7 @@ pub struct FileConfig {
     pub exclude: Option<Vec<String>>,
     pub init: Option<InitDefaults>,
     pub doctor: Option<DoctorDefaults>,
+    pub ci: Option<CiDefaults>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
@@ -39,6 +40,12 @@ pub struct DoctorDefaults {
     pub profile: Option<String>,
     pub open_pr_brief: Option<bool>,
     pub open_pr_comment: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct CiDefaults {
+    pub doctor_repair: Option<Vec<String>>,
+    pub comment_mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

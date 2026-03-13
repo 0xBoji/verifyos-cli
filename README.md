@@ -432,6 +432,16 @@ When `comment_on_pr` is enabled and a PR number is available, the workflow also 
 
 `doctor_repair` lets the workflow scope `voc doctor --fix` to specific outputs such as `pr-comment` or `agent-bundle`. `comment_mode` controls whether `voc pr-comment` emits a sticky marker (`sticky`) or a plain body (`plain`).
 
+If the workflow inputs are left empty and `verifyos.toml` exists, `voc-analysis.yml` will also read:
+
+```toml
+[ci]
+doctor_repair = ["pr-comment"]
+comment_mode = "sticky"
+```
+
+Those values act as repository defaults for the reusable workflow.
+
 You can build the same sticky body locally or in custom CI steps with:
 
 ```bash

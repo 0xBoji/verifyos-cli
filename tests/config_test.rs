@@ -26,6 +26,10 @@ fn runtime_config_uses_file_defaults() {
             freshness_against: Some("report.json".into()),
             ..Default::default()
         }),
+        ci: Some(verifyos_cli::config::CiDefaults {
+            doctor_repair: Some(vec!["agent-bundle".to_string()]),
+            comment_mode: Some("plain".to_string()),
+        }),
         ..FileConfig::default()
     };
 
@@ -112,6 +116,10 @@ open_pr_brief = true
 open_pr_comment = true
 repair = ["pr-comment"]
 freshness_against = "report.json"
+
+[ci]
+doctor_repair = ["agent-bundle"]
+comment_mode = "plain"
 "#,
     )
     .expect("write config");
@@ -150,4 +158,7 @@ freshness_against = "report.json"
         doctor.freshness_against.as_deref(),
         Some(std::path::Path::new("report.json"))
     );
+    let ci = config.ci.expect("ci defaults");
+    assert_eq!(ci.doctor_repair, Some(vec!["agent-bundle".to_string()]));
+    assert_eq!(ci.comment_mode.as_deref(), Some("plain"));
 }

@@ -27,6 +27,11 @@ fn workflow_declares_reusable_inputs_for_repair_and_comment_mode() {
 fn workflow_wires_doctor_repair_and_comment_mode_into_commands() {
     let workflow = workflow_contents();
 
+    assert!(workflow.contains("config_doctor_repair"));
+    assert!(workflow.contains("config_comment_mode"));
+    assert!(workflow.contains("tomllib"));
+    assert!(workflow.contains("doctor_repair = \",\".join(ci.get(\"doctor_repair\", []))"));
+    assert!(workflow.contains("comment_mode = ci.get(\"comment_mode\", \"\")"));
     assert!(workflow.contains("doctor_cmd+=(--repair \"$DOCTOR_REPAIR\")"));
     assert!(workflow.contains("if [ \"$COMMENT_MODE\" = \"sticky\" ]; then"));
     assert!(workflow.contains("pr_comment_cmd+=(--sticky-marker)"));

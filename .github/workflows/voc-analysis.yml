@@ -122,6 +122,31 @@ jobs:
         run: |
           set -euo pipefail
 
+          config_comment_mode=""
+          config_doctor_repair=""
+          if [ -f verifyos.toml ]; then
+            config_values="$(python3 - <<'PY'
+import pathlib
+import sys
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    sys.exit(0)
+
+path = pathlib.Path("verifyos.toml")
+data = tomllib.loads(path.read_text())
+ci = data.get("ci", {})
+doctor_repair = ",".join(ci.get("doctor_repair", []))
+comment_mode = ci.get("comment_mode", "")
+print(doctor_repair)
+print(comment_mode)
+PY
+)"
+            config_doctor_repair="$(printf '%s\n' "$config_values" | sed -n '1p')"
+            config_comment_mode="$(printf '%s\n' "$config_values" | sed -n '2p')"
+          fi
+
           output_dir="${{ github.event.inputs.output_dir }}"
           if [ -z "$output_dir" ]; then
             output_dir="${{ inputs.output_dir }}"
@@ -173,12 +198,18 @@ jobs:
             comment_mode="${{ inputs.comment_mode }}"
           fi
           if [ -z "$comment_mode" ]; then
+            comment_mode="$config_comment_mode"
+          fi
+          if [ -z "$comment_mode" ]; then
             comment_mode="sticky"
           fi
 
           doctor_repair="${{ github.event.inputs.doctor_repair }}"
           if [ -z "$doctor_repair" ]; then
             doctor_repair="${{ inputs.doctor_repair }}"
+          fi
+          if [ -z "$doctor_repair" ]; then
+            doctor_repair="$config_doctor_repair"
           fi
 
           pr_number="${{ github.event.inputs.pr_number }}"
