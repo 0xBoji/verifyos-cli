@@ -165,6 +165,22 @@ mod tests {
     }
 
     #[test]
+    fn workflow_pr_comment_from_plan_matches_snapshot() {
+        let dir = tempdir().expect("temp dir");
+        std::fs::write(
+            dir.path().join("repair-plan.md"),
+            "# verifyOS Repair Plan\n\n## Context\n\n- Source: `fresh-scan`\n- Scan artifact: `examples/bad_app.ipa`\n\n## Planned Outputs\n\n- **pr-comment**\n  - Path: `.verifyos/pr-comment.md`\n  - Reason: refresh sticky PR comment draft\n",
+        )
+        .expect("write repair plan");
+
+        let body =
+            render_workflow_pr_comment(dir.path(), 1, 0, true, true, None).expect("render body");
+        let expected = "<!-- voc-analysis-comment -->\n# verifyOS Repair Plan\n\n## Context\n\n- Source: `fresh-scan`\n- Scan artifact: `examples/bad_app.ipa`\n\n## Planned Outputs\n\n- **pr-comment**\n  - Path: `.verifyos/pr-comment.md`\n  - Reason: refresh sticky PR comment draft";
+
+        assert_eq!(body, expected);
+    }
+
+    #[test]
     fn workflow_pr_comment_can_use_explicit_plan_path() {
         let dir = tempdir().expect("temp dir");
         let nested = dir.path().join("plans");
