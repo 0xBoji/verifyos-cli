@@ -131,11 +131,9 @@ pub fn run(init: InitArgs, file_config: &FileConfig) -> Result<()> {
                 "`--fix-prompt` requires `--from-scan <path>` so voc has findings to summarize"
             )
         })?;
-        write_fix_prompt_file(
-            &effective_fix_prompt_path,
-            pack,
-            command_hints.as_ref().unwrap_or(&CommandHints::default()),
-        )?;
+        let mut prompt_hints = command_hints.clone().unwrap_or_default();
+        prompt_hints.repair_plan_path = Some(layout.repair_plan_path.display().to_string());
+        write_fix_prompt_file(&effective_fix_prompt_path, pack, &prompt_hints)?;
     }
 
     write_agents_file(

@@ -260,6 +260,7 @@ The generated block includes:
 - an optional `Next Commands` section with exact re-scan and report refresh commands when `--write-commands` is used
 - an optional `.verifyos-agent/next-steps.sh` when `--shell-script` is used
 - an optional `fix-prompt.md` when `--fix-prompt` is used
+- an optional `repair-plan.md` pointer so fix prompts and PR handoff docs share the same repair source
 
 When `--baseline` is provided with `--from-scan`, the `Current Project Risks` section only keeps findings that are new or regressed compared with the older JSON report. That keeps the playbook focused on what changed in the current branch.
 
@@ -368,6 +369,7 @@ When `--open-pr-brief` is added, `voc doctor` also writes `pr-brief.md` with:
 - current findings in patch order
 - target files and patch hints
 - validation commands for the next review loop
+- a pointer back to `repair-plan.md`
 
 When `--open-pr-comment` is added, `voc doctor` also writes `pr-comment.md` with:
 - a shorter review summary for GitHub PR comments

@@ -236,6 +236,9 @@ pub fn render_fix_prompt(pack: &AgentPack, hints: &CommandHints) -> String {
     if let Some(prompt_path) = hints.fix_prompt_path.as_deref() {
         out.push_str(&format!("- Prompt file: `{}`\n", prompt_path));
     }
+    if let Some(repair_plan_path) = hints.repair_plan_path.as_deref() {
+        out.push_str(&format!("- Repair plan: `{}`\n", repair_plan_path));
+    }
     out.push('\n');
 
     if pack.findings.is_empty() {
@@ -308,6 +311,9 @@ pub fn render_pr_brief(pack: &AgentPack, hints: &CommandHints) -> String {
     }
     if let Some(baseline) = hints.baseline_path.as_deref() {
         out.push_str(&format!("- Baseline: `{}`\n", baseline));
+    }
+    if let Some(repair_plan_path) = hints.repair_plan_path.as_deref() {
+        out.push_str(&format!("- Repair plan: `{}`\n", repair_plan_path));
     }
     out.push('\n');
 
