@@ -5,6 +5,14 @@
   "version": "0.1.0",
   "publisher": "0xboji",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xBoji/verifyos-cli.git"
+  },
+  "homepage": "https://github.com/0xBoji/verifyos-cli/tree/main/editors/vscode",
+  "bugs": {
+    "url": "https://github.com/0xBoji/verifyos-cli/issues"
+  },
   "engines": {
     "vscode": "^1.94.0"
   },
@@ -19,6 +27,11 @@
     "onCommand:verifyOS.showOutput"
   ],
   "main": "./dist/extension.js",
+  "files": [
+    "dist/**",
+    "README.md",
+    "package.json"
+  ],
   "contributes": {
     "commands": [
       {
@@ -63,7 +76,10 @@
   "scripts": {
     "compile": "tsc -p .",
     "watch": "tsc -w -p .",
-    "package": "vsce package"
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package --allow-missing-repository",
+    "publish:vsce": "vsce publish",
+    "publish:ovsx": "ovsx publish"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
@@ -72,6 +88,7 @@
     "@types/node": "^20.16.5",
     "@types/vscode": "^1.94.0",
     "@vscode/vsce": "^2.31.1",
+    "ovsx": "^0.10.9",
     "typescript": "^5.6.2"
   }
 }

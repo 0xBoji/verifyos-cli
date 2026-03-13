@@ -1,0 +1,127 @@
+name: VS Code Extension
+
+permissions:
+  contents: read
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      publish_marketplaces:
+        description: "Publish the packaged extension when credentials are available"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  package:
+    name: Package VS Code extension
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/vscode
+    outputs:
+      vsix_name: ${{ steps.package.outputs.vsix_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile extension
+        run: npm run compile
+
+      - name: Package .vsix
+        id: package
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          VSIX_NAME="verifyos-vscode-${VERSION}.vsix"
+          npm run package -- --out "$VSIX_NAME"
+          echo "vsix_name=$VSIX_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload packaged extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension
+          path: editors/vscode/${{ steps.package.outputs.vsix_name }}
+
+  publish-vscode-marketplace:
+    name: Publish to VS Code Marketplace
+    needs: package
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push' || inputs.publish_marketplaces == true)
+      && secrets.VSCE_PAT != ''
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download packaged extension
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-extension
+          path: editors/vscode/dist-package
+
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx vsce publish --packagePath "dist-package/${{ needs.package.outputs.vsix_name }}" -p "$VSCE_PAT"
+
+  publish-open-vsx:
+    name: Publish to Open VSX
+    needs: package
+    runs-on: ubuntu-latest
+    if: >
+      (github.event_name == 'push' || inputs.publish_marketplaces == true)
+      && secrets.OVSX_PAT != ''
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download packaged extension
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-extension
+          path: editors/vscode/dist-package
+
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: npx ovsx publish "dist-package/${{ needs.package.outputs.vsix_name }}" -p "$OVSX_PAT"

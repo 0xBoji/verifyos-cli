@@ -23,3 +23,26 @@ fn vscode_extension_launches_voc_lsp() {
     assert!(extension_ts.contains("[\"lsp\", \"--profile\", profile]"));
     assert!(extension_ts.contains("verifyOS could not start `voc lsp`"));
 }
+
+#[test]
+fn vscode_extension_workflow_packages_and_publishes_vsix() {
+    let package_json = vscode_file("package.json");
+    let workflow = fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(".github")
+            .join("workflows")
+            .join("vscode-extension.yml"),
+    )
+    .expect("vscode workflow should be readable");
+
+    assert!(package_json.contains("\"package\": \"vsce package --allow-missing-repository\""));
+    assert!(package_json.contains("\"publish:vsce\": \"vsce publish\""));
+    assert!(package_json.contains("\"publish:ovsx\": \"ovsx publish\""));
+    assert!(workflow.contains("name: VS Code Extension"));
+    assert!(workflow.contains("npm ci"));
+    assert!(workflow.contains("npm run compile"));
+    assert!(workflow.contains("npm run package -- --out \"$VSIX_NAME\""));
+    assert!(workflow.contains("actions/upload-artifact@v4"));
+    assert!(workflow.contains("vsce publish --packagePath"));
+    assert!(workflow.contains("ovsx publish"));
+}
