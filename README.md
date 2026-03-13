@@ -284,6 +284,12 @@ Show a repair plan first without rewriting anything:
 voc doctor --output-dir .verifyos --repair pr-comment --plan --format json
 ```
 
+Write the same preview as a Markdown handoff file:
+
+```bash
+voc doctor --output-dir .verifyos --from-scan path/to/YourApp.ipa --repair pr-comment --plan --plan-out .verifyos/repair-plan.md
+```
+
 When `--plan` is paired with `--from-scan`, the JSON output also includes `plan_context` so agents can see:
 - whether the preview is based on `fresh-scan` or `existing-assets`
 - the exact scan artifact path

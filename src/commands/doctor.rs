@@ -80,6 +80,10 @@ pub struct DoctorArgs {
     /// Show which assets would be rebuilt for the current fix/repair settings
     #[arg(long)]
     pub plan: bool,
+
+    /// Optional Markdown file path for the current repair plan preview
+    #[arg(long)]
+    pub plan_out: Option<PathBuf>,
 }
 
 pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
@@ -151,6 +155,9 @@ pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
             freshness_against.as_deref(),
             &policy,
         ));
+        if let Some(path) = doctor.plan_out.as_deref() {
+            write_plan_markdown(path, &report)?;
+        }
     }
     render_doctor_report(&report, doctor_format)?;
     if report.has_failures() {
@@ -338,4 +345,49 @@ fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<(
         }
     }
     Ok(())
+}
+
+fn write_plan_markdown(path: &Path, report: &DoctorReport) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).into_diagnostic()?;
+    }
+    std::fs::write(path, render_plan_markdown(report)).into_diagnostic()?;
+    Ok(())
+}
+
+fn render_plan_markdown(report: &DoctorReport) -> String {
+    let mut out = String::new();
+    out.push_str("# verifyOS Repair Plan\n\n");
+
+    if let Some(context) = &report.plan_context {
+        out.push_str("## Context\n\n");
+        out.push_str(&format!("- Source: `{}`\n", context.source));
+        if let Some(scan_artifact) = &context.scan_artifact {
+            out.push_str(&format!("- Scan artifact: `{scan_artifact}`\n"));
+        }
+        if let Some(baseline_path) = &context.baseline_path {
+            out.push_str(&format!("- Baseline: `{baseline_path}`\n"));
+        }
+        if let Some(freshness_source) = &context.freshness_source {
+            out.push_str(&format!("- Freshness source: `{freshness_source}`\n"));
+        }
+        out.push_str(&format!(
+            "- Repair targets: `{}`\n\n",
+            context.repair_targets.join(", ")
+        ));
+    }
+
+    out.push_str("## Planned Outputs\n\n");
+    if report.repair_plan.is_empty() {
+        out.push_str("- No repair outputs selected.\n");
+    } else {
+        for item in &report.repair_plan {
+            out.push_str(&format!(
+                "- **{}**\n  - Path: `{}`\n  - Reason: {}\n",
+                item.target, item.path, item.reason
+            ));
+        }
+    }
+
+    out
 }

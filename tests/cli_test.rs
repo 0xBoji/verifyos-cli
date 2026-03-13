@@ -794,6 +794,39 @@ fn test_doctor_plan_from_scan_includes_context() {
 }
 
 #[test]
+fn test_doctor_plan_can_write_markdown_file() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+    let plan_path = output_dir.join("repair-plan.md");
+    std::fs::create_dir_all(&output_dir).expect("create output dir");
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+            "--repair",
+            "pr-comment",
+            "--plan",
+            "--plan-out",
+            plan_path.to_str().expect("utf8 plan path"),
+        ])
+        .output()
+        .expect("doctor plan markdown should run");
+
+    assert!(doctor.status.success());
+    let markdown = std::fs::read_to_string(plan_path).expect("plan markdown should exist");
+    assert!(markdown.contains("# verifyOS Repair Plan"));
+    assert!(markdown.contains("## Context"));
+    assert!(markdown.contains("fresh-scan"));
+    assert!(markdown.contains("pr-comment"));
+}
+
+#[test]
 fn test_doctor_uses_verifyos_toml_defaults() {
     let dir = tempdir().expect("temp dir");
     let output_dir = dir.path().join("doctor-output");
