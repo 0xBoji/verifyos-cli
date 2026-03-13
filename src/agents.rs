@@ -700,4 +700,153 @@ Keep this
         assert!(block.contains(".verifyos-agent/pr-brief.md"));
         assert!(block.contains(".verifyos-agent/pr-comment.md"));
     }
+
+    #[test]
+    fn render_fix_prompt_matches_snapshot() {
+        let pack = AgentPack {
+            generated_at_unix: 0,
+            total_findings: 1,
+            findings: vec![AgentFinding {
+                rule_id: "RULE_USAGE_DESCRIPTIONS".to_string(),
+                rule_name: "Missing required usage description keys".to_string(),
+                severity: Severity::Warning,
+                category: RuleCategory::Privacy,
+                priority: "medium".to_string(),
+                message: "Missing NSCameraUsageDescription".to_string(),
+                evidence: None,
+                recommendation: "Add usage descriptions".to_string(),
+                suggested_fix_scope: "Info.plist".to_string(),
+                target_files: vec!["Info.plist".to_string()],
+                patch_hint: "Update Info.plist".to_string(),
+                why_it_fails_review: "Protected APIs require usage strings.".to_string(),
+            }],
+        };
+        let hints = CommandHints {
+            app_path: Some("examples/bad_app.ipa".to_string()),
+            profile: Some("basic".to_string()),
+            agent_pack_dir: Some(".verifyos-agent".to_string()),
+            fix_prompt_path: Some(".verifyos/fix-prompt.md".to_string()),
+            repair_plan_path: Some(".verifyos/repair-plan.md".to_string()),
+            pr_brief_path: Some(".verifyos/pr-brief.md".to_string()),
+            pr_comment_path: Some(".verifyos/pr-comment.md".to_string()),
+            ..CommandHints::default()
+        };
+
+        let prompt = super::render_fix_prompt(&pack, &hints);
+        let expected = r#"# verifyOS Fix Prompt
+
+Patch the current iOS bundle risks conservatively. Prefer minimal, review-safe edits.
+
+- App artifact: `examples/bad_app.ipa`
+- Scan profile: `basic`
+- Agent bundle: `.verifyos-agent`
+- Prompt file: `.verifyos/fix-prompt.md`
+- Repair plan: `.verifyos/repair-plan.md`
+
+## Related Artifacts
+
+- Repair plan: `.verifyos/repair-plan.md`
+- PR brief: `.verifyos/pr-brief.md`
+- PR comment: `.verifyos/pr-comment.md`
+
+## Findings
+
+- **Missing required usage description keys** (`RULE_USAGE_DESCRIPTIONS`)
+  - Priority: `medium`
+  - Scope: `Info.plist`
+  - Target files: Info.plist
+  - Why it fails review: Protected APIs require usage strings.
+  - Patch hint: Update Info.plist
+  - Recommendation: Add usage descriptions
+
+## Done When
+
+- The relevant files are patched without widening permissions or exceptions.
+- `voc` no longer reports the patched findings.
+- Updated outputs are regenerated for the next loop.
+
+## Validation Commands
+
+```bash
+voc --app examples/bad_app.ipa --profile basic
+voc --app examples/bad_app.ipa --profile basic --agent-pack .verifyos-agent --agent-pack-format bundle
+```
+"#;
+
+        assert_eq!(prompt, expected);
+    }
+
+    #[test]
+    fn render_pr_brief_matches_snapshot() {
+        let pack = AgentPack {
+            generated_at_unix: 0,
+            total_findings: 1,
+            findings: vec![AgentFinding {
+                rule_id: "RULE_PRIVACY_MANIFEST".to_string(),
+                rule_name: "Missing Privacy Manifest".to_string(),
+                severity: Severity::Error,
+                category: RuleCategory::Privacy,
+                priority: "high".to_string(),
+                message: "Missing PrivacyInfo.xcprivacy".to_string(),
+                evidence: None,
+                recommendation: "Add a privacy manifest".to_string(),
+                suggested_fix_scope: "bundle-resources".to_string(),
+                target_files: vec!["PrivacyInfo.xcprivacy".to_string()],
+                patch_hint: "Add the manifest to the app bundle".to_string(),
+                why_it_fails_review: "Apple now expects accurate privacy manifests.".to_string(),
+            }],
+        };
+        let hints = CommandHints {
+            app_path: Some("examples/bad_app.ipa".to_string()),
+            baseline_path: Some("baseline.json".to_string()),
+            output_dir: Some(".verifyos".to_string()),
+            profile: Some("basic".to_string()),
+            agent_pack_dir: Some(".verifyos-agent".to_string()),
+            repair_plan_path: Some(".verifyos/repair-plan.md".to_string()),
+            pr_brief_path: Some(".verifyos/pr-brief.md".to_string()),
+            pr_comment_path: Some(".verifyos/pr-comment.md".to_string()),
+            ..CommandHints::default()
+        };
+
+        let brief = super::render_pr_brief(&pack, &hints);
+        let expected = r#"# verifyOS PR Brief
+
+## Summary
+
+- Findings in scope: `1`
+- App artifact: `examples/bad_app.ipa`
+- Scan profile: `basic`
+- Baseline: `baseline.json`
+- Repair plan: `.verifyos/repair-plan.md`
+
+## Related Artifacts
+
+- Repair plan: `.verifyos/repair-plan.md`
+- PR comment: `.verifyos/pr-comment.md`
+
+## What Changed
+
+- This branch still contains findings that can affect App Store review outcomes.
+- The recommended patch order below is sorted for review safety and repair efficiency.
+
+## Current Risks
+
+- **Missing Privacy Manifest** (`RULE_PRIVACY_MANIFEST`)
+  - Priority: `high`
+  - Scope: `bundle-resources`
+  - Target files: PrivacyInfo.xcprivacy
+  - Why review cares: Apple now expects accurate privacy manifests.
+  - Patch hint: Add the manifest to the app bundle
+
+## Validation Commands
+
+```bash
+voc --app examples/bad_app.ipa --profile basic
+voc --app examples/bad_app.ipa --profile basic --agent-pack .verifyos-agent --agent-pack-format bundle
+voc doctor --output-dir .verifyos --fix --from-scan examples/bad_app.ipa --profile basic --baseline baseline.json --open-pr-brief
+```
+"#;
+
+        assert_eq!(brief, expected);
+    }
 }
