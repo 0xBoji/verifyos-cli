@@ -199,6 +199,10 @@ jobs:
           PY
           )"
 
+          if [ -z "$pr_number" ]; then
+            echo "No PR number found in release-plz output; skipping labeling."
+            exit 0
+          fi
           gh pr edit "$pr_number" --add-label "$labels_csv"
         shell: bash
       - name: Comment release summary on PR
@@ -256,6 +260,10 @@ jobs:
           PY
           )"
 
+          if [ -z "$pr_number" ]; then
+            echo "No PR number found in release-plz output; skipping comment."
+            exit 0
+          fi
           existing_id="$(
             gh api "repos/${GITHUB_REPOSITORY}/issues/${pr_number}/comments" \
               --jq '.[] | select(.body | contains("<!-- verifyos-release-summary -->")) | .id' \
