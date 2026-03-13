@@ -166,9 +166,25 @@ fail_on = "error"
 timings = "off"
 include = []
 exclude = []
+
+[init]
+output_dir = ".verifyos"
+write_commands = true
+shell_script = true
+fix_prompt = true
+profile = "basic"
+
+[doctor]
+output_dir = ".verifyos"
+fix = true
+profile = "basic"
+open_pr_brief = true
+open_pr_comment = true
 ```
 
-CLI flags override config file values.
+Top-level keys apply to normal `voc --app ...` scans. `[init]` and `[doctor]` let you keep agent-workflow defaults in one place so you do not have to repeat `--output-dir`, `--profile`, or PR handoff flags every run.
+
+CLI flags still override config file values.
 
 ### AGENTS.md bootstrap
 

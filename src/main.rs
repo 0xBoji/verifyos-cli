@@ -177,8 +177,8 @@ struct InitArgs {
     fix_prompt: bool,
 
     /// Scan profile to use with --from-scan
-    #[arg(long, value_enum, default_value = "full")]
-    profile: Profile,
+    #[arg(long, value_enum)]
+    profile: Option<Profile>,
 }
 
 #[derive(Debug, Parser)]
@@ -196,8 +196,8 @@ struct DoctorArgs {
     config: Option<PathBuf>,
 
     /// Output format for doctor results
-    #[arg(long, value_enum, default_value = "table")]
-    format: OutputFormat,
+    #[arg(long, value_enum)]
+    format: Option<OutputFormat>,
 
     /// Repair a broken or missing agent setup under the chosen output root
     #[arg(long)]
@@ -212,8 +212,8 @@ struct DoctorArgs {
     baseline: Option<PathBuf>,
 
     /// Scan profile to use with --from-scan
-    #[arg(long, value_enum, default_value = "full")]
-    profile: Profile,
+    #[arg(long, value_enum)]
+    profile: Option<Profile>,
 
     /// Generate pr-brief.md for PR review and agent handoff
     #[arg(long)]
@@ -227,35 +227,52 @@ struct DoctorArgs {
 fn main() -> Result<()> {
     // 1. Parse CLI arguments
     let args = Args::parse();
+    let file_config = load_file_config(args.config.as_deref())?;
     if let Some(Commands::Init(init)) = args.command {
+        let init_defaults = file_config.init.clone().unwrap_or_default();
+        let init_profile = init
+            .profile
+            .or(parse_optional_cli_profile(
+                init_defaults.profile.as_deref(),
+            )?)
+            .unwrap_or(Profile::Full);
         let effective_output_dir = init
             .output_dir
             .clone()
+            .or(init_defaults.output_dir.clone())
             .unwrap_or_else(|| PathBuf::from("."));
         let effective_agents_path = init
             .path
             .clone()
+            .or(init_defaults.path.clone())
             .unwrap_or_else(|| effective_output_dir.join("AGENTS.md"));
         let effective_agent_pack_dir = init
             .agent_pack_dir
             .clone()
+            .or(init_defaults.agent_pack_dir.clone())
             .unwrap_or_else(|| effective_output_dir.join(".verifyos-agent"));
         let effective_fix_prompt_path = effective_output_dir.join("fix-prompt.md");
+        let write_commands = init.write_commands || init_defaults.write_commands.unwrap_or(false);
+        let shell_script = init.shell_script || init_defaults.shell_script.unwrap_or(false);
+        let fix_prompt = init.fix_prompt || init_defaults.fix_prompt.unwrap_or(false);
         let agent_pack = if let Some(app) = init.from_scan.as_deref() {
             Some(run_scan_for_agent_pack(
                 app,
-                init.profile,
+                init_profile,
                 init.baseline.as_deref(),
             )?)
         } else {
             None
         };
         if let Some(pack) = agent_pack.as_ref() {
-            if init.agent_pack_dir.is_some() || init.shell_script {
+            if init.agent_pack_dir.is_some()
+                || init_defaults.agent_pack_dir.is_some()
+                || shell_script
+            {
                 write_agent_pack(&effective_agent_pack_dir, pack, AgentPackFormat::Bundle)?;
             }
         }
-        if init.shell_script {
+        if shell_script {
             let script_path = effective_agent_pack_dir.join("next-steps.sh");
             let command_hints = CommandHints {
                 output_dir: Some(effective_output_dir.display().to_string()),
@@ -268,37 +285,33 @@ fn main() -> Result<()> {
                     .as_deref()
                     .map(|path| path.display().to_string()),
                 agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
-                profile: Some(profile_key(init.profile)),
+                profile: Some(profile_key(init_profile)),
                 shell_script: true,
-                fix_prompt_path: init
-                    .fix_prompt
+                fix_prompt_path: fix_prompt
                     .then(|| effective_fix_prompt_path.display().to_string()),
                 pr_brief_path: None,
                 pr_comment_path: None,
             };
             write_next_steps_script(&script_path, &command_hints)?;
         }
-        let command_hints =
-            (init.write_commands || init.shell_script || init.fix_prompt).then(|| CommandHints {
-                output_dir: Some(effective_output_dir.display().to_string()),
-                app_path: init
-                    .from_scan
-                    .as_deref()
-                    .map(|path| path.display().to_string()),
-                baseline_path: init
-                    .baseline
-                    .as_deref()
-                    .map(|path| path.display().to_string()),
-                agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
-                profile: Some(profile_key(init.profile)),
-                shell_script: init.shell_script,
-                fix_prompt_path: init
-                    .fix_prompt
-                    .then(|| effective_fix_prompt_path.display().to_string()),
-                pr_brief_path: None,
-                pr_comment_path: None,
-            });
-        if init.fix_prompt {
+        let command_hints = (write_commands || shell_script || fix_prompt).then(|| CommandHints {
+            output_dir: Some(effective_output_dir.display().to_string()),
+            app_path: init
+                .from_scan
+                .as_deref()
+                .map(|path| path.display().to_string()),
+            baseline_path: init
+                .baseline
+                .as_deref()
+                .map(|path| path.display().to_string()),
+            agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
+            profile: Some(profile_key(init_profile)),
+            shell_script,
+            fix_prompt_path: fix_prompt.then(|| effective_fix_prompt_path.display().to_string()),
+            pr_brief_path: None,
+            pr_comment_path: None,
+        });
+        if fix_prompt {
             let pack = agent_pack.as_ref().ok_or_else(|| {
                 miette::miette!(
                     "`--fix-prompt` requires `--from-scan <path>` so voc has findings to summarize"
@@ -320,30 +333,50 @@ fn main() -> Result<()> {
         return Ok(());
     }
     if let Some(Commands::Doctor(doctor)) = args.command {
-        let output_dir = doctor.output_dir.unwrap_or_else(|| PathBuf::from("."));
+        let doctor_defaults = file_config.doctor.clone().unwrap_or_default();
+        let doctor_format = doctor
+            .format
+            .or(parse_optional_output_format(
+                doctor_defaults.format.as_deref(),
+            )?)
+            .unwrap_or(OutputFormat::Table);
+        let doctor_profile = doctor
+            .profile
+            .or(parse_optional_cli_profile(
+                doctor_defaults.profile.as_deref(),
+            )?)
+            .unwrap_or(Profile::Full);
+        let output_dir = doctor
+            .output_dir
+            .or(doctor_defaults.output_dir.clone())
+            .unwrap_or_else(|| PathBuf::from("."));
         let agents_path = doctor
             .agents
+            .or(doctor_defaults.agents.clone())
             .unwrap_or_else(|| output_dir.join("AGENTS.md"));
-        if doctor.fix {
+        let should_fix = doctor.fix || doctor_defaults.fix.unwrap_or(false);
+        let open_pr_brief = doctor.open_pr_brief || doctor_defaults.open_pr_brief.unwrap_or(false);
+        let open_pr_comment =
+            doctor.open_pr_comment || doctor_defaults.open_pr_comment.unwrap_or(false);
+        if should_fix {
             repair_doctor_setup(
                 &output_dir,
                 &agents_path,
                 doctor.from_scan.as_deref(),
                 doctor.baseline.as_deref(),
-                doctor.profile,
-                doctor.open_pr_brief,
-                doctor.open_pr_comment,
+                doctor_profile,
+                open_pr_brief,
+                open_pr_comment,
             )?;
         }
         let report = run_doctor(doctor.config.as_deref(), &agents_path);
-        render_doctor_report(&report, doctor.format)?;
+        render_doctor_report(&report, doctor_format)?;
         if report.has_failures() {
             std::process::exit(1);
         }
         return Ok(());
     }
 
-    let file_config = load_file_config(args.config.as_deref())?;
     let runtime = resolve_runtime_config(
         file_config,
         CliOverrides {
@@ -864,6 +897,21 @@ fn parse_profile(value: &str) -> Result<ScanProfile> {
     }
 }
 
+fn parse_cli_profile(value: &str) -> Result<Profile> {
+    match value.to_ascii_lowercase().as_str() {
+        "basic" => Ok(Profile::Basic),
+        "full" => Ok(Profile::Full),
+        _ => Err(miette::miette!(
+            "Unknown profile `{}`. Expected one of: basic, full",
+            value
+        )),
+    }
+}
+
+fn parse_optional_cli_profile(value: Option<&str>) -> Result<Option<Profile>> {
+    value.map(parse_cli_profile).transpose()
+}
+
 fn scan_profile_from_cli(value: Profile) -> ScanProfile {
     match value {
         Profile::Basic => ScanProfile::Basic,
@@ -905,6 +953,10 @@ fn parse_agent_pack_format(value: &str) -> Result<AgentPackFormat> {
             value
         )),
     }
+}
+
+fn parse_optional_output_format(value: Option<&str>) -> Result<Option<OutputFormat>> {
+    value.map(parse_output_format).transpose()
 }
 
 fn write_agent_pack(

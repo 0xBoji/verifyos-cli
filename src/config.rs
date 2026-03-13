@@ -13,6 +13,30 @@ pub struct FileConfig {
     pub timings: Option<String>,
     pub include: Option<Vec<String>>,
     pub exclude: Option<Vec<String>>,
+    pub init: Option<InitDefaults>,
+    pub doctor: Option<DoctorDefaults>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct InitDefaults {
+    pub output_dir: Option<PathBuf>,
+    pub path: Option<PathBuf>,
+    pub agent_pack_dir: Option<PathBuf>,
+    pub write_commands: Option<bool>,
+    pub shell_script: Option<bool>,
+    pub fix_prompt: Option<bool>,
+    pub profile: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+pub struct DoctorDefaults {
+    pub output_dir: Option<PathBuf>,
+    pub agents: Option<PathBuf>,
+    pub format: Option<String>,
+    pub fix: Option<bool>,
+    pub profile: Option<String>,
+    pub open_pr_brief: Option<bool>,
+    pub open_pr_comment: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

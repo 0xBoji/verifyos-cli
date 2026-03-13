@@ -13,6 +13,17 @@ fn runtime_config_uses_file_defaults() {
         agent_pack_format: Some("markdown".to_string()),
         timings: Some("summary".to_string()),
         include: Some(vec!["RULE_ATS_AUDIT".to_string()]),
+        init: Some(verifyos_cli::config::InitDefaults {
+            output_dir: Some(".verifyos".into()),
+            shell_script: Some(true),
+            profile: Some("basic".to_string()),
+            ..Default::default()
+        }),
+        doctor: Some(verifyos_cli::config::DoctorDefaults {
+            output_dir: Some(".verifyos".into()),
+            open_pr_comment: Some(true),
+            ..Default::default()
+        }),
         ..FileConfig::default()
     };
 
@@ -40,6 +51,10 @@ fn runtime_config_prefers_cli_over_file() {
         agent_pack_format: Some("json".to_string()),
         timings: Some("off".to_string()),
         include: Some(vec!["RULE_ATS_AUDIT".to_string()]),
+        init: Some(verifyos_cli::config::InitDefaults {
+            output_dir: Some(".verifyos".into()),
+            ..Default::default()
+        }),
         ..FileConfig::default()
     };
 
@@ -83,6 +98,16 @@ agent_pack = "fixes.json"
 agent_pack_format = "markdown"
 timings = "summary"
 include = ["RULE_ATS_AUDIT"]
+
+[init]
+output_dir = ".verifyos"
+shell_script = true
+profile = "basic"
+
+[doctor]
+output_dir = ".verifyos"
+open_pr_brief = true
+open_pr_comment = true
 "#,
     )
     .expect("write config");
@@ -102,4 +127,18 @@ include = ["RULE_ATS_AUDIT"]
         config.include.as_deref(),
         Some(&["RULE_ATS_AUDIT".to_string()][..])
     );
+    let init = config.init.expect("init defaults");
+    assert_eq!(
+        init.output_dir.as_deref(),
+        Some(std::path::Path::new(".verifyos"))
+    );
+    assert_eq!(init.shell_script, Some(true));
+    assert_eq!(init.profile.as_deref(), Some("basic"));
+    let doctor = config.doctor.expect("doctor defaults");
+    assert_eq!(
+        doctor.output_dir.as_deref(),
+        Some(std::path::Path::new(".verifyos"))
+    );
+    assert_eq!(doctor.open_pr_brief, Some(true));
+    assert_eq!(doctor.open_pr_comment, Some(true));
 }

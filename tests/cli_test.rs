@@ -560,6 +560,50 @@ fn test_init_fix_prompt_writes_prompt_file() {
 }
 
 #[test]
+fn test_init_uses_verifyos_toml_defaults() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("config-output");
+    let config_path = dir.path().join("verifyos.toml");
+    std::fs::write(
+        &config_path,
+        format!(
+            r#"
+[init]
+output_dir = "{}"
+write_commands = true
+shell_script = true
+fix_prompt = true
+profile = "basic"
+"#,
+            output_dir.display()
+        ),
+    )
+    .expect("write config");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "--config",
+            config_path.to_str().expect("utf8 config path"),
+            "init",
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+        ])
+        .output()
+        .expect("init with config defaults should run");
+
+    assert!(output.status.success());
+    assert!(output_dir.join("AGENTS.md").exists());
+    assert!(output_dir.join("fix-prompt.md").exists());
+    assert!(output_dir.join(".verifyos-agent/next-steps.sh").exists());
+
+    let agents = std::fs::read_to_string(output_dir.join("AGENTS.md")).expect("agents exist");
+    assert!(agents.contains("--profile basic"));
+    assert!(agents.contains("### Next Commands"));
+}
+
+#[test]
 fn test_doctor_detects_healthy_init_assets() {
     let dir = tempdir().expect("temp dir");
     let output_dir = dir.path().join("artifacts");
@@ -594,6 +638,51 @@ fn test_doctor_detects_healthy_init_assets() {
     assert!(stdout.contains("Config"));
     assert!(stdout.contains("AGENTS.md"));
     assert!(stdout.contains("Referenced assets"));
+}
+
+#[test]
+fn test_doctor_uses_verifyos_toml_defaults() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("doctor-output");
+    let config_path = dir.path().join("verifyos.toml");
+    std::fs::write(
+        &config_path,
+        format!(
+            r#"
+[doctor]
+output_dir = "{}"
+fix = true
+profile = "basic"
+open_pr_brief = true
+open_pr_comment = true
+"#,
+            output_dir.display()
+        ),
+    )
+    .expect("write config");
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "--config",
+            config_path.to_str().expect("utf8 config path"),
+            "doctor",
+            "--from-scan",
+            get_example_path("bad_app.ipa")
+                .to_str()
+                .expect("utf8 app path"),
+        ])
+        .output()
+        .expect("doctor with config defaults should run");
+
+    assert!(doctor.status.success());
+    assert!(output_dir.join("AGENTS.md").exists());
+    assert!(output_dir.join("pr-brief.md").exists());
+    assert!(output_dir.join("pr-comment.md").exists());
+
+    let agents = std::fs::read_to_string(output_dir.join("AGENTS.md")).expect("agents exist");
+    assert!(agents.contains("--profile basic"));
+    assert!(agents.contains("--open-pr-brief"));
+    assert!(agents.contains("--open-pr-comment"));
 }
 
 #[test]
