@@ -284,6 +284,13 @@ Show a repair plan first without rewriting anything:
 voc doctor --output-dir .verifyos --repair pr-comment --plan --format json
 ```
 
+When `--plan` is paired with `--from-scan`, the JSON output also includes `plan_context` so agents can see:
+- whether the preview is based on `fresh-scan` or `existing-assets`
+- the exact scan artifact path
+- the baseline path in play, if any
+- the freshness source used for stale-asset checks
+- the effective repair targets
+
 Repair a broken or missing local agent setup in place:
 
 ```bash

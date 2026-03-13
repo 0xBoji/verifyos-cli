@@ -7,7 +7,9 @@ use std::path::{Path, PathBuf};
 use verifyos_cli::agent_assets::{build_repair_plan, AgentAssetLayout, RepairPolicy, RepairTarget};
 use verifyos_cli::agents::{write_agents_file, CommandHints};
 use verifyos_cli::config::FileConfig;
-use verifyos_cli::doctor::{run_doctor, DoctorReport, DoctorStatus};
+use verifyos_cli::doctor::{
+    detect_freshness_source_path, run_doctor, DoctorPlanContext, DoctorReport, DoctorStatus,
+};
 use verifyos_cli::report::AgentPackFormat;
 
 use crate::{
@@ -140,12 +142,53 @@ pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
     if doctor.plan {
         let policy = RepairPolicy::new(repair_targets, open_pr_brief, open_pr_comment);
         report.repair_plan = build_repair_plan(&layout, &policy);
+        report.plan_context = Some(build_plan_context(
+            &layout,
+            doctor.from_scan.as_deref(),
+            doctor.baseline.as_deref(),
+            freshness_against.as_deref(),
+            &policy,
+        ));
     }
     render_doctor_report(&report, doctor_format)?;
     if report.has_failures() {
         std::process::exit(1);
     }
     Ok(())
+}
+
+fn build_plan_context(
+    layout: &AgentAssetLayout,
+    from_scan: Option<&Path>,
+    baseline_path: Option<&Path>,
+    freshness_against: Option<&Path>,
+    policy: &RepairPolicy,
+) -> DoctorPlanContext {
+    let repair_targets = if policy.repairs_all() {
+        vec!["all".to_string()]
+    } else {
+        let mut targets: Vec<String> = policy
+            .repair_targets()
+            .iter()
+            .copied()
+            .map(|target| target.key().to_string())
+            .collect();
+        targets.sort();
+        targets
+    };
+
+    DoctorPlanContext {
+        source: if from_scan.is_some() {
+            "fresh-scan".to_string()
+        } else {
+            "existing-assets".to_string()
+        },
+        scan_artifact: from_scan.map(|path| path.display().to_string()),
+        baseline_path: baseline_path.map(|path| path.display().to_string()),
+        freshness_source: detect_freshness_source_path(&layout.output_dir, freshness_against)
+            .map(|path| path.display().to_string()),
+        repair_targets,
+    }
 }
 
 fn parse_repair_targets(raw: Option<&[String]>) -> Result<HashSet<RepairTarget>> {
@@ -256,6 +299,23 @@ fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<(
                 table.add_row(vec![Cell::new(&item.name), status, Cell::new(&item.detail)]);
             }
             println!("{table}");
+            if let Some(plan_context) = &report.plan_context {
+                println!("\nPlan context:");
+                println!("- source: {}", plan_context.source);
+                if let Some(scan_artifact) = &plan_context.scan_artifact {
+                    println!("- scan artifact: {scan_artifact}");
+                }
+                if let Some(baseline_path) = &plan_context.baseline_path {
+                    println!("- baseline: {baseline_path}");
+                }
+                if let Some(freshness_source) = &plan_context.freshness_source {
+                    println!("- freshness source: {freshness_source}");
+                }
+                println!(
+                    "- repair targets: {}",
+                    plan_context.repair_targets.join(", ")
+                );
+            }
             if !report.repair_plan.is_empty() {
                 println!("\nRepair plan:");
                 for item in &report.repair_plan {

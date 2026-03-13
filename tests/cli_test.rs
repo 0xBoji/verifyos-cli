@@ -737,6 +737,63 @@ fn test_doctor_plan_lists_selected_repairs() {
 }
 
 #[test]
+fn test_doctor_plan_from_scan_includes_context() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+    std::fs::create_dir_all(&output_dir).expect("create output dir");
+    let baseline_path = output_dir.join("baseline.json");
+    let freshness_path = output_dir.join("report.json");
+    std::fs::write(
+        &baseline_path,
+        r#"{"ruleset_version":"1","generated_at_unix":0,"total_duration_ms":0,"cache_stats":{"nested_bundles":{"hits":0,"misses":0},"usage_scan":{"hits":0,"misses":0},"private_api_scan":{"hits":0,"misses":0},"sdk_scan":{"hits":0,"misses":0},"capability_scan":{"hits":0,"misses":0},"signature_summary":{"hits":0,"misses":0},"bundle_plist":{"hits":0,"misses":0},"entitlements":{"hits":0,"misses":0},"provisioning_profile":{"hits":0,"misses":0},"bundle_files":{"hits":0,"misses":0}},"slow_rules":[],"results":[]}"#,
+    )
+    .expect("write baseline");
+    std::fs::write(&freshness_path, "{}").expect("write freshness source");
+
+    let app_path = get_example_path("bad_app.ipa");
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--from-scan",
+            app_path.to_str().expect("utf8 app path"),
+            "--baseline",
+            baseline_path.to_str().expect("utf8 baseline path"),
+            "--freshness-against",
+            freshness_path.to_str().expect("utf8 freshness path"),
+            "--repair",
+            "pr-comment",
+            "--plan",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("doctor plan from scan should run");
+
+    assert!(doctor.status.success());
+    let stdout = String::from_utf8(doctor.stdout).expect("utf8");
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("valid json");
+    let context = value["plan_context"].as_object().expect("plan context");
+    assert_eq!(context["source"], "fresh-scan");
+    assert_eq!(context["scan_artifact"], app_path.display().to_string());
+    assert_eq!(
+        context["baseline_path"],
+        baseline_path.display().to_string()
+    );
+    assert_eq!(
+        context["freshness_source"],
+        freshness_path.display().to_string()
+    );
+    assert_eq!(
+        context["repair_targets"]
+            .as_array()
+            .expect("repair targets"),
+        &vec![serde_json::Value::String("pr-comment".to_string())]
+    );
+}
+
+#[test]
 fn test_doctor_uses_verifyos_toml_defaults() {
     let dir = tempdir().expect("temp dir");
     let output_dir = dir.path().join("doctor-output");

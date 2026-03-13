@@ -116,6 +116,7 @@ mod tests {
                     detail: "ok".to_string(),
                 }],
                 repair_plan: Vec::new(),
+                plan_context: None,
             })
             .expect("json"),
         )

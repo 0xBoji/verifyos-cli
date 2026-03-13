@@ -23,6 +23,17 @@ pub struct DoctorReport {
     pub checks: Vec<DoctorCheck>,
     #[serde(default)]
     pub repair_plan: Vec<RepairPlanItem>,
+    #[serde(default)]
+    pub plan_context: Option<DoctorPlanContext>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DoctorPlanContext {
+    pub source: String,
+    pub scan_artifact: Option<String>,
+    pub baseline_path: Option<String>,
+    pub freshness_source: Option<String>,
+    pub repair_targets: Vec<String>,
 }
 
 impl DoctorReport {
@@ -58,6 +69,7 @@ pub fn run_doctor(
     DoctorReport {
         checks,
         repair_plan: Vec::new(),
+        plan_context: None,
     }
 }
 
@@ -357,6 +369,13 @@ fn resolve_freshness_source(
     }
 
     latest_report_artifact(output_dir)
+}
+
+pub fn detect_freshness_source_path(
+    output_dir: &Path,
+    freshness_against: Option<&Path>,
+) -> Option<PathBuf> {
+    resolve_freshness_source(output_dir, freshness_against).map(|(path, _)| path)
 }
 
 fn extract_voc_commands(contents: &str) -> Vec<String> {
