@@ -85,4 +85,7 @@ fn release_workflow_enriches_release_pr_metadata() {
     assert!(workflow.contains("\"gh\", \"label\", \"create\""));
     assert!(workflow.contains("gh pr edit \"$pr_number\" --add-label"));
     assert!(workflow.contains("<!-- verifyos-release-summary -->"));
+    assert!(workflow.contains("export LABELS_CSV=\"$labels_csv\""));
+    assert!(workflow.contains("export RELEASE_VERSION=\"$version\""));
+    assert!(workflow.contains("GITHUB_REPOSITORY: ${{ github.repository }}"));
 }

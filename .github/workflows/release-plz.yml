@@ -115,6 +115,8 @@ jobs:
 
           labels_csv="${summary%%$'\n===LABELS===\n'*}"
           bullets="${summary#*$'\n===LABELS===\n'}"
+          export LABELS_CSV="$labels_csv"
+          export RELEASE_VERSION="$version"
 
           python3 <<'PY'
           import json
@@ -204,12 +206,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_PLZ_PR: ${{ steps.release_pr.outputs.pr }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
 
           pr_json="$RELEASE_PLZ_PR"
           pr_number="$(printf '%s' "$pr_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["number"])')"
           version="$(printf '%s' "$pr_json" | python3 -c 'import json,sys; releases=json.load(sys.stdin).get("releases", []); print(releases[0]["version"] if releases else "")')"
+          export RELEASE_VERSION="$version"
 
           last_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
           if [ -n "$last_tag" ]; then
