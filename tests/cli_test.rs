@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::Duration;
 use tempfile::tempdir;
 use verifyos_cli::core::engine::Engine;
 use verifyos_cli::profiles::{register_rules, RuleSelection, ScanProfile};
@@ -710,6 +711,32 @@ fn test_doctor_detects_healthy_init_assets() {
 }
 
 #[test]
+fn test_doctor_plan_lists_selected_repairs() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--repair",
+            "pr-comment",
+            "--plan",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("doctor plan should run");
+
+    assert!(doctor.status.success());
+    let stdout = String::from_utf8(doctor.stdout).expect("utf8");
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("valid json");
+    let plan = value["repair_plan"].as_array().expect("repair plan array");
+    assert!(plan.iter().any(|item| item["target"] == "pr-comment"));
+}
+
+#[test]
 fn test_doctor_uses_verifyos_toml_defaults() {
     let dir = tempdir().expect("temp dir");
     let output_dir = dir.path().join("doctor-output");
@@ -752,6 +779,54 @@ open_pr_comment = true
     assert!(agents.contains("--profile basic"));
     assert!(agents.contains("--open-pr-brief"));
     assert!(agents.contains("--open-pr-comment"));
+}
+
+#[test]
+fn test_doctor_uses_explicit_freshness_source() {
+    let dir = tempdir().expect("temp dir");
+    let output_dir = dir.path().join("artifacts");
+    let agent_dir = output_dir.join(".verifyos-agent");
+    std::fs::create_dir_all(&agent_dir).expect("create agent dir");
+    std::fs::write(
+        output_dir.join("AGENTS.md"),
+        "## verifyOS-cli\n\n- Shortcut script: `.verifyos-agent/next-steps.sh`\n",
+    )
+    .expect("write agents");
+    std::fs::write(
+        agent_dir.join("next-steps.sh"),
+        "voc --app path/to/app.ipa --profile basic\n",
+    )
+    .expect("write script");
+    std::thread::sleep(Duration::from_secs(1));
+    std::fs::write(output_dir.join("custom-report.json"), "{}").expect("write report");
+
+    let doctor = Command::new(env!("CARGO_BIN_EXE_voc"))
+        .args([
+            "doctor",
+            "--output-dir",
+            output_dir.to_str().expect("utf8 output dir"),
+            "--freshness-against",
+            "custom-report.json",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("doctor should run");
+
+    assert!(doctor.status.success());
+    let stdout = String::from_utf8(doctor.stdout).expect("utf8");
+    let value: serde_json::Value = serde_json::from_str(&stdout).expect("valid json");
+    let freshness = value["checks"]
+        .as_array()
+        .expect("checks")
+        .iter()
+        .find(|item| item["name"] == "Asset freshness")
+        .expect("freshness check");
+    assert_eq!(freshness["status"], "Warn");
+    assert!(freshness["detail"]
+        .as_str()
+        .expect("detail")
+        .contains("custom-report.json"));
 }
 
 #[test]

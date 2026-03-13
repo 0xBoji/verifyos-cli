@@ -11,7 +11,7 @@ use verifyos_cli::agents::{
 use verifyos_cli::ci_comment::render_workflow_pr_comment;
 use verifyos_cli::config::{load_file_config, resolve_runtime_config, CliOverrides};
 use verifyos_cli::core::engine::Engine;
-use verifyos_cli::doctor::{run_doctor, DoctorReport, DoctorStatus};
+use verifyos_cli::doctor::{run_doctor, DoctorReport, DoctorStatus, RepairPlanItem};
 use verifyos_cli::profiles::{
     available_rule_ids, normalize_rule_id, register_rules, rule_detail, rule_inventory,
     RuleDetailItem, RuleInventoryItem, RuleSelection, ScanProfile,
@@ -231,6 +231,10 @@ struct DoctorArgs {
     #[arg(long)]
     baseline: Option<PathBuf>,
 
+    /// Compare asset freshness against this specific report file instead of auto-detecting report.json/report.sarif
+    #[arg(long)]
+    freshness_against: Option<PathBuf>,
+
     /// Scan profile to use with --from-scan
     #[arg(long, value_enum)]
     profile: Option<Profile>,
@@ -246,6 +250,10 @@ struct DoctorArgs {
     /// Only repair selected outputs (repeat or comma-separate)
     #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
     repair: Vec<RepairTarget>,
+
+    /// Show which assets would be rebuilt for the current fix/repair settings
+    #[arg(long)]
+    plan: bool,
 }
 
 #[derive(Debug, Parser)]
@@ -412,7 +420,7 @@ fn main() -> Result<()> {
                 profile: doctor_profile,
                 open_pr_brief,
                 open_pr_comment,
-                repair_targets,
+                repair_targets: repair_targets.clone(),
             };
             repair_doctor_setup(
                 &output_dir,
@@ -422,7 +430,20 @@ fn main() -> Result<()> {
                 &repair_options,
             )?;
         }
-        let report = run_doctor(doctor.config.as_deref(), &agents_path);
+        let mut report = run_doctor(
+            doctor.config.as_deref(),
+            &agents_path,
+            doctor.freshness_against.as_deref(),
+        );
+        if doctor.plan {
+            report.repair_plan = build_repair_plan(
+                &output_dir,
+                &agents_path,
+                &repair_targets,
+                open_pr_brief,
+                open_pr_comment,
+            );
+        }
         render_doctor_report(&report, doctor_format)?;
         if report.has_failures() {
             std::process::exit(1);
@@ -667,6 +688,12 @@ fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<(
                 table.add_row(vec![Cell::new(&item.name), status, Cell::new(&item.detail)]);
             }
             println!("{table}");
+            if !report.repair_plan.is_empty() {
+                println!("\nRepair plan:");
+                for item in &report.repair_plan {
+                    println!("- {} -> {} ({})", item.target, item.path, item.reason);
+                }
+            }
         }
         OutputFormat::Json => {
             println!(
@@ -681,6 +708,59 @@ fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<(
         }
     }
     Ok(())
+}
+
+fn build_repair_plan(
+    output_dir: &std::path::Path,
+    agents_path: &std::path::Path,
+    repair_targets: &HashSet<RepairTarget>,
+    open_pr_brief: bool,
+    open_pr_comment: bool,
+) -> Vec<RepairPlanItem> {
+    let repair_all = repair_targets.is_empty();
+    let mut plan = Vec::new();
+
+    if repair_all || repair_targets.contains(&RepairTarget::Agents) {
+        plan.push(RepairPlanItem {
+            target: "agents".to_string(),
+            path: agents_path.display().to_string(),
+            reason: "refresh managed AGENTS.md block".to_string(),
+        });
+    }
+
+    if repair_all || repair_targets.contains(&RepairTarget::AgentBundle) {
+        plan.push(RepairPlanItem {
+            target: "agent-bundle".to_string(),
+            path: output_dir.join(".verifyos-agent").display().to_string(),
+            reason: "rebuild agent-pack files and next-steps.sh".to_string(),
+        });
+    }
+
+    if repair_all || repair_targets.contains(&RepairTarget::FixPrompt) {
+        plan.push(RepairPlanItem {
+            target: "fix-prompt".to_string(),
+            path: output_dir.join("fix-prompt.md").display().to_string(),
+            reason: "refresh AI fix prompt".to_string(),
+        });
+    }
+
+    if open_pr_brief || repair_targets.contains(&RepairTarget::PrBrief) {
+        plan.push(RepairPlanItem {
+            target: "pr-brief".to_string(),
+            path: output_dir.join("pr-brief.md").display().to_string(),
+            reason: "refresh PR handoff brief".to_string(),
+        });
+    }
+
+    if open_pr_comment || repair_targets.contains(&RepairTarget::PrComment) {
+        plan.push(RepairPlanItem {
+            target: "pr-comment".to_string(),
+            path: output_dir.join("pr-comment.md").display().to_string(),
+            reason: "refresh sticky PR comment draft".to_string(),
+        });
+    }
+
+    plan
 }
 
 fn repair_doctor_setup(

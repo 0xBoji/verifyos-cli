@@ -115,6 +115,7 @@ mod tests {
                     status: DoctorStatus::Pass,
                     detail: "ok".to_string(),
                 }],
+                repair_plan: Vec::new(),
             })
             .expect("json"),
         )

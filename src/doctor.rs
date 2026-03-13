@@ -20,6 +20,15 @@ pub struct DoctorCheck {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DoctorReport {
     pub checks: Vec<DoctorCheck>,
+    #[serde(default)]
+    pub repair_plan: Vec<RepairPlanItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RepairPlanItem {
+    pub target: String,
+    pub path: String,
+    pub reason: String,
 }
 
 impl DoctorReport {
@@ -30,7 +39,11 @@ impl DoctorReport {
     }
 }
 
-pub fn run_doctor(config_path: Option<&Path>, agents_path: &Path) -> DoctorReport {
+pub fn run_doctor(
+    config_path: Option<&Path>,
+    agents_path: &Path,
+    freshness_against: Option<&Path>,
+) -> DoctorReport {
     let mut checks = Vec::new();
 
     checks.push(check_config(config_path));
@@ -39,12 +52,19 @@ pub fn run_doctor(config_path: Option<&Path>, agents_path: &Path) -> DoctorRepor
     if agents_path.exists() {
         let contents = std::fs::read_to_string(agents_path).unwrap_or_default();
         checks.push(check_referenced_assets(&contents, agents_path));
-        checks.push(check_asset_freshness(&contents, agents_path));
+        checks.push(check_asset_freshness(
+            &contents,
+            agents_path,
+            freshness_against,
+        ));
         checks.push(check_next_commands(&contents));
         checks.push(check_next_steps_script(&contents, agents_path));
     }
 
-    DoctorReport { checks }
+    DoctorReport {
+        checks,
+        repair_plan: Vec::new(),
+    }
 }
 
 fn check_config(config_path: Option<&Path>) -> DoctorCheck {
@@ -113,9 +133,15 @@ fn check_referenced_assets(contents: &str, agents_path: &Path) -> DoctorCheck {
     }
 }
 
-fn check_asset_freshness(contents: &str, agents_path: &Path) -> DoctorCheck {
+fn check_asset_freshness(
+    contents: &str,
+    agents_path: &Path,
+    freshness_against: Option<&Path>,
+) -> DoctorCheck {
     let output_dir = agents_path.parent().unwrap_or_else(|| Path::new("."));
-    let Some((report_path, report_modified)) = latest_report_artifact(output_dir) else {
+    let Some((report_path, report_modified)) =
+        resolve_freshness_source(output_dir, freshness_against)
+    else {
         return DoctorCheck {
             name: "Asset freshness".to_string(),
             status: DoctorStatus::Pass,
@@ -322,6 +348,23 @@ fn latest_report_artifact(output_dir: &Path) -> Option<(PathBuf, SystemTime)> {
         .max_by_key(|(_, modified)| *modified)
 }
 
+fn resolve_freshness_source(
+    output_dir: &Path,
+    freshness_against: Option<&Path>,
+) -> Option<(PathBuf, SystemTime)> {
+    if let Some(path) = freshness_against {
+        let resolved = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            output_dir.join(path)
+        };
+        let modified = std::fs::metadata(&resolved).ok()?.modified().ok()?;
+        return Some((resolved, modified));
+    }
+
+    latest_report_artifact(output_dir)
+}
+
 fn extract_voc_commands(contents: &str) -> Vec<String> {
     let mut commands = Vec::new();
     let mut in_block = false;
@@ -368,7 +411,7 @@ mod tests {
     #[test]
     fn doctor_warns_when_agents_is_missing() {
         let dir = tempdir().expect("temp dir");
-        let report = run_doctor(None, &dir.path().join("AGENTS.md"));
+        let report = run_doctor(None, &dir.path().join("AGENTS.md"), None);
 
         assert_eq!(report.checks[1].status, DoctorStatus::Warn);
     }
@@ -383,7 +426,7 @@ mod tests {
         )
         .expect("write agents");
 
-        let report = run_doctor(None, &agents);
+        let report = run_doctor(None, &agents, None);
 
         assert!(report.has_failures());
         assert_eq!(report.checks[2].status, DoctorStatus::Fail);
@@ -408,7 +451,7 @@ mod tests {
         std::thread::sleep(Duration::from_secs(1));
         fs::write(dir.path().join("report.json"), "{}").expect("write report");
 
-        let report = run_doctor(None, &agents);
+        let report = run_doctor(None, &agents, None);
 
         assert_eq!(report.checks[3].name, "Asset freshness");
         assert_eq!(report.checks[3].status, DoctorStatus::Warn);
@@ -434,7 +477,7 @@ mod tests {
         )
         .expect("write agents");
 
-        let report = run_doctor(None, &agents);
+        let report = run_doctor(None, &agents, None);
 
         assert_eq!(report.checks[3].name, "Asset freshness");
         assert_eq!(report.checks[3].status, DoctorStatus::Pass);
@@ -457,7 +500,7 @@ mod tests {
         )
         .expect("write agents");
 
-        let report = run_doctor(None, &agents);
+        let report = run_doctor(None, &agents, None);
 
         assert!(report.has_failures());
         assert_eq!(report.checks[5].status, DoctorStatus::Fail);
@@ -483,7 +526,7 @@ mod tests {
         )
         .expect("write agents");
 
-        let report = run_doctor(None, &agents);
+        let report = run_doctor(None, &agents, None);
 
         assert!(!report.has_failures());
         assert_eq!(report.checks[5].status, DoctorStatus::Pass);
