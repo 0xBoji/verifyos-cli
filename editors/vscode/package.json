@@ -1,0 +1,77 @@
+{
+  "name": "verifyos-vscode",
+  "displayName": "verifyOS",
+  "description": "A thin VS Code extension that launches `voc lsp` for verifyOS-cli diagnostics.",
+  "version": "0.1.0",
+  "publisher": "0xboji",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.94.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/Info.plist",
+    "workspaceContains:**/*.xcprivacy",
+    "onCommand:verifyOS.restartLanguageServer",
+    "onCommand:verifyOS.showOutput"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "verifyOS.restartLanguageServer",
+        "title": "verifyOS: Restart Language Server"
+      },
+      {
+        "command": "verifyOS.showOutput",
+        "title": "verifyOS: Show Output"
+      }
+    ],
+    "configuration": {
+      "title": "verifyOS",
+      "properties": {
+        "verifyOS.path": {
+          "type": "string",
+          "default": "voc",
+          "description": "Path to the `voc` binary. Use an absolute path if `voc` is not on PATH."
+        },
+        "verifyOS.profile": {
+          "type": "string",
+          "enum": [
+            "basic",
+            "full"
+          ],
+          "default": "basic",
+          "description": "Rule profile passed to `voc lsp`."
+        },
+        "verifyOS.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace level for the verifyOS language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "@types/vscode": "^1.94.0",
+    "@vscode/vsce": "^2.31.1",
+    "typescript": "^5.6.2"
+  }
+}
