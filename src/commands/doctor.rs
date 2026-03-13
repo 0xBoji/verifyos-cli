@@ -19,11 +19,12 @@ use verifyos_cli::report::AgentPackFormat;
 use crate::commands::support::{
     parse_optional_cli_profile, parse_optional_output_format, profile_key,
 };
-use crate::{run_scan_for_agent_pack, OutputFormat, Profile};
+use crate::{run_scan_for_agent_pack, OutputFormat};
+use verifyos_cli::profiles::ScanProfile;
 
 #[derive(Debug, Clone)]
 struct DoctorRepairOptions {
-    profile: Profile,
+    profile: ScanProfile,
     policy: RepairPolicy,
 }
 
@@ -63,7 +64,7 @@ pub struct DoctorArgs {
 
     /// Scan profile to use with --from-scan
     #[arg(long, value_enum)]
-    pub profile: Option<Profile>,
+    pub profile: Option<ScanProfile>,
 
     /// Generate pr-brief.md for PR review and agent handoff
     #[arg(long)]
@@ -99,7 +100,7 @@ pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
         .or(parse_optional_cli_profile(
             doctor_defaults.profile.as_deref(),
         )?)
-        .unwrap_or(Profile::Full);
+        .unwrap_or(ScanProfile::Full);
     let output_dir = doctor
         .output_dir
         .clone()
