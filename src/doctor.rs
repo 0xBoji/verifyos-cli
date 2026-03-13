@@ -1,6 +1,7 @@
 use crate::config::load_file_config;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum DoctorStatus {
@@ -38,6 +39,7 @@ pub fn run_doctor(config_path: Option<&Path>, agents_path: &Path) -> DoctorRepor
     if agents_path.exists() {
         let contents = std::fs::read_to_string(agents_path).unwrap_or_default();
         checks.push(check_referenced_assets(&contents, agents_path));
+        checks.push(check_asset_freshness(&contents, agents_path));
         checks.push(check_next_commands(&contents));
         checks.push(check_next_steps_script(&contents, agents_path));
     }
@@ -107,6 +109,51 @@ fn check_referenced_assets(contents: &str, agents_path: &Path) -> DoctorCheck {
             name: "Referenced assets".to_string(),
             status: DoctorStatus::Fail,
             detail: format!("Missing assets: {}", missing.join(", ")),
+        }
+    }
+}
+
+fn check_asset_freshness(contents: &str, agents_path: &Path) -> DoctorCheck {
+    let output_dir = agents_path.parent().unwrap_or_else(|| Path::new("."));
+    let Some((report_path, report_modified)) = latest_report_artifact(output_dir) else {
+        return DoctorCheck {
+            name: "Asset freshness".to_string(),
+            status: DoctorStatus::Pass,
+            detail: "No report.json or report.sarif found; freshness check skipped".to_string(),
+        };
+    };
+
+    let mut stale = Vec::new();
+    for path in freshness_targets(contents, agents_path) {
+        let Ok(metadata) = std::fs::metadata(&path) else {
+            continue;
+        };
+        let Ok(modified) = metadata.modified() else {
+            continue;
+        };
+        if modified < report_modified {
+            stale.push(path.display().to_string());
+        }
+    }
+
+    if stale.is_empty() {
+        DoctorCheck {
+            name: "Asset freshness".to_string(),
+            status: DoctorStatus::Pass,
+            detail: format!(
+                "Generated assets are at least as new as {}",
+                report_path.display()
+            ),
+        }
+    } else {
+        DoctorCheck {
+            name: "Asset freshness".to_string(),
+            status: DoctorStatus::Warn,
+            detail: format!(
+                "These assets look older than {}: {}",
+                report_path.display(),
+                stale.join(", ")
+            ),
         }
     }
 }
@@ -253,6 +300,28 @@ fn extract_backticked_paths(contents: &str) -> Vec<String> {
     items
 }
 
+fn freshness_targets(contents: &str, agents_path: &Path) -> Vec<PathBuf> {
+    let mut targets = vec![agents_path.to_path_buf()];
+    for item in extract_backticked_paths(contents) {
+        let path = resolve_reference(agents_path, &item);
+        if !targets.contains(&path) {
+            targets.push(path);
+        }
+    }
+    targets
+}
+
+fn latest_report_artifact(output_dir: &Path) -> Option<(PathBuf, SystemTime)> {
+    ["report.json", "report.sarif"]
+        .into_iter()
+        .filter_map(|name| {
+            let path = output_dir.join(name);
+            let modified = std::fs::metadata(&path).ok()?.modified().ok()?;
+            Some((path, modified))
+        })
+        .max_by_key(|(_, modified)| *modified)
+}
+
 fn extract_voc_commands(contents: &str) -> Vec<String> {
     let mut commands = Vec::new();
     let mut in_block = false;
@@ -293,6 +362,7 @@ fn resolve_reference(agents_path: &Path, reference: &str) -> PathBuf {
 mod tests {
     use super::{run_doctor, DoctorStatus};
     use std::fs;
+    use std::time::Duration;
     use tempfile::tempdir;
 
     #[test]
@@ -320,6 +390,57 @@ mod tests {
     }
 
     #[test]
+    fn doctor_warns_when_assets_are_older_than_report() {
+        let dir = tempdir().expect("temp dir");
+        let agents = dir.path().join("AGENTS.md");
+        let script_dir = dir.path().join(".verifyos-agent");
+        fs::create_dir_all(&script_dir).expect("create script dir");
+        fs::write(
+            script_dir.join("next-steps.sh"),
+            "voc --app app.ipa --profile basic\n",
+        )
+        .expect("write script");
+        fs::write(
+            &agents,
+            "## verifyOS-cli\n\n- Shortcut script: `.verifyos-agent/next-steps.sh`\n",
+        )
+        .expect("write agents");
+        std::thread::sleep(Duration::from_secs(1));
+        fs::write(dir.path().join("report.json"), "{}").expect("write report");
+
+        let report = run_doctor(None, &agents);
+
+        assert_eq!(report.checks[3].name, "Asset freshness");
+        assert_eq!(report.checks[3].status, DoctorStatus::Warn);
+        assert!(report.checks[3].detail.contains("report.json"));
+    }
+
+    #[test]
+    fn doctor_passes_when_assets_are_fresh_against_report() {
+        let dir = tempdir().expect("temp dir");
+        let agents = dir.path().join("AGENTS.md");
+        let script_dir = dir.path().join(".verifyos-agent");
+        fs::create_dir_all(&script_dir).expect("create script dir");
+        fs::write(dir.path().join("report.sarif"), "{}").expect("write report");
+        std::thread::sleep(Duration::from_secs(1));
+        fs::write(
+            script_dir.join("next-steps.sh"),
+            "voc --app app.ipa --profile basic\n",
+        )
+        .expect("write script");
+        fs::write(
+            &agents,
+            "## verifyOS-cli\n\n- Shortcut script: `.verifyos-agent/next-steps.sh`\n",
+        )
+        .expect("write agents");
+
+        let report = run_doctor(None, &agents);
+
+        assert_eq!(report.checks[3].name, "Asset freshness");
+        assert_eq!(report.checks[3].status, DoctorStatus::Pass);
+    }
+
+    #[test]
     fn doctor_fails_when_next_steps_script_drifts_from_agents_block() {
         let dir = tempdir().expect("temp dir");
         let agents = dir.path().join("AGENTS.md");
@@ -339,8 +460,8 @@ mod tests {
         let report = run_doctor(None, &agents);
 
         assert!(report.has_failures());
-        assert_eq!(report.checks[4].status, DoctorStatus::Fail);
-        assert!(report.checks[4].detail.contains("--open-pr-comment"));
+        assert_eq!(report.checks[5].status, DoctorStatus::Fail);
+        assert!(report.checks[5].detail.contains("--open-pr-comment"));
     }
 
     #[test]
@@ -365,6 +486,6 @@ mod tests {
         let report = run_doctor(None, &agents);
 
         assert!(!report.has_failures());
-        assert_eq!(report.checks[4].status, DoctorStatus::Pass);
+        assert_eq!(report.checks[5].status, DoctorStatus::Pass);
     }
 }

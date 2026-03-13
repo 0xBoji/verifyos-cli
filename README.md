@@ -304,6 +304,7 @@ voc doctor --output-dir .verifyos --fix --from-scan path/to/YourApp.ipa --profil
 - config parsing
 - `AGENTS.md` presence
 - referenced agent assets like `agent-pack.json`, `agent-pack.md`, and `next-steps.sh`
+- whether generated agent assets look stale compared with the newest `report.json` or `report.sarif` in the output root
 - sample `voc` commands inside `AGENTS.md`
 - `next-steps.sh` command health, including whether follow-up flags like `--open-pr-brief` and `--open-pr-comment` still match the managed block
 
