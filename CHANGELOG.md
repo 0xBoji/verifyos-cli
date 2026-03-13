@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/0xBoji/verifyos-cli/compare/v0.6.1...v0.7.0) - 2026-03-13
+
+### Added
+
+- *(lsp)* publish bundle diagnostics
+- *(vscode)* add thin editor extension
+- *(lsp)* add voc language server command
+
+### Fixed
+
+- *(release)* tolerate existing smart branch names
+- *(cli)* use scan profile in doctor command
+- *(release)* target the current release pr branch
+
+### Other
+
+- *(vscode)* document cli and extension
+- *(ci)* add vscode extension packaging flow
+
 ## [0.6.1](https://github.com/0xBoji/verifyos-cli/compare/v0.6.0...v0.6.1) - 2026-03-13
 
 ### Added
