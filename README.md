@@ -436,6 +436,7 @@ jobs:
       doctor_repair: pr-comment
       comment_on_pr: true
       comment_mode: sticky
+      comment_plan_path: .verifyos-ci/repair-plan.md
       pr_number: ${{ github.event.pull_request.number }}
 ```
 

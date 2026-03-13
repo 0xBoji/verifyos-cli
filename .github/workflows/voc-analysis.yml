@@ -53,6 +53,11 @@ on:
         options:
           - sticky
           - plain
+      comment_plan_path:
+        description: "Optional repair plan path override for PR comment rendering"
+        required: false
+        default: ""
+        type: string
       pr_number:
         description: "Optional PR number for manual runs"
         required: false
@@ -90,6 +95,10 @@ on:
       comment_mode:
         required: false
         default: "sticky"
+        type: string
+      comment_plan_path:
+        required: false
+        default: ""
         type: string
       pr_number:
         required: false
@@ -204,6 +213,11 @@ PY
             comment_mode="sticky"
           fi
 
+          comment_plan_path="${{ github.event.inputs.comment_plan_path }}"
+          if [ -z "$comment_plan_path" ]; then
+            comment_plan_path="${{ inputs.comment_plan_path }}"
+          fi
+
           doctor_repair="${{ github.event.inputs.doctor_repair }}"
           if [ -z "$doctor_repair" ]; then
             doctor_repair="${{ inputs.doctor_repair }}"
@@ -226,6 +240,7 @@ PY
             echo "DOCTOR_REPAIR=$doctor_repair"
             echo "COMMENT_ON_PR=$comment_on_pr"
             echo "COMMENT_MODE=$comment_mode"
+            echo "COMMENT_PLAN_PATH=$comment_plan_path"
             echo "PR_NUMBER=$pr_number"
           } >> "$GITHUB_ENV"
 
@@ -318,6 +333,9 @@ PY
             --doctor-exit "${{ steps.scan.outputs.doctor_exit }}"
             --output "$OUTPUT_DIR/pr-comment-body.md"
           )
+          if [ -n "$COMMENT_PLAN_PATH" ]; then
+            pr_comment_cmd+=(--plan-path "$COMMENT_PLAN_PATH")
+          fi
           if [ "$COMMENT_MODE" = "sticky" ]; then
             pr_comment_cmd+=(--sticky-marker)
           fi
