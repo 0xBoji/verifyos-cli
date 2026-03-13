@@ -2,10 +2,10 @@
   "name": "verifyos-vscode",
   "displayName": "verifyOS",
   "description": "App Store review diagnostics for Info.plist and PrivacyInfo.xcprivacy, powered by the verifyOS Rust CLI.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "0xboji",
   "license": "MIT",
-  "icon": "assets/verifyOS.png",
+  "icon": "assets/verifyOS_128x.png",
   "galleryBanner": {
     "color": "#D9E5F2",
     "theme": "light"
@@ -42,6 +42,7 @@
   "main": "./dist/extension.js",
   "files": [
     "assets/**",
+    "bin/**",
     "dist/**",
     "LICENSE.md",
     "README.md",
@@ -64,7 +65,12 @@
         "verifyOS.path": {
           "type": "string",
           "default": "voc",
-          "description": "Path to the `voc` binary. Use an absolute path if `voc` is not on PATH."
+          "description": "Fallback path to the `voc` binary. Used when a bundled verifyOS binary is unavailable for the current platform."
+        },
+        "verifyOS.useBundledBinary": {
+          "type": "boolean",
+          "default": true,
+          "description": "Prefer the bundled verifyOS binary shipped inside the extension when it is available for the current platform."
         },
         "verifyOS.profile": {
           "type": "string",

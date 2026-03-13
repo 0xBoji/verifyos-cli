@@ -16,8 +16,54 @@ on:
         type: boolean
 
 jobs:
+  build-bundled-binaries:
+    name: Build bundled binary (${{ matrix.label }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            label: linux-x64
+            target_dir: linux-x64
+            binary_name: voc
+          - runner: windows-latest
+            label: win32-x64
+            target_dir: win32-x64
+            binary_name: voc.exe
+          - runner: macos-13
+            label: darwin-x64
+            target_dir: darwin-x64
+            binary_name: voc
+          - runner: macos-14
+            label: darwin-arm64
+            target_dir: darwin-arm64
+            binary_name: voc
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build voc release binary
+        shell: bash
+        run: |
+          rustup default stable
+          cargo build --release --bin voc
+
+      - name: Stage bundled binary
+        shell: bash
+        run: |
+          mkdir -p "dist/${{ matrix.target_dir }}"
+          cp "target/release/${{ matrix.binary_name }}" "dist/${{ matrix.target_dir }}/${{ matrix.binary_name }}"
+
+      - name: Upload bundled binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-binary-${{ matrix.target_dir }}
+          path: dist/${{ matrix.target_dir }}/${{ matrix.binary_name }}
+
   package:
     name: Package VS Code extension
+    needs: build-bundled-binaries
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -37,6 +83,40 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prepare bundled binary directory
+        run: mkdir -p bin/linux-x64 bin/win32-x64 bin/darwin-x64 bin/darwin-arm64
+
+      - name: Download Linux bundled binary
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-binary-linux-x64
+          path: editors/vscode/bin/linux-x64
+
+      - name: Download Windows bundled binary
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-binary-win32-x64
+          path: editors/vscode/bin/win32-x64
+
+      - name: Download macOS x64 bundled binary
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-binary-darwin-x64
+          path: editors/vscode/bin/darwin-x64
+
+      - name: Download macOS arm64 bundled binary
+        uses: actions/download-artifact@v4
+        with:
+          name: vscode-binary-darwin-arm64
+          path: editors/vscode/bin/darwin-arm64
+
+      - name: Restore execute permissions for bundled binaries
+        shell: bash
+        run: |
+          chmod +x bin/linux-x64/voc
+          chmod +x bin/darwin-x64/voc
+          chmod +x bin/darwin-arm64/voc
 
       - name: Compile extension
         run: npm run compile
