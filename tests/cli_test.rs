@@ -12,6 +12,10 @@ fn get_example_path(filename: &str) -> PathBuf {
         .join(filename)
 }
 
+fn toml_path_literal(path: &std::path::Path) -> String {
+    path.display().to_string().replace('\\', "\\\\")
+}
+
 fn create_engine() -> Engine {
     let mut engine = Engine::new();
     register_rules(&mut engine, ScanProfile::Full, &RuleSelection::default());
@@ -640,7 +644,7 @@ shell_script = true
 fix_prompt = true
 profile = "basic"
 "#,
-            output_dir.display()
+            toml_path_literal(&output_dir)
         ),
     )
     .expect("write config");
@@ -721,7 +725,7 @@ profile = "basic"
 open_pr_brief = true
 open_pr_comment = true
 "#,
-            output_dir.display()
+            toml_path_literal(&output_dir)
         ),
     )
     .expect("write config");
