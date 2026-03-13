@@ -24,6 +24,7 @@ fn runtime_config_uses_file_defaults() {
             open_pr_comment: Some(true),
             repair: Some(vec!["pr-comment".to_string()]),
             freshness_against: Some("report.json".into()),
+            plan_out: Some(".verifyos/repair-plan.md".into()),
             ..Default::default()
         }),
         ci: Some(verifyos_cli::config::CiDefaults {
@@ -116,6 +117,7 @@ open_pr_brief = true
 open_pr_comment = true
 repair = ["pr-comment"]
 freshness_against = "report.json"
+plan_out = ".verifyos/repair-plan.md"
 
 [ci]
 doctor_repair = ["agent-bundle"]
@@ -157,6 +159,10 @@ comment_mode = "plain"
     assert_eq!(
         doctor.freshness_against.as_deref(),
         Some(std::path::Path::new("report.json"))
+    );
+    assert_eq!(
+        doctor.plan_out.as_deref(),
+        Some(std::path::Path::new(".verifyos/repair-plan.md"))
     );
     let ci = config.ci.expect("ci defaults");
     assert_eq!(ci.doctor_repair, Some(vec!["agent-bundle".to_string()]));

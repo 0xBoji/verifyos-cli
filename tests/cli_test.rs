@@ -830,6 +830,7 @@ fn test_doctor_plan_can_write_markdown_file() {
 fn test_doctor_uses_verifyos_toml_defaults() {
     let dir = tempdir().expect("temp dir");
     let output_dir = dir.path().join("doctor-output");
+    let plan_out = dir.path().join("repair-plan.md");
     let config_path = dir.path().join("verifyos.toml");
     std::fs::write(
         &config_path,
@@ -840,11 +841,13 @@ output_dir = "{}"
 fix = true
 repair = ["pr-comment"]
 freshness_against = "doctor-report.json"
+plan_out = "{}"
 profile = "basic"
 open_pr_brief = true
 open_pr_comment = true
 "#,
-            toml_path_literal(&output_dir)
+            toml_path_literal(&output_dir),
+            toml_path_literal(&plan_out)
         ),
     )
     .expect("write config");
@@ -868,6 +871,7 @@ open_pr_comment = true
     assert!(!output_dir.join("AGENTS.md").exists());
     assert!(output_dir.join("pr-comment.md").exists());
     assert!(!output_dir.join("pr-brief.md").exists());
+    assert!(plan_out.exists());
 }
 
 #[test]

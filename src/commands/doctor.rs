@@ -122,6 +122,8 @@ pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
     let open_pr_brief = doctor.open_pr_brief || doctor_defaults.open_pr_brief.unwrap_or(false);
     let open_pr_comment =
         doctor.open_pr_comment || doctor_defaults.open_pr_comment.unwrap_or(false);
+    let plan_out = doctor.plan_out.clone().or(doctor_defaults.plan_out.clone());
+    let should_plan = doctor.plan || plan_out.is_some();
     let freshness_against = doctor
         .freshness_against
         .clone()
@@ -145,7 +147,7 @@ pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
         &layout.agents_path,
         freshness_against.as_deref(),
     );
-    if doctor.plan {
+    if should_plan {
         let policy = RepairPolicy::new(repair_targets, open_pr_brief, open_pr_comment);
         report.repair_plan = build_repair_plan(&layout, &policy);
         report.plan_context = Some(build_plan_context(
@@ -155,7 +157,7 @@ pub fn run(doctor: DoctorArgs, file_config: &FileConfig) -> Result<()> {
             freshness_against.as_deref(),
             &policy,
         ));
-        if let Some(path) = doctor.plan_out.as_deref() {
+        if let Some(path) = plan_out.as_deref() {
             write_plan_markdown(path, &report)?;
         }
     }

@@ -37,6 +37,7 @@ pub struct DoctorDefaults {
     pub fix: Option<bool>,
     pub repair: Option<Vec<String>>,
     pub freshness_against: Option<PathBuf>,
+    pub plan_out: Option<PathBuf>,
     pub profile: Option<String>,
     pub open_pr_brief: Option<bool>,
     pub open_pr_comment: Option<bool>,

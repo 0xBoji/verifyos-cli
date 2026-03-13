@@ -179,6 +179,7 @@ output_dir = ".verifyos"
 fix = true
 repair = ["pr-comment"]
 freshness_against = "report.json"
+plan_out = ".verifyos/repair-plan.md"
 profile = "basic"
 open_pr_brief = true
 open_pr_comment = true
