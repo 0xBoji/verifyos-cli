@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Fixed Action Center activation so the sidebar always registers its tree data provider when opened
+- Kept the branded verifyOS sidebar experience intact with the status/action icons
+
 ## 0.1.3
 
 - Added a branded Action Center sidebar in the activity bar

@@ -16,7 +16,7 @@ fn vscode_extension_launches_voc_lsp() {
     let package_json = vscode_file("package.json");
     let extension_ts = vscode_file("src/extension.ts");
 
-    assert!(package_json.contains("\"version\": \"0.1.3\""));
+    assert!(package_json.contains("\"version\": \"0.1.4\""));
     assert!(package_json.contains("\"icon\": \"assets/verifyOS_128x.png\""));
     assert!(package_json.contains("\"galleryBanner\""));
     assert!(package_json.contains("\"ai-agent\""));
@@ -57,8 +57,8 @@ fn vscode_extension_workflow_packages_and_publishes_vsix() {
     .expect("vscode workflow should be readable");
 
     assert!(package_json.contains("\"package\": \"vsce package --allow-missing-repository\""));
-    assert!(changelog.contains("## 0.1.3"));
-    assert!(changelog.contains("Action Center sidebar"));
+    assert!(changelog.contains("## 0.1.4"));
+    assert!(changelog.contains("tree data provider"));
     assert!(package_json.contains("\"publish:vsce\": \"vsce publish\""));
     assert!(package_json.contains("\"publish:ovsx\": \"ovsx publish\""));
     assert!(package_json.contains("\"LICENSE.md\""));
