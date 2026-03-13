@@ -1,18 +1,20 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use comfy_table::{Cell, Color, Table};
+use comfy_table::Table;
 use indicatif::{ProgressBar, ProgressStyle};
 use miette::{IntoDiagnostic, Result};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-use verifyos_cli::agent_assets::{build_repair_plan, AgentAssetLayout, RepairPolicy, RepairTarget};
-use verifyos_cli::agents::{
-    render_fix_prompt, render_pr_brief, render_pr_comment, write_agents_file, CommandHints,
-};
-use verifyos_cli::ci_comment::render_workflow_pr_comment;
+mod commands;
+
+use commands::doctor::{run as run_doctor_command, DoctorArgs};
+use commands::init::{run as run_init_command, InitArgs};
+use commands::pr_comment::{run as run_pr_comment_command, PrCommentArgs};
+
+use verifyos_cli::agent_assets::AgentAssetLayout;
+use verifyos_cli::agents::{render_fix_prompt, render_pr_brief, render_pr_comment, CommandHints};
 use verifyos_cli::config::{load_file_config, resolve_runtime_config, CliOverrides};
 use verifyos_cli::core::engine::Engine;
-use verifyos_cli::doctor::{run_doctor, DoctorReport, DoctorStatus};
 use verifyos_cli::profiles::{
     available_rule_ids, normalize_rule_id, register_rules, rule_detail, rule_inventory,
     RuleDetailItem, RuleInventoryItem, RuleSelection, ScanProfile,
@@ -64,12 +66,6 @@ enum AgentPackOutput {
     Json,
     Markdown,
     Bundle,
-}
-
-#[derive(Debug, Clone)]
-struct DoctorRepairOptions {
-    profile: Profile,
-    policy: RepairPolicy,
 }
 
 #[derive(Parser, Debug)]
@@ -152,307 +148,18 @@ enum Commands {
     PrComment(PrCommentArgs),
 }
 
-#[derive(Debug, Parser)]
-struct InitArgs {
-    /// Root directory for generated init assets like AGENTS.md, agent bundle, script, and prompt
-    #[arg(long)]
-    output_dir: Option<PathBuf>,
-
-    /// Path to the AGENTS.md file to create or update
-    #[arg(long)]
-    path: Option<PathBuf>,
-
-    /// Scan an app first and inject current project risks into the managed block
-    #[arg(long)]
-    from_scan: Option<PathBuf>,
-
-    /// Baseline JSON report used to keep only new or regressed risks in Current Project Risks
-    #[arg(long)]
-    baseline: Option<PathBuf>,
-
-    /// Generate agent-pack.json and agent-pack.md into this directory during init
-    #[arg(long)]
-    agent_pack_dir: Option<PathBuf>,
-
-    /// Write copy-paste follow-up commands into AGENTS.md
-    #[arg(long)]
-    write_commands: bool,
-
-    /// Generate next-steps.sh inside --agent-pack-dir with follow-up commands
-    #[arg(long)]
-    shell_script: bool,
-
-    /// Generate fix-prompt.md for AI agents
-    #[arg(long)]
-    fix_prompt: bool,
-
-    /// Scan profile to use with --from-scan
-    #[arg(long, value_enum)]
-    profile: Option<Profile>,
-}
-
-#[derive(Debug, Parser)]
-struct DoctorArgs {
-    /// Root directory that contains AGENTS.md and generated init assets
-    #[arg(long)]
-    output_dir: Option<PathBuf>,
-
-    /// Explicit AGENTS.md path to check
-    #[arg(long)]
-    agents: Option<PathBuf>,
-
-    /// Explicit config path to validate
-    #[arg(long)]
-    config: Option<PathBuf>,
-
-    /// Output format for doctor results
-    #[arg(long, value_enum)]
-    format: Option<OutputFormat>,
-
-    /// Repair a broken or missing agent setup under the chosen output root
-    #[arg(long)]
-    fix: bool,
-
-    /// Scan an app first and repair agent assets with current findings
-    #[arg(long)]
-    from_scan: Option<PathBuf>,
-
-    /// Baseline JSON report used with --from-scan to keep only new or regressed risks
-    #[arg(long)]
-    baseline: Option<PathBuf>,
-
-    /// Compare asset freshness against this specific report file instead of auto-detecting report.json/report.sarif
-    #[arg(long)]
-    freshness_against: Option<PathBuf>,
-
-    /// Scan profile to use with --from-scan
-    #[arg(long, value_enum)]
-    profile: Option<Profile>,
-
-    /// Generate pr-brief.md for PR review and agent handoff
-    #[arg(long)]
-    open_pr_brief: bool,
-
-    /// Generate pr-comment.md for sticky PR comments or manual GitHub updates
-    #[arg(long)]
-    open_pr_comment: bool,
-
-    /// Only repair selected outputs (repeat or comma-separate)
-    #[arg(long, value_enum, value_delimiter = ',', num_args = 1..)]
-    repair: Vec<RepairTarget>,
-
-    /// Show which assets would be rebuilt for the current fix/repair settings
-    #[arg(long)]
-    plan: bool,
-}
-
-#[derive(Debug, Parser)]
-struct PrCommentArgs {
-    /// Output root that contains doctor.json, pr-comment.md, and .verifyos-agent/
-    #[arg(long)]
-    output_dir: Option<PathBuf>,
-
-    /// Optional file path to write the generated comment body
-    #[arg(long)]
-    output: Option<PathBuf>,
-
-    /// Scan exit code to include in fallback summaries
-    #[arg(long, default_value_t = 0)]
-    scan_exit: i32,
-
-    /// Doctor exit code to include in fallback summaries
-    #[arg(long, default_value_t = 0)]
-    doctor_exit: i32,
-
-    /// Prefix the body with the sticky comment marker used by GitHub workflows
-    #[arg(long)]
-    sticky_marker: bool,
-}
-
 fn main() -> Result<()> {
     // 1. Parse CLI arguments
     let args = Args::parse();
     let file_config = load_file_config(args.config.as_deref())?;
     if let Some(Commands::Init(init)) = args.command {
-        let init_defaults = file_config.init.clone().unwrap_or_default();
-        let init_profile = init
-            .profile
-            .or(parse_optional_cli_profile(
-                init_defaults.profile.as_deref(),
-            )?)
-            .unwrap_or(Profile::Full);
-        let effective_output_dir = init
-            .output_dir
-            .clone()
-            .or(init_defaults.output_dir.clone())
-            .unwrap_or_else(|| PathBuf::from("."));
-        let mut layout = AgentAssetLayout::from_output_dir(&effective_output_dir);
-        let effective_agents_path = init
-            .path
-            .clone()
-            .or(init_defaults.path.clone())
-            .unwrap_or_else(|| layout.agents_path.clone());
-        layout = layout.with_agents_path(&effective_agents_path);
-        let effective_agent_pack_dir = init
-            .agent_pack_dir
-            .clone()
-            .or(init_defaults.agent_pack_dir.clone())
-            .unwrap_or_else(|| layout.agent_bundle_dir.clone());
-        let effective_fix_prompt_path = layout.fix_prompt_path.clone();
-        let write_commands = init.write_commands || init_defaults.write_commands.unwrap_or(false);
-        let shell_script = init.shell_script || init_defaults.shell_script.unwrap_or(false);
-        let fix_prompt = init.fix_prompt || init_defaults.fix_prompt.unwrap_or(false);
-        let agent_pack = if let Some(app) = init.from_scan.as_deref() {
-            Some(run_scan_for_agent_pack(
-                app,
-                init_profile,
-                init.baseline.as_deref(),
-            )?)
-        } else {
-            None
-        };
-        if let Some(pack) = agent_pack.as_ref() {
-            if init.agent_pack_dir.is_some()
-                || init_defaults.agent_pack_dir.is_some()
-                || shell_script
-            {
-                write_agent_pack(&effective_agent_pack_dir, pack, AgentPackFormat::Bundle)?;
-            }
-        }
-        if shell_script {
-            let script_path = effective_agent_pack_dir.join("next-steps.sh");
-            let command_hints = CommandHints {
-                output_dir: Some(effective_output_dir.display().to_string()),
-                app_path: init
-                    .from_scan
-                    .as_deref()
-                    .map(|path| path.display().to_string()),
-                baseline_path: init
-                    .baseline
-                    .as_deref()
-                    .map(|path| path.display().to_string()),
-                agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
-                profile: Some(profile_key(init_profile)),
-                shell_script: true,
-                fix_prompt_path: fix_prompt
-                    .then(|| effective_fix_prompt_path.display().to_string()),
-                pr_brief_path: None,
-                pr_comment_path: None,
-            };
-            write_next_steps_script(&script_path, &command_hints)?;
-        }
-        let command_hints = (write_commands || shell_script || fix_prompt).then(|| CommandHints {
-            output_dir: Some(effective_output_dir.display().to_string()),
-            app_path: init
-                .from_scan
-                .as_deref()
-                .map(|path| path.display().to_string()),
-            baseline_path: init
-                .baseline
-                .as_deref()
-                .map(|path| path.display().to_string()),
-            agent_pack_dir: Some(effective_agent_pack_dir.display().to_string()),
-            profile: Some(profile_key(init_profile)),
-            shell_script,
-            fix_prompt_path: fix_prompt.then(|| effective_fix_prompt_path.display().to_string()),
-            pr_brief_path: None,
-            pr_comment_path: None,
-        });
-        if fix_prompt {
-            let pack = agent_pack.as_ref().ok_or_else(|| {
-                miette::miette!(
-                    "`--fix-prompt` requires `--from-scan <path>` so voc has findings to summarize"
-                )
-            })?;
-            write_fix_prompt_file(
-                &effective_fix_prompt_path,
-                pack,
-                command_hints.as_ref().unwrap_or(&CommandHints::default()),
-            )?;
-        }
-        write_agents_file(
-            &effective_agents_path,
-            agent_pack.as_ref(),
-            Some(&effective_agent_pack_dir),
-            command_hints.as_ref(),
-        )?;
-        println!("Updated {}", effective_agents_path.display());
-        return Ok(());
+        return run_init_command(init, &file_config);
     }
     if let Some(Commands::Doctor(doctor)) = args.command {
-        let doctor_defaults = file_config.doctor.clone().unwrap_or_default();
-        let doctor_format = doctor
-            .format
-            .or(parse_optional_output_format(
-                doctor_defaults.format.as_deref(),
-            )?)
-            .unwrap_or(OutputFormat::Table);
-        let doctor_profile = doctor
-            .profile
-            .or(parse_optional_cli_profile(
-                doctor_defaults.profile.as_deref(),
-            )?)
-            .unwrap_or(Profile::Full);
-        let output_dir = doctor
-            .output_dir
-            .or(doctor_defaults.output_dir.clone())
-            .unwrap_or_else(|| PathBuf::from("."));
-        let mut layout = AgentAssetLayout::from_output_dir(&output_dir);
-        let agents_path = doctor
-            .agents
-            .or(doctor_defaults.agents.clone())
-            .unwrap_or_else(|| layout.agents_path.clone());
-        layout = layout.with_agents_path(&agents_path);
-        let repair_targets: HashSet<RepairTarget> = doctor.repair.iter().copied().collect();
-        let should_fix =
-            doctor.fix || doctor_defaults.fix.unwrap_or(false) || !repair_targets.is_empty();
-        let open_pr_brief = doctor.open_pr_brief || doctor_defaults.open_pr_brief.unwrap_or(false);
-        let open_pr_comment =
-            doctor.open_pr_comment || doctor_defaults.open_pr_comment.unwrap_or(false);
-        if should_fix {
-            let repair_options = DoctorRepairOptions {
-                profile: doctor_profile,
-                policy: RepairPolicy::new(repair_targets.clone(), open_pr_brief, open_pr_comment),
-            };
-            repair_doctor_setup(
-                &layout,
-                doctor.from_scan.as_deref(),
-                doctor.baseline.as_deref(),
-                &repair_options,
-            )?;
-        }
-        let mut report = run_doctor(
-            doctor.config.as_deref(),
-            &layout.agents_path,
-            doctor.freshness_against.as_deref(),
-        );
-        if doctor.plan {
-            let policy = RepairPolicy::new(repair_targets, open_pr_brief, open_pr_comment);
-            report.repair_plan = build_repair_plan(&layout, &policy);
-        }
-        render_doctor_report(&report, doctor_format)?;
-        if report.has_failures() {
-            std::process::exit(1);
-        }
-        return Ok(());
+        return run_doctor_command(doctor, &file_config);
     }
     if let Some(Commands::PrComment(pr_comment)) = args.command {
-        let output_dir = pr_comment.output_dir.unwrap_or_else(|| PathBuf::from("."));
-        let body = render_workflow_pr_comment(
-            &output_dir,
-            pr_comment.scan_exit,
-            pr_comment.doctor_exit,
-            pr_comment.sticky_marker,
-        )?;
-        if let Some(path) = pr_comment.output.as_deref() {
-            if let Some(parent) = path.parent() {
-                std::fs::create_dir_all(parent).into_diagnostic()?;
-            }
-            std::fs::write(path, body).into_diagnostic()?;
-        } else {
-            println!("{body}");
-        }
-        return Ok(());
+        return run_pr_comment_command(pr_comment);
     }
 
     let runtime = resolve_runtime_config(
@@ -657,115 +364,6 @@ fn write_pr_comment_file(
     }
     let comment = render_pr_comment(pack, hints);
     std::fs::write(path, comment).into_diagnostic()?;
-    Ok(())
-}
-
-fn render_doctor_report(report: &DoctorReport, format: OutputFormat) -> Result<()> {
-    match format {
-        OutputFormat::Table => {
-            let mut table = Table::new();
-            table.set_header(vec!["Check", "Status", "Detail"]);
-            for item in &report.checks {
-                let status = match item.status {
-                    DoctorStatus::Pass => Cell::new("PASS").fg(Color::Green),
-                    DoctorStatus::Warn => Cell::new("WARN").fg(Color::Yellow),
-                    DoctorStatus::Fail => Cell::new("FAIL").fg(Color::Red),
-                };
-                table.add_row(vec![Cell::new(&item.name), status, Cell::new(&item.detail)]);
-            }
-            println!("{table}");
-            if !report.repair_plan.is_empty() {
-                println!("\nRepair plan:");
-                for item in &report.repair_plan {
-                    println!("- {} -> {} ({})", item.target, item.path, item.reason);
-                }
-            }
-        }
-        OutputFormat::Json => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(report).into_diagnostic()?
-            );
-        }
-        OutputFormat::Sarif => {
-            return Err(miette::miette!(
-                "`doctor` supports only table or json output"
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn repair_doctor_setup(
-    layout: &AgentAssetLayout,
-    from_scan: Option<&std::path::Path>,
-    baseline_path: Option<&std::path::Path>,
-    options: &DoctorRepairOptions,
-) -> Result<()> {
-    std::fs::create_dir_all(&layout.output_dir).into_diagnostic()?;
-    std::fs::create_dir_all(&layout.agent_bundle_dir).into_diagnostic()?;
-
-    let inferred_hints = infer_existing_command_hints(layout);
-    let should_open_pr_brief = options.policy.open_pr_brief
-        || inferred_hints.pr_brief_path.is_some()
-        || options.policy.should_repair_pr_brief();
-    let should_open_pr_comment = options.policy.open_pr_comment
-        || inferred_hints.pr_comment_path.is_some()
-        || options.policy.should_repair_pr_comment();
-
-    let pack = if let Some(app_path) = from_scan {
-        run_scan_for_agent_pack(app_path, options.profile, baseline_path)?
-    } else {
-        load_agent_pack(&layout.agent_pack_json_path).unwrap_or_else(empty_agent_pack)
-    };
-
-    let command_hints = CommandHints {
-        output_dir: Some(layout.output_dir.display().to_string()),
-        app_path: Some(
-            from_scan
-                .map(|path| path.display().to_string())
-                .or(inferred_hints.app_path)
-                .unwrap_or_else(|| "<path-to-.ipa-or-.app>".to_string()),
-        ),
-        baseline_path: baseline_path
-            .map(|path| path.display().to_string())
-            .or(inferred_hints.baseline_path),
-        agent_pack_dir: Some(layout.agent_bundle_dir.display().to_string()),
-        profile: Some(
-            from_scan
-                .map(|_| profile_key(options.profile))
-                .or(inferred_hints.profile)
-                .unwrap_or_else(|| profile_key(options.profile)),
-        ),
-        shell_script: true,
-        fix_prompt_path: Some(layout.fix_prompt_path.display().to_string()),
-        pr_brief_path: should_open_pr_brief.then(|| layout.pr_brief_path.display().to_string()),
-        pr_comment_path: should_open_pr_comment
-            .then(|| layout.pr_comment_path.display().to_string()),
-    };
-
-    if options.policy.should_repair_agents() {
-        write_agents_file(
-            &layout.agents_path,
-            Some(&pack),
-            Some(&layout.agent_bundle_dir),
-            Some(&command_hints),
-        )?;
-    }
-    if options.policy.should_repair_bundle() {
-        write_agent_pack(&layout.agent_bundle_dir, &pack, AgentPackFormat::Bundle)?;
-        write_next_steps_script(&layout.next_steps_script_path, &command_hints)?;
-    }
-    if options.policy.should_repair_fix_prompt() {
-        write_fix_prompt_file(&layout.fix_prompt_path, &pack, &command_hints)?;
-    }
-    if options.policy.should_repair_pr_brief() && should_open_pr_brief {
-        write_pr_brief_file(&layout.pr_brief_path, &pack, &command_hints)?;
-    }
-    if options.policy.should_repair_pr_comment() && should_open_pr_comment {
-        write_pr_comment_file(&layout.pr_comment_path, &pack, &command_hints)?;
-    }
-
     Ok(())
 }
 
