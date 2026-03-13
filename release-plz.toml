@@ -2,7 +2,7 @@
 [workspace]
 # Conventional PR title (use actual version)
 pr_name = "chore(release): release v{{version}}"
-# Release PR branch prefix
-pr_branch_prefix = "chore/release-plz"
+# Keep the generated branch compatible with release-plz's expected prefix.
+pr_branch_prefix = "release-plz-"
 # Always keep changelog updated
 changelog_update = true

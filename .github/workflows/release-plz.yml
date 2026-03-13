@@ -50,9 +50,90 @@ jobs:
       - name: Ensure Rust toolchain
         run: rustup default stable
       - name: Run release-plz release-pr
+        id: release_pr
         uses: release-plz/action@v0.5
         with:
           command: release-pr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Rename release PR branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          pr_json="$(gh pr list \
+            --state open \
+            --limit 20 \
+            --json number,title,headRefName,updatedAt \
+            --jq 'map(select(.title | startswith("chore(release): release v"))) | sort_by(.updatedAt) | last')"
+
+          if [ -z "$pr_json" ] || [ "$pr_json" = "null" ]; then
+            echo "No open release PR found; skipping branch rename."
+            exit 0
+          fi
+
+          current_branch="$(printf '%s' "$pr_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["headRefName"])')"
+          version="$(printf '%s' "$pr_json" | python3 -c 'import json,re,sys; title=json.load(sys.stdin)["title"]; match=re.search(r"v([0-9A-Za-z._-]+)$", title); print(match.group(1) if match else "")')"
+
+          if [ -z "$version" ]; then
+            echo "Could not determine release version; skipping branch rename."
+            exit 0
+          fi
+
+          last_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [ -n "$last_tag" ]; then
+            subjects="$(git log "${last_tag}..HEAD" --pretty=%s)"
+          else
+            subjects="$(git log --pretty=%s)"
+          fi
+
+          export CURRENT_BRANCH="$current_branch"
+          export RELEASE_VERSION="$version"
+          export COMMIT_SUBJECTS="$subjects"
+
+          branch_name="$(python3 <<'PY'
+          import os
+          import re
+
+          subjects = [line.strip() for line in os.environ.get("COMMIT_SUBJECTS", "").splitlines() if line.strip()]
+          preferred_types = {"feat", "fix", "perf", "refactor"}
+          scopes = []
+          fallback = []
+
+          for subject in subjects:
+              match = re.match(r"(?P<type>[a-z]+)(?:\((?P<scope>[^)]+)\))?:", subject)
+              if not match:
+                  continue
+              scope = match.group("scope") or match.group("type")
+              scope = re.sub(r"[^a-z0-9]+", "-", scope.lower()).strip("-")
+              if not scope:
+                  continue
+              bucket = scopes if match.group("type") in preferred_types else fallback
+              if scope not in bucket:
+                  bucket.append(scope)
+
+          slug_parts = (scopes or fallback or ["update"])[:3]
+          slug = "-".join(slug_parts)
+          branch = f"release-plz-v{os.environ['RELEASE_VERSION']}-{slug}"
+          branch = re.sub(r"-{2,}", "-", branch).strip("-")
+
+          if len(branch) > 63:
+              branch = branch[:63].rstrip("-")
+
+          print(branch)
+          PY
+          )"
+
+          if [ "$current_branch" = "$branch_name" ]; then
+            echo "Release branch already uses smart name: $branch_name"
+            exit 0
+          fi
+
+          encoded_branch="$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["CURRENT_BRANCH"], safe=""))')"
+          gh api \
+            --method POST \
+            "repos/$GITHUB_REPOSITORY/branches/$encoded_branch/rename" \
+            -f new_name="$branch_name"

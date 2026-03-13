@@ -64,3 +64,21 @@ fn workflow_uploads_expected_verifyos_outputs() {
         );
     }
 }
+
+#[test]
+fn release_workflow_renames_release_pr_branch_with_versioned_slug() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(".github")
+        .join("workflows")
+        .join("release-plz.yml");
+    let workflow = fs::read_to_string(path).expect("release workflow should be readable");
+    let config =
+        fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("release-plz.toml"))
+            .expect("release-plz config should be readable");
+
+    assert!(config.contains("pr_branch_prefix = \"release-plz-\""));
+    assert!(workflow.contains("Rename release PR branch"));
+    assert!(workflow.contains("startswith(\"chore(release): release v\")"));
+    assert!(workflow.contains("release-plz-v{os.environ['RELEASE_VERSION']}-{slug}"));
+    assert!(workflow.contains("repos/$GITHUB_REPOSITORY/branches/$encoded_branch/rename"));
+}
