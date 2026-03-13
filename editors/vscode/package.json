@@ -1,10 +1,15 @@
 {
   "name": "verifyos-vscode",
   "displayName": "verifyOS",
-  "description": "A thin VS Code extension that launches `voc lsp` for verifyOS-cli diagnostics.",
-  "version": "0.1.0",
+  "description": "App Store review diagnostics for Info.plist and PrivacyInfo.xcprivacy, powered by the verifyOS Rust CLI.",
+  "version": "0.1.1",
   "publisher": "0xboji",
   "license": "MIT",
+  "icon": "assets/verifyOS.png",
+  "galleryBanner": {
+    "color": "#D9E5F2",
+    "theme": "light"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/0xBoji/verifyos-cli.git"
@@ -20,6 +25,14 @@
     "Programming Languages",
     "Linters"
   ],
+  "keywords": [
+    "ios",
+    "app-store",
+    "privacy",
+    "plist",
+    "lsp",
+    "ai-agent"
+  ],
   "activationEvents": [
     "workspaceContains:**/Info.plist",
     "workspaceContains:**/*.xcprivacy",
@@ -28,6 +41,7 @@
   ],
   "main": "./dist/extension.js",
   "files": [
+    "assets/**",
     "dist/**",
     "LICENSE.md",
     "README.md",

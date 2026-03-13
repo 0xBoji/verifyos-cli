@@ -16,6 +16,10 @@ fn vscode_extension_launches_voc_lsp() {
     let package_json = vscode_file("package.json");
     let extension_ts = vscode_file("src/extension.ts");
 
+    assert!(package_json.contains("\"version\": \"0.1.1\""));
+    assert!(package_json.contains("\"icon\": \"assets/verifyOS.png\""));
+    assert!(package_json.contains("\"galleryBanner\""));
+    assert!(package_json.contains("\"ai-agent\""));
     assert!(package_json.contains("\"verifyOS.restartLanguageServer\""));
     assert!(package_json.contains("\"verifyOS.showOutput\""));
     assert!(package_json.contains("\"verifyOS.path\""));
@@ -39,6 +43,7 @@ fn vscode_extension_workflow_packages_and_publishes_vsix() {
     assert!(package_json.contains("\"publish:vsce\": \"vsce publish\""));
     assert!(package_json.contains("\"publish:ovsx\": \"ovsx publish\""));
     assert!(package_json.contains("\"LICENSE.md\""));
+    assert!(package_json.contains("\"assets/**\""));
     assert!(workflow.contains("name: VS Code Extension"));
     assert!(workflow.contains("npm ci"));
     assert!(workflow.contains("npm run compile"));
