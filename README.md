@@ -289,6 +289,7 @@ voc doctor --output-dir .verifyos --fix --from-scan path/to/YourApp.ipa --profil
 - `AGENTS.md` presence
 - referenced agent assets like `agent-pack.json`, `agent-pack.md`, and `next-steps.sh`
 - sample `voc` commands inside `AGENTS.md`
+- `next-steps.sh` command health, including whether follow-up flags like `--open-pr-brief` and `--open-pr-comment` still match the managed block
 
 When `--fix` is enabled, `voc doctor` will:
 - create or refresh `AGENTS.md`

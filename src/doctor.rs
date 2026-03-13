@@ -39,6 +39,7 @@ pub fn run_doctor(config_path: Option<&Path>, agents_path: &Path) -> DoctorRepor
         let contents = std::fs::read_to_string(agents_path).unwrap_or_default();
         checks.push(check_referenced_assets(&contents, agents_path));
         checks.push(check_next_commands(&contents));
+        checks.push(check_next_steps_script(&contents, agents_path));
     }
 
     DoctorReport { checks }
@@ -140,6 +141,91 @@ fn check_next_commands(contents: &str) -> DoctorCheck {
     }
 }
 
+fn check_next_steps_script(contents: &str, agents_path: &Path) -> DoctorCheck {
+    let script_refs: Vec<String> = extract_backticked_paths(contents)
+        .into_iter()
+        .filter(|item| item.ends_with(".sh"))
+        .collect();
+
+    if script_refs.is_empty() {
+        return DoctorCheck {
+            name: "next-steps.sh".to_string(),
+            status: DoctorStatus::Warn,
+            detail: "No referenced next-steps.sh script found in AGENTS.md".to_string(),
+        };
+    }
+
+    let script_path = resolve_reference(agents_path, &script_refs[0]);
+    if !script_path.exists() {
+        return DoctorCheck {
+            name: "next-steps.sh".to_string(),
+            status: DoctorStatus::Fail,
+            detail: format!("Missing script: {}", script_path.display()),
+        };
+    }
+
+    let script = match std::fs::read_to_string(&script_path) {
+        Ok(script) => script,
+        Err(err) => {
+            return DoctorCheck {
+                name: "next-steps.sh".to_string(),
+                status: DoctorStatus::Fail,
+                detail: format!("Failed to read {}: {}", script_path.display(), err),
+            };
+        }
+    };
+
+    let commands = extract_script_voc_commands(&script);
+    if commands.is_empty() {
+        return DoctorCheck {
+            name: "next-steps.sh".to_string(),
+            status: DoctorStatus::Fail,
+            detail: format!("No voc commands found in {}", script_path.display()),
+        };
+    }
+
+    let malformed: Vec<String> = commands
+        .iter()
+        .filter(|line| !line.starts_with("voc "))
+        .cloned()
+        .collect();
+    if !malformed.is_empty() {
+        return DoctorCheck {
+            name: "next-steps.sh".to_string(),
+            status: DoctorStatus::Fail,
+            detail: format!("Malformed script commands: {}", malformed.join(" | ")),
+        };
+    }
+
+    let expects_pr_brief = contents.contains("pr-brief.md");
+    let expects_pr_comment = contents.contains("pr-comment.md");
+    let combined = commands.join("\n");
+    let mut missing_flags = Vec::new();
+    if expects_pr_brief && !combined.contains("--open-pr-brief") {
+        missing_flags.push("--open-pr-brief");
+    }
+    if expects_pr_comment && !combined.contains("--open-pr-comment") {
+        missing_flags.push("--open-pr-comment");
+    }
+
+    if !missing_flags.is_empty() {
+        return DoctorCheck {
+            name: "next-steps.sh".to_string(),
+            status: DoctorStatus::Fail,
+            detail: format!(
+                "Script is missing follow-up flags referenced by AGENTS.md: {}",
+                missing_flags.join(", ")
+            ),
+        };
+    }
+
+    DoctorCheck {
+        name: "next-steps.sh".to_string(),
+        status: DoctorStatus::Pass,
+        detail: format!("Shortcut script looks valid: {}", script_path.display()),
+    }
+}
+
 fn extract_backticked_paths(contents: &str) -> Vec<String> {
     let mut items = Vec::new();
     let mut in_tick = false;
@@ -182,6 +268,15 @@ fn extract_voc_commands(contents: &str) -> Vec<String> {
     commands
 }
 
+fn extract_script_voc_commands(contents: &str) -> Vec<String> {
+    contents
+        .lines()
+        .map(str::trim)
+        .filter(|line| line.starts_with("voc "))
+        .map(ToString::to_string)
+        .collect()
+}
+
 fn resolve_reference(agents_path: &Path, reference: &str) -> PathBuf {
     let ref_path = PathBuf::from(reference);
     if ref_path.is_absolute() {
@@ -222,5 +317,54 @@ mod tests {
 
         assert!(report.has_failures());
         assert_eq!(report.checks[2].status, DoctorStatus::Fail);
+    }
+
+    #[test]
+    fn doctor_fails_when_next_steps_script_drifts_from_agents_block() {
+        let dir = tempdir().expect("temp dir");
+        let agents = dir.path().join("AGENTS.md");
+        let script_dir = dir.path().join(".verifyos-agent");
+        fs::create_dir_all(&script_dir).expect("create script dir");
+        fs::write(
+            script_dir.join("next-steps.sh"),
+            "#!/usr/bin/env bash\nset -euo pipefail\nvoc --app path/to/app.ipa --profile basic\nvoc doctor --output-dir .verifyos --fix --from-scan path/to/app.ipa --profile basic\n",
+        )
+        .expect("write script");
+        fs::write(
+            &agents,
+            "## verifyOS-cli\n\n- Shortcut script: `.verifyos-agent/next-steps.sh`\n- PR comment draft: `pr-comment.md`\n",
+        )
+        .expect("write agents");
+
+        let report = run_doctor(None, &agents);
+
+        assert!(report.has_failures());
+        assert_eq!(report.checks[4].status, DoctorStatus::Fail);
+        assert!(report.checks[4].detail.contains("--open-pr-comment"));
+    }
+
+    #[test]
+    fn doctor_passes_when_next_steps_script_matches_agents_block() {
+        let dir = tempdir().expect("temp dir");
+        let agents = dir.path().join("AGENTS.md");
+        let script_dir = dir.path().join(".verifyos-agent");
+        fs::create_dir_all(&script_dir).expect("create script dir");
+        fs::write(dir.path().join("pr-brief.md"), "brief").expect("write brief");
+        fs::write(dir.path().join("pr-comment.md"), "comment").expect("write comment");
+        fs::write(
+            script_dir.join("next-steps.sh"),
+            "#!/usr/bin/env bash\nset -euo pipefail\nvoc --app path/to/app.ipa --profile basic\nvoc doctor --output-dir .verifyos --fix --from-scan path/to/app.ipa --profile basic --open-pr-brief --open-pr-comment\n",
+        )
+        .expect("write script");
+        fs::write(
+            &agents,
+            "## verifyOS-cli\n\n- Shortcut script: `.verifyos-agent/next-steps.sh`\n- PR brief: `pr-brief.md`\n- PR comment draft: `pr-comment.md`\n",
+        )
+        .expect("write agents");
+
+        let report = run_doctor(None, &agents);
+
+        assert!(!report.has_failures());
+        assert_eq!(report.checks[4].status, DoctorStatus::Pass);
     }
 }
