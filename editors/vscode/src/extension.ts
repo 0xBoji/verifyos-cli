@@ -41,8 +41,10 @@ class VerifyOSTreeItem extends vscode.TreeItem {
     description?: string,
     command?: vscode.Command,
     iconPath?: vscode.ThemeIcon,
+    collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.None,
+    public readonly internalId?: string,
   ) {
-    super(label, vscode.TreeItemCollapsibleState.None);
+    super(label, collapsibleState);
     this.description = description;
     this.command = command;
     this.contextValue = kind;
@@ -63,88 +65,122 @@ class VerifyOSView implements vscode.TreeDataProvider<VerifyOSTreeItem> {
     return element;
   }
 
-  getChildren(): VerifyOSTreeItem[] {
-    const statusLabel = serverStatus.running ? "Language server" : "Language server";
-    const statusDetail = serverStatus.running ? "running" : "waiting";
-    const sourceDetail = serverStatus.source === "bundled" ? "bundled binary" : "configured path";
-    const profileDetail = `profile ${serverStatus.profile}`;
+  getChildren(element?: VerifyOSTreeItem): VerifyOSTreeItem[] {
+    if (!element) {
+      // Top-level items
+      const statusLabel = serverStatus.running ? "Language server" : "Language server";
+      const statusDetail = serverStatus.running ? "running" : "waiting";
+      const sourceDetail = serverStatus.source === "bundled" ? "bundled binary" : "configured path";
+      const profileDetail = `profile ${serverStatus.profile}`;
 
-    const items = [
-      new VerifyOSTreeItem(
-        "status",
-        statusLabel,
-        `${statusDetail} · ${sourceDetail}`,
-        undefined,
-        new vscode.ThemeIcon(serverStatus.running ? "pass-filled" : "clock"),
-      ),
-      new VerifyOSTreeItem("meta", "Current profile", profileDetail, undefined, new vscode.ThemeIcon("settings-gear")),
-      new VerifyOSTreeItem(
-        "action",
-        "Scan current bundle",
-        "Run voc with the active file's bundle",
-        {
-          command: "verifyOS.scanCurrentBundle",
-          title: "Scan current bundle",
-        },
-        new vscode.ThemeIcon("search"),
-      ),
-      new VerifyOSTreeItem(
-        "action",
-        "Generate handoff bundle",
-        "Create AGENTS.md, agent-pack, and repair docs",
-        {
-          command: "verifyOS.generateHandoff",
-          title: "Generate handoff bundle",
-        },
-        new vscode.ThemeIcon("package"),
-      ),
-      new VerifyOSTreeItem(
-        "action",
-        "Open Problems",
-        "Show editor diagnostics",
-        {
-          command: "verifyOS.openProblems",
-          title: "Open Problems",
-        },
-        new vscode.ThemeIcon("warning"),
-      ),
-      new VerifyOSTreeItem(
-        "action",
-        "Show Output",
-        "Open the verifyOS log",
-        {
-          command: "verifyOS.showOutput",
-          title: "Show Output",
-        },
-        new vscode.ThemeIcon("output"),
-      ),
-      new VerifyOSTreeItem(
-        "action",
-        "Restart language server",
-        "Reload voc lsp",
-        {
-          command: "verifyOS.restartLanguageServer",
-          title: "Restart language server",
-        },
-        new vscode.ThemeIcon("refresh"),
-      ),
-    ];
-
-    if (serverStatus.lastError) {
-      items.splice(
-        1,
-        0,
+      const items = [
         new VerifyOSTreeItem(
-          "meta",
-          "Last startup issue",
-          serverStatus.lastError,
+          "status",
+          statusLabel,
+          `${statusDetail} · ${sourceDetail}`,
           undefined,
-          new vscode.ThemeIcon("error"),
+          new vscode.ThemeIcon(serverStatus.running ? "pass-filled" : "clock"),
         ),
-      );
+        new VerifyOSTreeItem("meta", "Current profile", profileDetail, undefined, new vscode.ThemeIcon("settings-gear")),
+        new VerifyOSTreeItem(
+          "action",
+          "Scan current bundle",
+          "Click to expand",
+          undefined,
+          new vscode.ThemeIcon("search"),
+          vscode.TreeItemCollapsibleState.Collapsed,
+          "action.scan",
+        ),
+        new VerifyOSTreeItem(
+          "action",
+          "Generate handoff bundle",
+          "Click to expand",
+          undefined,
+          new vscode.ThemeIcon("package"),
+          vscode.TreeItemCollapsibleState.Collapsed,
+          "action.handoff",
+        ),
+        new VerifyOSTreeItem(
+          "action",
+          "Open Problems",
+          "Show editor diagnostics",
+          {
+            command: "verifyOS.openProblems",
+            title: "Open Problems",
+          },
+          new vscode.ThemeIcon("warning"),
+        ),
+        new VerifyOSTreeItem(
+          "action",
+          "Show Output",
+          "Open the verifyOS log",
+          {
+            command: "verifyOS.showOutput",
+            title: "Show Output",
+          },
+          new vscode.ThemeIcon("output"),
+        ),
+        new VerifyOSTreeItem(
+          "action",
+          "Restart language server",
+          "Reload voc lsp",
+          {
+            command: "verifyOS.restartLanguageServer",
+            title: "Restart language server",
+          },
+          new vscode.ThemeIcon("refresh"),
+        ),
+      ];
+
+      if (serverStatus.lastError) {
+        items.splice(
+          1,
+          0,
+          new VerifyOSTreeItem(
+            "meta",
+            "Last startup issue",
+            serverStatus.lastError,
+            undefined,
+            new vscode.ThemeIcon("error"),
+          ),
+        );
+      }
+
+      return items;
     }
 
-    return items;
+    // Children for collapsible items
+    if (element.internalId === "action.scan") {
+      return [
+        new VerifyOSTreeItem(
+          "action",
+          "▶ Start Scan",
+          "Run voc on active file's bundle",
+          {
+            command: "verifyOS.scanCurrentBundleImmediate",
+            title: "Start Scan",
+          },
+          new vscode.ThemeIcon("play"),
+        ),
+      ];
+    }
+
+    if (element.internalId === "action.handoff") {
+      return [
+        new VerifyOSTreeItem(
+          "action",
+          "▶ Generate Handoff",
+          "Build AGENTS.md & pack",
+          {
+            command: "verifyOS.generateHandoffImmediate",
+            title: "Generate Handoff",
+          },
+          new vscode.ThemeIcon("play"),
+        ),
+      ];
+    }
+
+    return [];
   }
 }
 
@@ -256,8 +292,9 @@ async function runVocCommand(
     {
       location: vscode.ProgressLocation.Notification,
       title,
+      cancellable: false,
     },
-    async () => {
+    async (progress) => {
       channel.appendLine(`Running ${server.command} ${args.join(" ")}`);
       try {
         const result = await execFile(server.command, args, {
@@ -269,9 +306,26 @@ async function runVocCommand(
         if (result.stderr) {
           channel.appendLine(result.stderr.trim());
         }
-      } catch (error) {
+        void vscode.window.showInformationMessage(`verifyOS: ${title} completed successfully.`);
+      } catch (error: any) {
+        // Exit code 1 means findings were found, which is a successful scan but reported as failure by execFile.
+        if (error.code === 1) {
+          if (error.stdout) {
+            channel.appendLine(error.stdout.trim());
+          }
+          if (error.stderr) {
+            channel.appendLine(error.stderr.trim());
+          }
+          void vscode.window.showInformationMessage(`verifyOS: ${title} done (findings found).`);
+          return;
+        }
+
         channel.appendLine(String(error));
-        channel.show(true);
+        const show = "Show Output";
+        const picked = await vscode.window.showErrorMessage(`verifyOS: ${title} failed.`, show);
+        if (picked === show) {
+          channel.show(true);
+        }
         throw error;
       }
     },
@@ -388,9 +442,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("verifyOS.explorer", explorer),
     vscode.commands.registerCommand("verifyOS.scanCurrentBundle", async () => {
+      // This command is now mainly for keyboard shortcuts or menu, 
+      // but in the TreeView it's the parent item.
+      await scanCurrentBundle(context);
+    }),
+    vscode.commands.registerCommand("verifyOS.scanCurrentBundleImmediate", async () => {
       await scanCurrentBundle(context);
     }),
     vscode.commands.registerCommand("verifyOS.generateHandoff", async () => {
+      await generateHandoff(context);
+    }),
+    vscode.commands.registerCommand("verifyOS.generateHandoffImmediate", async () => {
       await generateHandoff(context);
     }),
     vscode.commands.registerCommand("verifyOS.openProblems", async () => {
@@ -401,6 +463,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     vscode.commands.registerCommand("verifyOS.showOutput", () => {
       output().show(true);
+    }),
+    vscode.commands.registerCommand("verifyOS.clearOutput", () => {
+      output().clear();
     }),
     vscode.workspace.onDidChangeConfiguration(async (event) => {
       if (

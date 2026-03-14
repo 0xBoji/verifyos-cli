@@ -2,7 +2,7 @@
   "name": "verifyos-vscode",
   "displayName": "verifyOS",
   "description": "Catch App Store review risks in VS Code with bundled verifyOS diagnostics for Info.plist and PrivacyInfo.xcprivacy.",
-  "version": "0.1.5",
+  "version": "0.1.18",
   "publisher": "0xboji",
   "license": "MIT",
   "icon": "assets/verifyOS_128x.png",
@@ -33,56 +33,67 @@
     "lsp",
     "ai-agent"
   ],
-  "activationEvents": [
-    "onStartupFinished",
-    "onView:verifyOS.explorer",
-    "workspaceContains:**/Info.plist",
-    "workspaceContains:**/*.xcprivacy",
-    "onCommand:verifyOS.scanCurrentBundle",
-    "onCommand:verifyOS.generateHandoff",
-    "onCommand:verifyOS.openProblems",
-    "onCommand:verifyOS.restartLanguageServer",
-    "onCommand:verifyOS.showOutput"
-  ],
+  "activationEvents": [],
   "main": "./dist/extension.js",
-  "files": [
-    "assets/**",
-    "bin/**",
-    "CHANGELOG.md",
-    "dist/**",
-    "LICENSE.md",
-    "README.md",
-    "package.json"
-  ],
   "contributes": {
     "commands": [
       {
         "command": "verifyOS.scanCurrentBundle",
-        "title": "verifyOS: Scan Current Bundle"
+        "title": "Scan Current Bundle",
+        "category": "verifyOS"
+      },
+      {
+        "command": "verifyOS.scanCurrentBundleImmediate",
+        "title": "Start Scan",
+        "category": "verifyOS"
       },
       {
         "command": "verifyOS.generateHandoff",
-        "title": "verifyOS: Generate Handoff Bundle"
+        "title": "Generate Handoff Bundle",
+        "category": "verifyOS"
       },
       {
-        "command": "verifyOS.openProblems",
-        "title": "verifyOS: Open Problems"
+        "command": "verifyOS.generateHandoffImmediate",
+        "title": "Start Handoff",
+        "category": "verifyOS"
       },
       {
         "command": "verifyOS.restartLanguageServer",
-        "title": "verifyOS: Restart Language Server"
+        "title": "Restart Language Server",
+        "category": "verifyOS"
       },
       {
         "command": "verifyOS.showOutput",
-        "title": "verifyOS: Show Output"
+        "title": "Show Output",
+        "category": "verifyOS"
+      },
+      {
+        "command": "verifyOS.clearOutput",
+        "title": "Clear Output",
+        "category": "verifyOS",
+        "icon": "$(clear-all)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "verifyOS.clearOutput",
+          "when": "view == verifyOS.explorer",
+          "group": "navigation"
+        },
+        {
+          "command": "verifyOS.showOutput",
+          "when": "view == verifyOS.explorer",
+          "group": "navigation"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
           "id": "verifyOS",
           "title": "verifyOS",
-          "icon": "assets/verifyOS-activity.svg"
+          "icon": "$(check)"
         }
       ]
     },
