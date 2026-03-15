@@ -91,7 +91,7 @@ body {
   height: 42px;
   display: grid;
   place-items: center;
-  border-radius: 999px;
+  border-radius: 14px;
   font-weight: 700;
   color: var(--ios-ink);
   background: linear-gradient(135deg, var(--ios-purple), var(--ios-teal));
@@ -99,10 +99,9 @@ body {
 }
 
 .logo-mark img {
-  width: 70%;
-  height: 70%;
+  width: 72%;
+  height: 72%;
   object-fit: contain;
-  filter: drop-shadow(0 6px 10px rgba(20, 30, 60, 0.25));
 }
 
 .logo-title {
