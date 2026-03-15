@@ -73,10 +73,10 @@ body {
   max-width: none;
   width: 100%;
   margin: 0 0 40px;
-  padding: 16px 28px;
+  padding: 12px 20px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid var(--ios-outline);
-  border-radius: 18px;
+  border-radius: 16px;
   box-shadow: var(--ios-shadow);
   backdrop-filter: blur(16px);
 }
