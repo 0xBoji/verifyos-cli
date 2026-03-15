@@ -335,6 +335,66 @@ body {
   box-shadow: var(--ios-shadow);
 }
 
+.report-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.report-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 16px;
+  padding: 12px;
+  border: 1px solid var(--ios-outline);
+}
+
+.summary-label {
+  font-size: 11px;
+  color: rgba(11, 11, 22, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.summary-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.finding-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.finding-list li {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(140, 82, 255, 0.08);
+}
+
+.finding-list li span {
+  font-size: 12px;
+  color: rgba(11, 11, 22, 0.65);
+}
+
+.finding-empty {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(11, 11, 22, 0.6);
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .result-card pre {
   margin: 0;
   max-height: 220px;
