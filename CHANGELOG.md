@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0](https://github.com/0xBoji/verifyos-cli/compare/v0.7.3...v0.8.0) - 2026-03-15
+
+### Added
+
+- *(vscode)* refine action center ui and activity bar identity
+- add cli support for xcode project auto-detection
+- integrate xcode project awareness into core engine and context
+- implement xcode project parsing infrastructure
+
+### Fixed
+
+- *(test)* synchronize editor contract tests with v0.1.18
+
+### Other
+
+- ignore RUSTSEC-2024-0436 (paste unmaintained) in deny.toml
+- update agents.md with refined managed block identity
+
 ## [0.7.3](https://github.com/0xBoji/verifyos-cli/compare/v0.7.2...v0.7.3) - 2026-03-13
 
 ### Fixed
