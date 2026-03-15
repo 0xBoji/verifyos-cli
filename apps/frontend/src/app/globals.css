@@ -98,6 +98,13 @@ body {
   box-shadow: var(--ios-glow);
 }
 
+.logo-mark img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgba(20, 30, 60, 0.25));
+}
+
 .logo-title {
   font-size: 18px;
   font-weight: 700;
@@ -554,9 +561,29 @@ body {
 }
 
 .footer-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-weight: 700;
   color: rgba(11, 11, 22, 0.75);
   font-size: 16px;
+}
+
+.footer-brand {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--ios-purple), var(--ios-teal));
+  box-shadow: var(--ios-glow);
+}
+
+.footer-brand img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgba(20, 30, 60, 0.2));
 }
 
 .footer-subtitle {

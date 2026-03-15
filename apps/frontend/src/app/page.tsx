@@ -223,7 +223,7 @@ export default function Home() {
       <header className="nav">
         <div className="logo">
           <span className="logo-mark" aria-hidden="true">
-            ✓
+            <img src="/logo/verifyOS_web_128x.png" alt="" />
           </span>
           <div>
             <div className="logo-title">verifyOS</div>
@@ -466,7 +466,12 @@ export default function Home() {
 
         <footer className="app-footer">
           <div>
-            <div className="footer-label">verifyOS</div>
+            <div className="footer-label">
+              <span className="footer-brand" aria-hidden="true">
+                <img src="/logo/verifyOS_web_128x.png" alt="" />
+              </span>
+              verifyOS
+            </div>
             <div className="footer-subtitle">Resources &amp; downloads</div>
           </div>
           <nav className="footer-links" aria-label="verifyOS links">
