@@ -97,6 +97,14 @@ Run the CLI tool against your `.ipa` or `.app` path:
 voc --app path/to/YourApp.ipa
 ```
 
+Include a project file for deeper analysis:
+
+```bash
+voc --app path/to/YourApp.ipa --project path/to/YourProject.xcodeproj
+# or
+voc --app path/to/YourApp.ipa --project path/to/YourWorkspace.xcworkspace
+```
+
 Bootstrap an `AGENTS.md` file for AI agent workflows:
 
 ```bash

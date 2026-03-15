@@ -20,6 +20,17 @@ curl -X POST http://127.0.0.1:7070/api/v1/scan \
   -F "profile=full"
 ```
 
+Include project context (zip a `.xcodeproj` or `.xcworkspace`):
+
+```bash
+zip -r YourProject.zip YourProject.xcodeproj
+
+curl -X POST http://127.0.0.1:7070/api/v1/scan \
+  -F "bundle=@/path/to/YourApp.ipa" \
+  -F "project=@/path/to/YourProject.zip" \
+  -F "profile=full"
+```
+
 ## API
 
 `POST /api/v1/scan`
