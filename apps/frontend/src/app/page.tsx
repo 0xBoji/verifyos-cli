@@ -75,7 +75,7 @@ export default function Home() {
     }
 
     setIsUploading(true);
-    setStatus("Uploading bundle...");
+    setStatus("Scanning...");
     setResult(null);
 
     try {
