@@ -10,6 +10,51 @@ export default function Home() {
   const [rawResult, setRawResult] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  const examplePayload = {
+    report: {
+      ruleset_version: "0.8.1",
+      generated_at_unix: 0,
+      total_duration_ms: 842,
+      cache_stats: {
+        nested_bundles: { hits: 1, misses: 0 },
+        usage_scan: { hits: 2, misses: 0 },
+        private_api_scan: { hits: 0, misses: 1 },
+      },
+      results: [
+        {
+          rule_id: "RULE_PRIVACY_MANIFEST",
+          rule_name: "Missing Privacy Manifest",
+          category: "Privacy",
+          severity: "Error",
+          status: "Fail",
+          message: "Missing PrivacyInfo.xcprivacy",
+          recommendation: "Add a PrivacyInfo.xcprivacy manifest to the bundle.",
+          duration_ms: 12,
+        },
+        {
+          rule_id: "RULE_USAGE_DESCRIPTIONS",
+          rule_name: "Missing Usage Description Keys",
+          category: "Privacy",
+          severity: "Warning",
+          status: "Fail",
+          message: "Missing required usage description keys",
+          recommendation: "Add NS*UsageDescription keys to Info.plist.",
+          duration_ms: 9,
+        },
+        {
+          rule_id: "RULE_ATS_GRANULARITY",
+          rule_name: "ATS Exceptions Too Broad",
+          category: "Ats",
+          severity: "Warning",
+          status: "Fail",
+          message: "AllowsArbitraryLoads is enabled",
+          recommendation: "Scope ATS exceptions to specific domains.",
+          duration_ms: 8,
+        },
+      ],
+    },
+  };
+
   const handleChooseFile = () => {
     fileRef.current?.click();
   };
@@ -79,6 +124,13 @@ export default function Home() {
     }
   };
 
+  const handleExampleReport = () => {
+    setStatus("Loaded example report");
+    setSelectedFile(null);
+    setResult(examplePayload as Record<string, unknown>);
+    setRawResult(JSON.stringify(examplePayload, null, 2));
+  };
+
   const summary = useMemo(() => {
     const report = result?.report as
       | { results?: Array<Record<string, unknown>>; total_duration_ms?: number }
@@ -120,12 +172,17 @@ export default function Home() {
           </div>
         </div>
         <div className="nav-actions">
-          <button className="ghost-button" type="button">
+          <a
+            className="ghost-button"
+            href="https://github.com/0xBoji/verifyOS#readme"
+            target="_blank"
+            rel="noreferrer"
+          >
             Docs
-          </button>
-          <button className="primary-button" type="button">
+          </a>
+          <a className="primary-button" href="#quick-scan">
             New Scan
-          </button>
+          </a>
         </div>
       </header>
 
@@ -147,7 +204,7 @@ export default function Home() {
               <button className="primary-button" type="button" onClick={handleChooseFile}>
                 Choose bundle
               </button>
-              <button className="secondary-button" type="button">
+              <button className="secondary-button" type="button" onClick={handleExampleReport}>
                 View example report
               </button>
             </div>
@@ -194,7 +251,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="scan-panel">
+        <section className="scan-panel" id="quick-scan">
           <div className="hero-card">
             <div className="card-header">
               <div>
