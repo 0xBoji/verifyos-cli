@@ -20,6 +20,18 @@ curl -X POST http://127.0.0.1:7070/api/v1/scan \
   -F "profile=full"
 ```
 
+Add include/exclude rules, baseline suppression, and alternate formats:
+
+```bash
+curl -X POST http://127.0.0.1:7070/api/v1/scan \
+  -F "bundle=@/path/to/YourApp.ipa" \
+  -F "profile=basic" \
+  -F "include=RULE_PRIVACY_MANIFEST,RULE_USAGE_DESCRIPTIONS" \
+  -F "exclude=RULE_PRIVATE_API" \
+  -F "baseline=@/path/to/baseline.json" \
+  -F "format=markdown"
+```
+
 Include project context (zip a `.xcodeproj` or `.xcworkspace`):
 
 ```bash
@@ -50,14 +62,21 @@ bash apply-handoff.sh /path/to/project/root
 
 - multipart `bundle` file field (required)
 - `profile` form field: `basic` or `full` (optional)
+- `include` form field: comma-separated rule IDs (optional)
+- `exclude` form field: comma-separated rule IDs (optional)
+- `baseline` file field: JSON report from a previous run (optional)
+- `format` form field: `json`, `sarif`, or `markdown` (optional)
 - `project` zip field with `.xcodeproj` or `.xcworkspace` (optional)
 
-Response: JSON report (same shape as `voc --format json`).
+Response: JSON report (same shape as `voc --format json`) or text output for `sarif`/`markdown`.
 
 `POST /api/v1/handoff`
 
 - multipart `bundle` file field (required)
 - `profile` form field: `basic` or `full` (optional)
+- `include` form field: comma-separated rule IDs (optional)
+- `exclude` form field: comma-separated rule IDs (optional)
+- `baseline` file field: JSON report from a previous run (optional)
 - `project` zip field with `.xcodeproj` or `.xcworkspace` (optional)
 
 Response: `verifyos-handoff.zip` containing `.verifyos/`, `AGENTS.md`, and `apply-handoff.sh`.
