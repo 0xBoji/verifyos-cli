@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1](https://github.com/0xBoji/verifyOS/compare/v0.8.0...v0.8.1) - 2026-03-15
+
+### Added
+
+- *(frontend)* enable bundle upload
+- *(frontend)* wire upload to backend
+- *(frontend)* switch footer to backend-first copy
+- *(frontend)* add ios-friendly landing UI
+- *(frontend)* scaffold nextjs app
+
+### Fixed
+
+- *(frontend)* show backend errors precisely
+
+### Other
+
+- add backend and frontend start steps
+- update repository links
+- *(architecture)* add backend frontend layout
+- *(architecture)* init monorepo layout
+
 ## [0.8.0](https://github.com/0xBoji/verifyOS/compare/v0.7.3...v0.8.0) - 2026-03-15
 
 ### Added
