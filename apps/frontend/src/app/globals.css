@@ -331,38 +331,6 @@ body {
   background: rgba(92, 225, 230, 0.18);
 }
 
-.advanced-panel {
-  display: grid;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(140, 82, 255, 0.15);
-  background: rgba(140, 82, 255, 0.06);
-}
-
-.advanced-row {
-  display: grid;
-  gap: 6px;
-}
-
-.advanced-row label {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.advanced-row select,
-.advanced-row input[type="file"] {
-  font-size: 13px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--ios-outline);
-  background: #fff;
-}
-
-.advanced-hint {
-  font-size: 11px;
-  color: rgba(11, 11, 22, 0.55);
-}
 
 .result-card {
   border-radius: 18px;

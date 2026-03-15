@@ -4,15 +4,11 @@ import { useMemo, useRef, useState } from "react";
 
 export default function Home() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const projectRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [projectFile, setProjectFile] = useState<File | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [rawResult, setRawResult] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [profile, setProfile] = useState<"basic" | "full">("full");
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const examplePayload = {
     report: {
@@ -71,15 +67,6 @@ export default function Home() {
     setRawResult(null);
   };
 
-  const handleProjectChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    setProjectFile(file);
-    setStatus(file ? `Attached ${file.name}` : "Project removed");
-  };
-
-  const handleChooseProject = () => {
-    projectRef.current?.click();
-  };
 
   const handleUpload = async () => {
     if (!selectedFile || isUploading) {
@@ -93,10 +80,7 @@ export default function Home() {
     try {
       const form = new FormData();
       form.append("bundle", selectedFile);
-      form.append("profile", profile);
-      if (projectFile) {
-        form.append("project", projectFile);
-      }
+      form.append("profile", "full");
 
       const response = await fetch("http://127.0.0.1:7070/api/v1/scan", {
         method: "POST",
@@ -234,25 +218,6 @@ export default function Home() {
               report for privacy, entitlements, signing, and metadata risks.
               Designed for AI agents and human reviewers.
             </p>
-            <div className="hero-actions">
-              <button className="primary-button" type="button" onClick={handleChooseFile}>
-                Choose bundle
-              </button>
-              <button className="secondary-button" type="button" onClick={handleChooseProject}>
-                Attach project zip
-              </button>
-              <button className="secondary-button" type="button" onClick={handleExampleReport}>
-                View example report
-              </button>
-            </div>
-            <input
-              ref={projectRef}
-              className="file-input"
-              type="file"
-              accept=".zip"
-              onChange={handleProjectChange}
-              hidden
-            />
             <div className="hero-meta">
               <div>
                 <strong className="stat">2-4 min</strong>
@@ -336,39 +301,6 @@ export default function Home() {
                 {selectedFile ? selectedFile.name : "No file selected"}
               </div>
             </div>
-            {showAdvanced ? (
-              <div className="advanced-panel">
-                <div className="advanced-row">
-                  <label htmlFor="profile-select">Profile</label>
-                  <select
-                    id="profile-select"
-                    value={profile}
-                    onChange={(event) =>
-                      setProfile(event.target.value as "basic" | "full")
-                    }
-                  >
-                    <option value="basic">Basic (core rules)</option>
-                    <option value="full">Full (all rules)</option>
-                  </select>
-                </div>
-                <div className="advanced-row">
-                  <label htmlFor="project-file">Project zip (optional)</label>
-                  <input
-                    ref={projectRef}
-                    id="project-file"
-                    type="file"
-                    accept=".zip"
-                    onChange={handleProjectChange}
-                  />
-                  <span className="advanced-hint">
-                    Zip your .xcodeproj or .xcworkspace to include project context.
-                  </span>
-                </div>
-                {projectFile ? (
-                  <div className="upload-status">Attached {projectFile.name}</div>
-                ) : null}
-              </div>
-            ) : null}
             {status ? <div className="status-pill">{status}</div> : null}
             {result ? (
               <div className="report-stack">
@@ -481,12 +413,8 @@ export default function Home() {
               <div>
                 <strong>Next:</strong> privacy manifest, entitlements, ATS rules
               </div>
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={() => setShowAdvanced((prev) => !prev)}
-              >
-                {showAdvanced ? "Hide advanced options" : "Advanced options"}
+              <button className="ghost-button" type="button" onClick={handleExampleReport}>
+                View example report
               </button>
             </div>
           </div>
