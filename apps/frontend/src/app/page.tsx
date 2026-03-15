@@ -39,13 +39,31 @@ export default function Home() {
         body: form,
       });
 
-      const payload = await response.json();
+      const rawText = await response.text();
+      let payload: unknown = rawText;
+      if (rawText) {
+        try {
+          payload = JSON.parse(rawText);
+        } catch {
+          payload = rawText;
+        }
+      }
+
       if (!response.ok) {
-        setStatus(payload?.error ?? "Scan failed");
-        setResult(null);
-      } else {
-        setStatus("Scan complete");
+        const message =
+          typeof payload === "object" && payload !== null && "error" in payload
+            ? String((payload as { error?: string }).error)
+            : `Scan failed (${response.status})`;
+        setStatus(message);
+        setResult(rawText || null);
+        return;
+      }
+
+      setStatus("Scan complete");
+      if (payload && typeof payload === "object") {
         setResult(JSON.stringify(payload, null, 2));
+      } else {
+        setResult(rawText || null);
       }
     } catch (error) {
       setStatus("Failed to reach backend. Is it running on :7070?");
