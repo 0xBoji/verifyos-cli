@@ -4,6 +4,7 @@
 .
 ├── apps/
 │   ├── cli/            # CLI app shell (future workspace split)
+│   ├── backend/        # Rust HTTP API for uploads + scan
 │   └── frontend/       # Web UI or TUI shell (future)
 ├── packages/
 │   └── core/           # Rust engine + rules + reports (future)

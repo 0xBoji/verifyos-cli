@@ -669,6 +669,7 @@ The design goal is to keep scanning concerns, report rendering, and AI-agent onb
 We initialized a clean layout for a future backend/frontend split while keeping the current Rust crate stable:
 
 - `apps/cli` placeholder for the CLI app crate
+- `apps/backend` placeholder for the Rust HTTP API (uploads + scan)
 - `packages/core` placeholder for the Rust engine + rules crate
 - `apps/frontend` placeholder for a web UI or TUI shell
 - `editors/vscode` for the current VS Code extension

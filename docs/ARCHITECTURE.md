@@ -7,6 +7,7 @@ This repo is evolving into a multi-surface product: a Rust backend (scanner + en
 ```
 apps/
   cli/            # Rust CLI entrypoint (voc)
+  backend/        # Rust HTTP API (uploads + scan)
   frontend/       # Web UI or TUI shell (future)
 packages/
   core/           # Rust engine + rules + report model
