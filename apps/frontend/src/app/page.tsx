@@ -239,9 +239,6 @@ export default function Home() {
           >
             Docs
           </a>
-          <a className="primary-button" href="#quick-scan">
-            New Scan
-          </a>
         </div>
       </header>
 
