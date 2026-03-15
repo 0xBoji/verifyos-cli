@@ -239,8 +239,8 @@ body {
   display: grid;
   gap: 18px;
   width: 100%;
-  max-width: 520px;
-  justify-self: center;
+  max-width: 920px;
+  justify-self: stretch;
 }
 
 .card-header {
@@ -434,6 +434,7 @@ body {
 .scan-panel {
   display: flex;
   justify-content: center;
+  width: 100%;
 }
 
 .step {
