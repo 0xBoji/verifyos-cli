@@ -19,3 +19,7 @@ target/
 
 # Local agent tooling
 skills/
+
+# Local frontend/backend lockfiles (not tracked)
+apps/backend/Cargo.lock
+apps/frontend/pnpm-lock.yaml
