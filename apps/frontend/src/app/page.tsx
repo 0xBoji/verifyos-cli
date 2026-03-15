@@ -218,20 +218,6 @@ export default function Home() {
               report for privacy, entitlements, signing, and metadata risks.
               Designed for AI agents and human reviewers.
             </p>
-            <div className="hero-meta">
-              <div>
-                <strong className="stat">2-4 min</strong>
-                <span>Typical scan time</span>
-              </div>
-              <div>
-                <strong className="stat">0%</strong>
-                <span>Data leaves device</span>
-              </div>
-              <div>
-                <strong className="stat">JSON/SARIF</strong>
-                <span>Agent-ready output</span>
-              </div>
-            </div>
           </div>
         </section>
 
