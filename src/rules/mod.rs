@@ -13,3 +13,4 @@ pub mod privacy_manifest;
 pub mod privacy_sdk;
 pub mod private_api;
 pub mod signing;
+pub mod xcode_requirements;

@@ -18,6 +18,7 @@ use crate::rules::privacy_manifest::PrivacyManifestCompletenessRule;
 use crate::rules::privacy_sdk::PrivacyManifestSdkCrossCheckRule;
 use crate::rules::private_api::PrivateApiRule;
 use crate::rules::signing::EmbeddedCodeSignatureTeamRule;
+use crate::rules::xcode_requirements::XcodeVersionRule;
 use clap::ValueEnum;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -165,6 +166,7 @@ fn basic_rules() -> Vec<Box<dyn AppStoreRule>> {
         Box::new(EntitlementsMismatchRule),
         Box::new(EntitlementsProvisioningMismatchRule),
         Box::new(EmbeddedCodeSignatureTeamRule),
+        Box::new(XcodeVersionRule),
     ]
 }
 
@@ -191,5 +193,6 @@ fn full_rules() -> Vec<Box<dyn AppStoreRule>> {
         Box::new(ExtensionEntitlementsCompatibilityRule),
         Box::new(PrivateApiRule),
         Box::new(EmbeddedCodeSignatureTeamRule),
+        Box::new(XcodeVersionRule),
     ]
 }

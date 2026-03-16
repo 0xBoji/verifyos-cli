@@ -19,7 +19,7 @@ impl AppStoreRule for PrivacyManifestSdkCrossCheckRule {
     }
 
     fn severity(&self) -> Severity {
-        Severity::Warning
+        Severity::Error
     }
 
     fn recommendation(&self) -> &'static str {
