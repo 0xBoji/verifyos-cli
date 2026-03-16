@@ -28,6 +28,12 @@ export NEXT_PUBLIC_BACKEND_URL=https://api.verifyos.com
 
 The Google login button redirects to `${NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/google`.
 
+Enable Google Analytics by setting:
+
+```bash
+export NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
+```
+
 ## Development Notes
 
 - Main UI: `app/page.tsx`
