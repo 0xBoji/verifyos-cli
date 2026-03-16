@@ -29,9 +29,6 @@ body {
   background: linear-gradient(120deg, #f4f6ff 0%, #f7fcff 60%, #f0f3ff 100%);
 }
 
-:root {
-  --panel-width: 100%;
-}
 
 .page {
   position: relative;
@@ -257,8 +254,8 @@ body {
   backdrop-filter: blur(12px);
   display: grid;
   gap: 18px;
-  width: var(--panel-width);
-  max-width: 1100px;
+  width: 100%;
+  max-width: none;
   justify-self: stretch;
 }
 
