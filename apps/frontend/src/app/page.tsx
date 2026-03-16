@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { FaGithub } from "react-icons/fa";
+import { FaGithub, FaChevronRight } from "react-icons/fa";
 import { SiRust } from "react-icons/si";
 import { VscVscode } from "react-icons/vsc";
+import { FiAlertCircle, FiAlertTriangle } from "react-icons/fi";
 
 export default function Home() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -14,6 +15,7 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const backendBaseUrl =
     process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:7070";
 
@@ -209,6 +211,13 @@ export default function Home() {
       return acc;
     }, {});
 
+    const findingsByCategory = results.reduce<Record<string, any[]>>((acc, item) => {
+      const category = String(item.category ?? "Other");
+      if (!acc[category]) acc[category] = [];
+      acc[category].push(item);
+      return acc;
+    }, {});
+
     return {
       results,
       failures,
@@ -217,8 +226,19 @@ export default function Home() {
       duration,
       byCategory,
       bySeverity,
+      findingsByCategory,
     };
   }, [result]);
+
+  const toggleCategory = (category: string) => {
+    const next = new Set(expandedCategories);
+    if (next.has(category)) {
+      next.delete(category);
+    } else {
+      next.add(category);
+    }
+    setExpandedCategories(next);
+  };
 
   return (
     <div className="page">
@@ -400,10 +420,67 @@ export default function Home() {
                         key={name}
                         className={`pill-chip pill-chip--${name.toLowerCase()}`}
                       >
+                        {name === "Error" ? <FiAlertCircle /> : <FiAlertTriangle />}
                         <span>{name}</span>
                         <strong>{count}</strong>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <div className="result-card">
+                  <div className="result-header">Findings Explorer</div>
+                  <div className="tree-view">
+                    {Object.entries(summary.findingsByCategory).sort().map(([category, items]) => {
+                      const isExpanded = expandedCategories.has(category);
+                      const catErrors = items.filter((i: any) => i.severity === "Error").length;
+                      return (
+                        <div key={category} className={`tree-node ${isExpanded ? "is-expanded" : ""}`}>
+                          <div className="tree-header" onClick={() => toggleCategory(category)}>
+                            <div className="tree-header-left">
+                              <FaChevronRight className="tree-arrow" />
+                              <span>{category}</span>
+                            </div>
+                            <div className="pill-row">
+                              {catErrors > 0 && (
+                                <span className="tree-badge" style={{ background: "rgba(217, 72, 72, 0.1)", color: "#b92c2c" }}>
+                                  {catErrors} Errors
+                                </span>
+                              )}
+                              <span className="tree-badge">
+                                {items.length} items
+                              </span>
+                            </div>
+                          </div>
+                          {isExpanded && (
+                            <div className="tree-content">
+                              {(items as any[]).map((item, idx) => (
+                                <div key={idx} className="tree-finding">
+                                  <div className="tree-finding-title">
+                                    <strong>{item.rule_name}</strong>
+                                    <span className={`pill-chip pill-chip--${String(item.severity).toLowerCase()}`} style={{ padding: "2px 8px", fontSize: "10px" }}>
+                                      {item.severity}
+                                    </span>
+                                  </div>
+                                  <div className="tree-finding-meta">
+                                    <span>Rule: {item.rule_id}</span>
+                                    {item.duration_ms && <span>{item.duration_ms}ms</span>}
+                                  </div>
+                                  <div className="tree-finding-desc">
+                                    {item.message}
+                                  </div>
+                                  {item.recommendation && (
+                                    <div className="tree-finding-rec">
+                                      {item.recommendation}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
