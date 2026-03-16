@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2](https://github.com/0xBoji/verifyOS/compare/v0.8.1...v0.8.2) - 2026-03-16
+
+### Added
+
+- *(frontend)* add google analytics
+- *(frontend)* wire google oauth callback
+- *(frontend)* remove email login block
+- *(frontend)* refine login layout
+- *(frontend)* add email auth panel
+- *(frontend)* sync header and scan widths
+- *(frontend)* match quick scan width to header
+- *(frontend)* round favicon asset
+- *(frontend)* set header width to 75%
+- *(frontend)* widen header to full width
+- *(frontend)* widen header panel
+- *(frontend)* use library icons in footer
+- *(frontend)* adjust logo styling and footer icons
+- *(frontend)* add logo and favicon
+- *(frontend)* pin footer to bottom
+- *(frontend)* polish footer links
+- *(frontend)* move project links into footer
+- *(frontend)* move agent bundle action to report
+- *(frontend)* add project links
+- *(backend)* accept zipped app bundles
+- *(frontend)* show scanning status
+- *(frontend)* colorize severity pills
+- *(frontend)* add custom copy icon
+- *(frontend)* colorize summary and copy state
+- *(frontend)* remove hero stats
+- *(frontend)* simplify hero actions
+- *(frontend)* add project zip hero action
+- *(frontend)* add advanced scan options
+- *(frontend)* link docs and show example report
+- *(cli)* support xcworkspace project context
+- *(frontend)* expand quick scan width
+- *(frontend)* move quick scan below hero
+- *(frontend)* add report summary view
+- *(frontend)* stabilize scan layout
+
+### Fixed
+
+- *(frontend)* align header width
+- *(frontend)* let quick scan match header width
+- *(frontend)* align header and scan widths
+- *(frontend)* restore header width
+- *(frontend)* round header logo image
+- *(frontend)* reduce header height
+- *(frontend)* use single header logo
+- *(frontend)* use vscode icon from vsc pack
+- *(frontend)* restore header logo shape
+
+### Other
+
+- *(frontend)* remove login note
+- *(frontend)* drop login wiring
+- *(frontend)* add ga setup
+- *(git)* ignore terraform secrets
+- *(frontend)* document backend url
+- *(frontend)* install react-icons
+- *(frontend)* expand supported artifact copy
+- add project context examples
+- ignore local lockfiles
+
 ## [0.8.1](https://github.com/0xBoji/verifyOS/compare/v0.8.0...v0.8.1) - 2026-03-15
 
 ### Added
