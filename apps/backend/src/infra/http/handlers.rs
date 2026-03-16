@@ -1,7 +1,11 @@
-use crate::app::{ScanError, ScanService};
-use crate::domain::{ScanProfileInput, ScanRequest};
+use crate::app::{AuthError, AppState, ScanError};
+use crate::domain::{
+    AuthStartRequest, AuthStartResponse, AuthVerifyRequest, AuthVerifyResponse, ScanProfileInput,
+    ScanRequest,
+};
 use axum::extract::{Multipart, State};
-use axum::http::header::CONTENT_TYPE;
+use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
+use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
@@ -43,10 +47,70 @@ pub async fn health() -> impl IntoResponse {
     StatusCode::OK
 }
 
+pub async fn start_auth(
+    State(state): State<AppState>,
+    Json(payload): Json<AuthStartRequest>,
+) -> impl IntoResponse {
+    if payload.email.trim().is_empty() || !payload.email.contains('@') {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "valid email is required" })),
+        )
+            .into_response();
+    }
+
+    let code = state.auth.start_login(&payload.email).await;
+    info!("login code for {} is {}", payload.email, code);
+    let response = AuthStartResponse {
+        status: "sent".to_string(),
+        dev_code: if state.auth.dev_mode() {
+            Some(code)
+        } else {
+            None
+        },
+    };
+    (StatusCode::OK, Json(response)).into_response()
+}
+
+pub async fn verify_auth(
+    State(state): State<AppState>,
+    Json(payload): Json<AuthVerifyRequest>,
+) -> impl IntoResponse {
+    if payload.email.trim().is_empty() || payload.code.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "email and code are required" })),
+        )
+            .into_response();
+    }
+
+    match state
+        .auth
+        .verify_code(&payload.email, &payload.code.to_uppercase())
+        .await
+    {
+        Ok(token) => (
+            StatusCode::OK,
+            Json(AuthVerifyResponse {
+                token: token.token,
+                email: token.email,
+                expires_in_seconds: token.expires_in_seconds,
+            }),
+        )
+            .into_response(),
+        Err(err) => auth_error_response(err),
+    }
+}
+
 pub async fn scan_bundle(
-    State(service): State<ScanService>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
+    if let Err(response) = require_auth(&state, &headers).await {
+        return response;
+    }
+
     let mut request = ScanRequest {
         profile: None,
         include: Vec::new(),
@@ -181,7 +245,7 @@ pub async fn scan_bundle(
 
     info!("running scan for uploaded bundle");
     let _keep_project_dir_alive = project_dir;
-    match service.run_scan(request, bundle.path(), project_path.as_deref()) {
+    match state.scan.run_scan(request, bundle.path(), project_path.as_deref()) {
         Ok(result) => match format {
             ScanOutputFormat::Json => (StatusCode::OK, Json(result)).into_response(),
             ScanOutputFormat::Sarif => match render_sarif(&result.report) {
@@ -209,9 +273,14 @@ pub async fn scan_bundle(
 }
 
 pub async fn handoff_bundle(
-    State(service): State<ScanService>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
+    if let Err(response) = require_auth(&state, &headers).await {
+        return response;
+    }
+
     let mut request = ScanRequest {
         profile: None,
         include: Vec::new(),
@@ -346,7 +415,11 @@ pub async fn handoff_bundle(
 
     info!("building agent handoff bundle");
     let baseline = request.baseline.clone();
-    let outcome = match service.run_scan_report(request, bundle.path(), project_path.as_deref()) {
+    let outcome =
+        match state
+            .scan
+            .run_scan_report(request, bundle.path(), project_path.as_deref())
+        {
         Ok(outcome) => outcome,
         Err(err) => return (StatusCode::BAD_REQUEST, Json(error_body(err))).into_response(),
     };
@@ -438,6 +511,54 @@ pub async fn handoff_bundle(
 
 fn error_body(err: ScanError) -> serde_json::Value {
     json!({ "error": err.to_string() })
+}
+
+fn auth_error_response(err: AuthError) -> axum::response::Response {
+    match err {
+        AuthError::RateLimited => (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({ "error": "rate limit exceeded" })),
+        )
+            .into_response(),
+        AuthError::InvalidCode => (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "invalid or expired code" })),
+        )
+            .into_response(),
+        _ => (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "unauthorized" })),
+        )
+            .into_response(),
+    }
+}
+
+async fn require_auth(state: &AppState, headers: &HeaderMap) -> Result<(), axum::response::Response> {
+    if !state.require_auth {
+        return Ok(());
+    }
+    let Some(token) = bearer_token(headers) else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "missing auth token" })),
+        )
+            .into_response());
+    };
+    match state.auth.authorize(&token).await {
+        Ok(_) => Ok(()),
+        Err(err) => Err(auth_error_response(err)),
+    }
+}
+
+fn bearer_token(headers: &HeaderMap) -> Option<String> {
+    let header = headers.get(AUTHORIZATION)?;
+    let value = header.to_str().ok()?;
+    let value = value.trim();
+    if let Some(token) = value.strip_prefix("Bearer ") {
+        Some(token.trim().to_string())
+    } else {
+        None
+    }
 }
 
 fn to_error(err: impl std::fmt::Display) -> (StatusCode, Json<serde_json::Value>) {
