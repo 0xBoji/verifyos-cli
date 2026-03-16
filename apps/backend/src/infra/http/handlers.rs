@@ -3,12 +3,18 @@ use crate::domain::{
     AuthStartRequest, AuthStartResponse, AuthVerifyRequest, AuthVerifyResponse, ScanProfileInput,
     ScanRequest,
 };
-use axum::extract::{Multipart, State};
+use axum::extract::{Multipart, Query, State};
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
+use axum::response::{IntoResponse, Redirect};
 use axum::Json;
+use oauth2::basic::BasicClient;
+use oauth2::reqwest::async_http_client;
+use oauth2::{
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenUrl,
+};
+use serde::Deserialize;
 use serde_json::json;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -17,6 +23,23 @@ use tracing::info;
 use verifyos_cli::report::{apply_agent_pack_baseline, render_markdown, render_sarif, TimingMode};
 use zip::ZipArchive;
 use zip::{write::FileOptions, ZipWriter};
+
+const DEFAULT_FRONTEND_BASE_URL: &str = "https://verify-os.vercel.app";
+const GOOGLE_AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
+const GOOGLE_USERINFO_URL: &str = "https://openidconnect.googleapis.com/v1/userinfo";
+
+#[derive(Debug, Deserialize)]
+struct GoogleCallbackQuery {
+    code: Option<String>,
+    state: Option<String>,
+    error: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GoogleUserInfo {
+    email: Option<String>,
+}
 
 #[derive(Clone, Copy)]
 enum ScanOutputFormat {
@@ -45,6 +68,149 @@ fn append_rule_list(values: &mut Vec<String>, input: &str) {
 
 pub async fn health() -> impl IntoResponse {
     StatusCode::OK
+}
+
+fn google_client() -> Result<(BasicClient, String), String> {
+    let client_id = std::env::var("GOOGLE_CLIENT_ID")
+        .map_err(|_| "missing GOOGLE_CLIENT_ID".to_string())?;
+    let client_secret = std::env::var("GOOGLE_CLIENT_SECRET")
+        .map_err(|_| "missing GOOGLE_CLIENT_SECRET".to_string())?;
+    let redirect_url = std::env::var("GOOGLE_REDIRECT_URL")
+        .map_err(|_| "missing GOOGLE_REDIRECT_URL".to_string())?;
+    let frontend_base_url =
+        std::env::var("FRONTEND_BASE_URL").unwrap_or_else(|_| DEFAULT_FRONTEND_BASE_URL.to_string());
+
+    let client = BasicClient::new(
+        ClientId::new(client_id),
+        Some(ClientSecret::new(client_secret)),
+        AuthUrl::new(GOOGLE_AUTH_URL.to_string()).map_err(|err| err.to_string())?,
+        Some(TokenUrl::new(GOOGLE_TOKEN_URL.to_string()).map_err(|err| err.to_string())?),
+    )
+    .set_redirect_uri(RedirectUrl::new(redirect_url).map_err(|err| err.to_string())?);
+
+    Ok((client, frontend_base_url))
+}
+
+pub async fn start_google_auth(State(state): State<AppState>) -> impl IntoResponse {
+    let (client, _) = match google_client() {
+        Ok(config) => config,
+        Err(message) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": message })),
+            )
+                .into_response();
+        }
+    };
+
+    let state_value = state.auth.start_oauth_state().await;
+    let (auth_url, _csrf_token) = client
+        .authorize_url(|| CsrfToken::new(state_value.clone()))
+        .add_scope(Scope::new("openid".to_string()))
+        .add_scope(Scope::new("email".to_string()))
+        .add_scope(Scope::new("profile".to_string()))
+        .url();
+
+    Redirect::temporary(auth_url.as_ref()).into_response()
+}
+
+pub async fn handle_google_callback(
+    State(state): State<AppState>,
+    Query(query): Query<GoogleCallbackQuery>,
+) -> impl IntoResponse {
+    let (client, frontend_base_url) = match google_client() {
+        Ok(config) => config,
+        Err(message) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": message })),
+            )
+                .into_response();
+        }
+    };
+
+    if let Some(error) = query.error {
+        let redirect_url = format!("{frontend_base_url}/?auth_error={error}");
+        return Redirect::temporary(&redirect_url).into_response();
+    }
+
+    let Some(code) = query.code else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "missing code" })),
+        )
+            .into_response();
+    };
+    let Some(state_value) = query.state else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "missing state" })),
+        )
+            .into_response();
+    };
+
+    if let Err(err) = state.auth.consume_oauth_state(&state_value).await {
+        return auth_error_response(err);
+    }
+
+    let token = match client
+        .exchange_code(AuthorizationCode::new(code))
+        .request_async(async_http_client)
+        .await
+    {
+        Ok(token) => token,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "oauth exchange failed" })),
+            )
+                .into_response();
+        }
+    };
+
+    let access_token = token.access_token().secret();
+    let userinfo = match reqwest::Client::new()
+        .get(GOOGLE_USERINFO_URL)
+        .bearer_auth(access_token)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "failed to fetch user info" })),
+            )
+                .into_response();
+        }
+    };
+
+    let profile: GoogleUserInfo = match userinfo.json().await {
+        Ok(profile) => profile,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "invalid user info response" })),
+            )
+                .into_response();
+        }
+    };
+
+    let Some(email) = profile.email else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "email not available" })),
+        )
+            .into_response();
+    };
+
+    let token = match state.auth.issue_session(&email).await {
+        Ok(token) => token,
+        Err(err) => return auth_error_response(err),
+    };
+
+    let redirect_url = format!("{frontend_base_url}/?token={}", token.token);
+    Redirect::temporary(&redirect_url).into_response()
 }
 
 pub async fn start_auth(
@@ -523,6 +689,11 @@ fn auth_error_response(err: AuthError) -> axum::response::Response {
         AuthError::InvalidCode => (
             StatusCode::UNAUTHORIZED,
             Json(json!({ "error": "invalid or expired code" })),
+        )
+            .into_response(),
+        AuthError::InvalidState => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "invalid oauth state" })),
         )
             .into_response(),
         _ => (

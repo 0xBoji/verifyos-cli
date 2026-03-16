@@ -21,6 +21,8 @@ pub enum AuthError {
     RateLimited,
     #[error("invalid or expired code")]
     InvalidCode,
+    #[error("invalid oauth state")]
+    InvalidState,
 }
 
 #[derive(Debug)]
@@ -45,11 +47,13 @@ pub struct AuthStore {
 #[derive(Debug)]
 struct AuthStoreInner {
     pending: RwLock<HashMap<String, PendingCode>>,
+    pending_oauth: RwLock<HashMap<String, Instant>>,
     sessions: RwLock<HashMap<String, Session>>,
     code_ttl: Duration,
     session_ttl: Duration,
     rate_limit_per_min: u32,
     dev_mode: bool,
+    oauth_state_ttl: Duration,
 }
 
 impl AuthStore {
@@ -64,11 +68,13 @@ impl AuthStore {
         Self {
             inner: Arc::new(AuthStoreInner {
                 pending: RwLock::new(HashMap::new()),
+                pending_oauth: RwLock::new(HashMap::new()),
                 sessions: RwLock::new(HashMap::new()),
                 code_ttl: Duration::from_secs(code_ttl * 60),
                 session_ttl: Duration::from_secs(session_ttl * 60 * 60),
                 rate_limit_per_min: rate_limit_per_min.max(1),
                 dev_mode,
+                oauth_state_ttl: Duration::from_secs(10 * 60),
             }),
         }
     }
@@ -107,7 +113,11 @@ impl AuthStore {
             return Err(AuthError::InvalidCode);
         }
         pending.remove(email);
+        self.issue_session(email).await
+    }
 
+    pub async fn issue_session(&self, email: &str) -> Result<AuthToken, AuthError> {
+        let now = Instant::now();
         let token = Uuid::new_v4().to_string();
         let expires_at = now + self.inner.session_ttl;
         let mut sessions = self.inner.sessions.write().await;
@@ -126,6 +136,28 @@ impl AuthStore {
             email: email.to_string(),
             expires_in_seconds: self.inner.session_ttl.as_secs(),
         })
+    }
+
+    pub async fn start_oauth_state(&self) -> String {
+        let state = Uuid::new_v4().to_string();
+        let expires_at = Instant::now() + self.inner.oauth_state_ttl;
+        let mut pending = self.inner.pending_oauth.write().await;
+        pending.insert(state.clone(), expires_at);
+        state
+    }
+
+    pub async fn consume_oauth_state(&self, state: &str) -> Result<(), AuthError> {
+        let now = Instant::now();
+        let mut pending = self.inner.pending_oauth.write().await;
+        let Some(expires_at) = pending.get(state) else {
+            return Err(AuthError::InvalidState);
+        };
+        if *expires_at < now {
+            pending.remove(state);
+            return Err(AuthError::InvalidState);
+        }
+        pending.remove(state);
+        Ok(())
     }
 
     pub async fn authorize(&self, token: &str) -> Result<String, AuthError> {
