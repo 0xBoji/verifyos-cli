@@ -254,7 +254,7 @@ body {
   display: grid;
   gap: 18px;
   width: 100%;
-  max-width: 920px;
+  max-width: 1100px;
   justify-self: stretch;
 }
 
