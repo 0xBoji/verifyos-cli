@@ -376,10 +376,10 @@ pub async fn handoff_bundle(
 
     let hints = verifyos_cli::agents::CommandHints {
         output_dir: Some(layout.output_dir.display().to_string()),
-        app_path: Some(bundle_name),
+        app_path: Some(bundle_name.clone()),
         baseline_path: None,
         agent_pack_dir: Some(layout.agent_bundle_dir.display().to_string()),
-        profile: Some(profile),
+        profile: Some(profile.clone()),
         shell_script: true,
         fix_prompt_path: Some(layout.fix_prompt_path.display().to_string()),
         repair_plan_path: Some(layout.repair_plan_path.display().to_string()),

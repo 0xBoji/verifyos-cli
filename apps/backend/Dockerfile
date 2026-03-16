@@ -1,13 +1,20 @@
-FROM rust:1.78-bookworm AS builder
+FROM rust:latest AS builder
+
+RUN apt-get update && apt-get install -y musl-tools
+RUN rustup target add x86_64-unknown-linux-musl
+
 WORKDIR /app
 COPY . .
-RUN cargo build --release --manifest-path apps/backend/Cargo.toml
 
-FROM debian:bookworm-slim
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/apps/backend/target/release/verifyos-backend /usr/local/bin/verifyos-backend
+# Build with MUSL for a static binary
+RUN cargo build --release --target x86_64-unknown-linux-musl --manifest-path apps/backend/Cargo.toml
+
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder /app/apps/backend/target/x86_64-unknown-linux-musl/release/verifyos-backend /usr/local/bin/verifyos-backend
+
 ENV RUST_LOG=info
 EXPOSE 7070
+
 CMD ["verifyos-backend"]
