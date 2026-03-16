@@ -71,7 +71,7 @@ resource "aws_apigatewayv2_integration" "backend" {
   api_id             = aws_apigatewayv2_api.backend.id
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
-  integration_uri    = aws_apprunner_service.backend.service_url
+  integration_uri    = "https://${aws_apprunner_service.backend.service_url}"
 }
 
 resource "aws_apigatewayv2_route" "backend" {
