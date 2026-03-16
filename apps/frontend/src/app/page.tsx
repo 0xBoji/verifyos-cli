@@ -270,19 +270,19 @@ export default function Home() {
         ? `${report.total_duration_ms}ms`
         : null;
 
-    const byCategory = results.reduce<Record<string, number>>((acc, item) => {
+    const byCategory = failures.reduce<Record<string, number>>((acc, item) => {
       const category = String(item.category ?? "Other");
       acc[category] = (acc[category] ?? 0) + 1;
       return acc;
     }, {});
 
-    const bySeverity = results.reduce<Record<string, number>>((acc, item) => {
+    const bySeverity = failures.reduce<Record<string, number>>((acc, item) => {
       const severity = String(item.severity ?? "Unknown");
       acc[severity] = (acc[severity] ?? 0) + 1;
       return acc;
     }, {});
 
-    const findingsByCategory = results.reduce<Record<string, any[]>>((acc, item) => {
+    const findingsByCategory = failures.reduce<Record<string, any[]>>((acc, item) => {
       const category = String(item.category ?? "Other");
       if (!acc[category]) acc[category] = [];
       acc[category].push(item);
