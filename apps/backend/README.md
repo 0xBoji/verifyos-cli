@@ -12,14 +12,10 @@ cargo run --manifest-path apps/backend/Cargo.toml
 
 The API listens on `http://127.0.0.1:7070` by default.
 
-Auth (optional, Google OAuth):
+Rate limiting (IP-based):
 
 ```bash
-export REQUIRE_AUTH=true
-export GOOGLE_CLIENT_ID=your-google-client-id
-export GOOGLE_CLIENT_SECRET=your-google-client-secret
-export GOOGLE_REDIRECT_URL=https://api.verifyos.com/api/v1/auth/google/callback
-export FRONTEND_BASE_URL=https://verify-os.vercel.app
+export RATE_LIMIT_PER_MIN=60
 ```
 
 Example request:
@@ -41,11 +37,6 @@ curl -X POST http://127.0.0.1:7070/api/v1/scan \
   -F "baseline=@/path/to/baseline.json" \
   -F "format=markdown"
 ```
-
-Auth flow:
-
-- `GET /api/v1/auth/google` redirects to Google.
-- `GET /api/v1/auth/google/callback` redirects to the frontend with `?token=`.
 
 Include project context (zip a `.xcodeproj` or `.xcworkspace`):
 
@@ -84,14 +75,6 @@ bash apply-handoff.sh /path/to/project/root
 - `project` zip field with `.xcodeproj` or `.xcworkspace` (optional)
 
 Response: JSON report (same shape as `voc --format json`) or text output for `sarif`/`markdown`.
-
-`GET /api/v1/auth/google`
-
-Redirects to Google OAuth.
-
-`GET /api/v1/auth/google/callback`
-
-Redirects back to `FRONTEND_BASE_URL` with `?token=...`.
 
 `POST /api/v1/handoff`
 
