@@ -4,6 +4,12 @@
 
 
 <p align="center">
+  <a href="https://verify-os.vercel.app/">
+    <img src="https://img.shields.io/badge/Website-verify--os.vercel.app-6366f1" alt="Website" />
+  </a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=0xBoji.verifyos-vscode">
+    <img src="https://img.shields.io/visual-studio-marketplace/v/0xBoji.verifyos-vscode?label=VS%20Code" alt="VS Code Extension" />
+  </a>
   <a href="https://crates.io/crates/verifyos-cli">
     <img src="https://img.shields.io/crates/v/verifyos-cli.svg" alt="Crates.io" />
   </a>
@@ -40,6 +46,13 @@ The App Store Connect validation step is historically a "black box" that costs d
 - **CI-friendly reports**: Outputs `table`, `json`, or `sarif` with evidence and remediation recommendations.
 - **Bundle size insights**: `voc analyze-size` highlights the largest files and category hotspots in `.ipa` or `.app` bundles.
 - **Editor diagnostics**: `voc lsp` powers a VS Code extension with a clean Action Center sidebar so `Info.plist` and `PrivacyInfo.xcprivacy` findings show up in the Problems pane without leaving the editor.
+
+## Resources
+
+- **Official Website**: [verify-os.vercel.app](https://verify-os.vercel.app/)
+- **Rust Crate**: [verifyos-cli on crates.io](https://crates.io/crates/verifyos-cli)
+- **VS Code Extension**: [VerifyOS on Marketplace](https://marketplace.visualstudio.com/items?itemName=0xBoji.verifyos-vscode)
+- **GitHub Repository**: [0xBoji/verifyOS](https://github.com/0xBoji/verifyOS)
 
 ## Installation
 
