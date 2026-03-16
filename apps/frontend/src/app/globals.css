@@ -30,7 +30,7 @@ body {
 }
 
 :root {
-  --panel-width: 75%;
+  --panel-width: 100%;
 }
 
 .page {
