@@ -4,6 +4,7 @@ This Terraform module provisions:
 
 - An ECR repository for the backend image
 - An App Runner service that runs the container
+- An API Gateway HTTP endpoint in the same region
 
 ## Prereqs
 
@@ -35,6 +36,8 @@ docker push <ECR_REPO_URL>:latest
 ```
 
 Re-run `terraform apply` if you change `var.image_tag`.
+
+After apply, note the API Gateway endpoint from the output `api_gateway_url`.
 
 ## Env vars
 
