@@ -41,22 +41,14 @@ After apply, note the API Gateway endpoint from the output `api_gateway_url`.
 
 ## Env vars
 
-Provide required auth secrets via `var.env_vars` (no defaults are set):
+Provide runtime settings via `var.env_vars` (no defaults are set):
 
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-- `GOOGLE_REDIRECT_URL` (e.g. `https://api.verifyos.com/api/v1/auth/google/callback`)
-- `FRONTEND_BASE_URL` (e.g. `https://verify-os.vercel.app`)
-- `REQUIRE_AUTH` (set to `true` for prod)
+- `RATE_LIMIT_PER_MIN` (e.g. `60`)
 
 Example `terraform.tfvars`:
 
 ```hcl
 env_vars = {
-  REQUIRE_AUTH         = "true"
-  FRONTEND_BASE_URL    = "https://verify-os.vercel.app"
-  GOOGLE_CLIENT_ID     = "..."
-  GOOGLE_CLIENT_SECRET = "..."
-  GOOGLE_REDIRECT_URL  = "https://api.verifyos.com/api/v1/auth/google/callback"
+  RATE_LIMIT_PER_MIN = "60"
 }
 ```
