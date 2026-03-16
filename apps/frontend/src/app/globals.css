@@ -122,6 +122,12 @@ body {
   gap: 12px;
 }
 
+.google-button {
+  border: 1px solid rgba(12, 18, 34, 0.16);
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(12, 18, 34, 0.12);
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button {
@@ -204,36 +210,34 @@ body {
   border: 1px solid var(--ios-outline);
   background: rgba(255, 255, 255, 0.7);
   box-shadow: var(--ios-shadow);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  gap: 14px;
 }
 
-.auth-card h3 {
+.auth-copy h3 {
   margin: 0 0 6px;
   font-size: 16px;
 }
 
-.auth-card p {
+.auth-copy p {
   margin: 0;
   font-size: 13px;
   color: rgba(11, 11, 22, 0.6);
 }
 
-.auth-actions {
+.auth-form {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
 
-.auth-row {
+.auth-signed {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .auth-input {
@@ -241,11 +245,13 @@ body {
   border-radius: 12px;
   border: 1px solid var(--ios-outline);
   font-size: 13px;
-  min-width: 180px;
+  min-width: 200px;
+  flex: 1 1 220px;
 }
 
 .auth-input--code {
-  min-width: 100px;
+  min-width: 120px;
+  flex: 0 0 120px;
 }
 
 .auth-status {

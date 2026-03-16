@@ -19,6 +19,7 @@ export default function Home() {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<string | null>(null);
   const [authBusy, setAuthBusy] = useState(false);
+  const authEmailRef = useRef<HTMLInputElement>(null);
 
   const examplePayload = {
     report: {
@@ -161,6 +162,10 @@ export default function Home() {
     setAuthStatus("Signed out.");
     localStorage.removeItem("verifyos_auth_token");
     localStorage.removeItem("verifyos_auth_email");
+  };
+
+  const handleAuthFocus = () => {
+    authEmailRef.current?.focus();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -343,6 +348,9 @@ export default function Home() {
           >
             Docs
           </a>
+          <button className="secondary-button google-button" type="button" onClick={handleAuthFocus}>
+            Google login
+          </button>
         </div>
       </header>
 
@@ -367,27 +375,28 @@ export default function Home() {
 
         <section className="auth-panel">
           <div className="auth-card">
-            <div>
+            <div className="auth-copy">
               <h3>Email login</h3>
               <p>Enable rate-limited scans and keep audit access tied to you.</p>
             </div>
             {authToken ? (
-              <div className="auth-actions">
+              <div className="auth-signed">
                 <div className="auth-status">Signed in as {authEmail}</div>
                 <button className="ghost-button" type="button" onClick={handleAuthSignOut}>
                   Sign out
                 </button>
               </div>
             ) : (
-              <div className="auth-actions">
-                <input
-                  className="auth-input"
-                  type="email"
-                  placeholder="you@company.com"
-                  value={authEmail}
-                  onChange={(event) => setAuthEmail(event.target.value)}
-                />
-                <div className="auth-row">
+              <>
+                <div className="auth-form">
+                  <input
+                    ref={authEmailRef}
+                    className="auth-input"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                  />
                   <button
                     className="secondary-button"
                     type="button"
@@ -413,7 +422,7 @@ export default function Home() {
                   </button>
                 </div>
                 {authStatus ? <div className="auth-status">{authStatus}</div> : null}
-              </div>
+              </>
             )}
           </div>
         </section>
