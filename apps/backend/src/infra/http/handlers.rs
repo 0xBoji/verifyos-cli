@@ -6,12 +6,16 @@ use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
+use serde::Serialize;
 use serde_json::json;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 use tracing::info;
-use verifyos_cli::report::{apply_agent_pack_baseline, render_markdown, render_sarif, TimingMode};
+use verifyos_cli::agent_assets::HANDOFF_MANIFEST_NAME;
+use verifyos_cli::report::{
+    apply_agent_pack_baseline, render_json, render_markdown, render_sarif, TimingMode,
+};
 use zip::ZipArchive;
 use zip::{write::FileOptions, ZipWriter};
 
@@ -430,6 +434,40 @@ pub async fn handoff_bundle(
         return to_error(err).into_response();
     }
 
+    let report_json_path = layout.output_dir.join("report.json");
+    let report_json = match render_json(&outcome.report) {
+        Ok(report_json) => report_json,
+        Err(err) => return to_error(err).into_response(),
+    };
+    if let Err(err) = std::fs::write(&report_json_path, report_json) {
+        return to_error(err).into_response();
+    }
+
+    let manifest = HandoffManifest {
+        app_path: bundle_name,
+        baseline_path: None,
+        profile,
+        output_dir: layout.output_dir.display().to_string(),
+        assets: vec![
+            layout.agents_path.display().to_string(),
+            layout.fix_prompt_path.display().to_string(),
+            layout.repair_plan_path.display().to_string(),
+            layout.pr_brief_path.display().to_string(),
+            layout.pr_comment_path.display().to_string(),
+            layout.agent_pack_json_path.display().to_string(),
+            layout.agent_pack_markdown_path.display().to_string(),
+            layout.next_steps_script_path.display().to_string(),
+            report_json_path.display().to_string(),
+        ],
+    };
+    let manifest_path = layout.output_dir.join(HANDOFF_MANIFEST_NAME);
+    if let Err(err) = std::fs::write(
+        &manifest_path,
+        serde_json::to_string_pretty(&manifest).unwrap_or_else(|_| "{}".to_string()),
+    ) {
+        return to_error(err).into_response();
+    }
+
     if let Err(err) = write_apply_script(output_dir.path()) {
         return to_error(err).into_response();
     }
@@ -503,6 +541,15 @@ fn to_error(err: impl std::fmt::Display) -> (StatusCode, Json<serde_json::Value>
         StatusCode::BAD_REQUEST,
         Json(json!({ "error": err.to_string() })),
     )
+}
+
+#[derive(Debug, Serialize)]
+struct HandoffManifest {
+    app_path: String,
+    baseline_path: Option<String>,
+    profile: String,
+    output_dir: String,
+    assets: Vec<String>,
 }
 
 fn write_repair_plan(
