@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaGithub } from "react-icons/fa";
 import { SiRust } from "react-icons/si";
 import { VscVscode } from "react-icons/vsc";
@@ -14,6 +14,11 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authCode, setAuthCode] = useState("");
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authStatus, setAuthStatus] = useState<string | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
 
   const examplePayload = {
     report: {
@@ -64,6 +69,100 @@ export default function Home() {
     fileRef.current?.click();
   };
 
+  useEffect(() => {
+    const token = localStorage.getItem("verifyos_auth_token");
+    const email = localStorage.getItem("verifyos_auth_email");
+    if (token) {
+      setAuthToken(token);
+    }
+    if (email) {
+      setAuthEmail(email);
+    }
+  }, []);
+
+  const authHeaders = authToken
+    ? {
+        Authorization: `Bearer ${authToken}`,
+      }
+    : undefined;
+
+  const handleAuthStart = async () => {
+    if (!authEmail || authBusy) {
+      return;
+    }
+    setAuthBusy(true);
+    setAuthStatus("Sending login code...");
+    try {
+      const response = await fetch("http://127.0.0.1:7070/api/v1/auth/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: authEmail }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAuthStatus(
+          typeof payload?.error === "string" ? payload.error : "Login failed"
+        );
+        return;
+      }
+      if (payload?.dev_code) {
+        setAuthStatus(`Code: ${payload.dev_code}`);
+      } else {
+        setAuthStatus("Check your inbox for the login code.");
+      }
+    } catch (error) {
+      setAuthStatus("Failed to reach auth service.");
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleAuthVerify = async () => {
+    if (!authEmail || !authCode || authBusy) {
+      return;
+    }
+    setAuthBusy(true);
+    setAuthStatus("Verifying code...");
+    try {
+      const response = await fetch("http://127.0.0.1:7070/api/v1/auth/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: authEmail, code: authCode }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAuthStatus(
+          typeof payload?.error === "string" ? payload.error : "Invalid code"
+        );
+        return;
+      }
+      if (payload?.token) {
+        setAuthToken(payload.token);
+        localStorage.setItem("verifyos_auth_token", payload.token);
+        localStorage.setItem("verifyos_auth_email", authEmail);
+        setAuthStatus("Signed in.");
+        setAuthCode("");
+      } else {
+        setAuthStatus("Invalid response from auth service.");
+      }
+    } catch (error) {
+      setAuthStatus("Failed to verify code.");
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleAuthSignOut = () => {
+    setAuthToken(null);
+    setAuthStatus("Signed out.");
+    localStorage.removeItem("verifyos_auth_token");
+    localStorage.removeItem("verifyos_auth_email");
+  };
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     setSelectedFile(file);
@@ -90,6 +189,7 @@ export default function Home() {
       const response = await fetch("http://127.0.0.1:7070/api/v1/scan", {
         method: "POST",
         body: form,
+        headers: authHeaders,
       });
 
       const rawText = await response.text();
@@ -146,6 +246,7 @@ export default function Home() {
       const response = await fetch("http://127.0.0.1:7070/api/v1/handoff", {
         method: "POST",
         body: form,
+        headers: authHeaders,
       });
 
       if (!response.ok) {
@@ -261,6 +362,59 @@ export default function Home() {
               structured report for privacy, entitlements, signing, metadata,
               and more. Designed for AI agents and human reviewers.
             </p>
+          </div>
+        </section>
+
+        <section className="auth-panel">
+          <div className="auth-card">
+            <div>
+              <h3>Email login</h3>
+              <p>Enable rate-limited scans and keep audit access tied to you.</p>
+            </div>
+            {authToken ? (
+              <div className="auth-actions">
+                <div className="auth-status">Signed in as {authEmail}</div>
+                <button className="ghost-button" type="button" onClick={handleAuthSignOut}>
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <div className="auth-actions">
+                <input
+                  className="auth-input"
+                  type="email"
+                  placeholder="you@company.com"
+                  value={authEmail}
+                  onChange={(event) => setAuthEmail(event.target.value)}
+                />
+                <div className="auth-row">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={handleAuthStart}
+                    disabled={authBusy || !authEmail}
+                  >
+                    Send code
+                  </button>
+                  <input
+                    className="auth-input auth-input--code"
+                    type="text"
+                    placeholder="Code"
+                    value={authCode}
+                    onChange={(event) => setAuthCode(event.target.value)}
+                  />
+                  <button
+                    className="primary-button"
+                    type="button"
+                    onClick={handleAuthVerify}
+                    disabled={authBusy || !authCode}
+                  >
+                    Verify
+                  </button>
+                </div>
+                {authStatus ? <div className="auth-status">{authStatus}</div> : null}
+              </div>
+            )}
           </div>
         </section>
 
