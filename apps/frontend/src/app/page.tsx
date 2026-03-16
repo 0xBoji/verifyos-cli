@@ -16,6 +16,9 @@ export default function Home() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
 
+  const backendBaseUrl =
+    process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:7070";
+
   const examplePayload = {
     report: {
       ruleset_version: "0.8.1",
@@ -70,6 +73,20 @@ export default function Home() {
     if (token) {
       setAuthToken(token);
     }
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get("token");
+    if (tokenFromUrl) {
+      setAuthToken(tokenFromUrl);
+      localStorage.setItem("verifyos_auth_token", tokenFromUrl);
+      params.delete("token");
+      const newUrl = `${window.location.pathname}${
+        params.toString() ? `?${params.toString()}` : ""
+      }`;
+      window.history.replaceState({}, "", newUrl);
+    }
   }, []);
 
   const authHeaders = authToken
@@ -79,7 +96,7 @@ export default function Home() {
     : undefined;
 
   const handleGoogleLogin = () => {
-    window.location.href = "http://127.0.0.1:7070/api/v1/auth/google";
+    window.location.href = `${backendBaseUrl}/api/v1/auth/google`;
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,7 +122,7 @@ export default function Home() {
       form.append("bundle", selectedFile);
       form.append("profile", "full");
 
-      const response = await fetch("http://127.0.0.1:7070/api/v1/scan", {
+      const response = await fetch(`${backendBaseUrl}/api/v1/scan`, {
         method: "POST",
         body: form,
         headers: authHeaders,
@@ -162,7 +179,7 @@ export default function Home() {
       form.append("bundle", selectedFile);
       form.append("profile", "full");
 
-      const response = await fetch("http://127.0.0.1:7070/api/v1/handoff", {
+      const response = await fetch(`${backendBaseUrl}/api/v1/handoff`, {
         method: "POST",
         body: form,
         headers: authHeaders,
