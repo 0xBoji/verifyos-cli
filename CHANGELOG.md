@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0](https://github.com/0xBoji/verifyOS/compare/v0.11.0...v0.12.0) - 2026-03-17
+
+### Added
+
+- implement multi-target scanning and fix aggregate scan discrepancies
+
+### Fixed
+
+- *(ci)* whitelist package-lock.json to fix release-plz
+- *(ci)* fix formatting and ReportData initialization in tests
+
+### Other
+
+- update .dockerignore with new result patterns
+
 ## [0.11.0](https://github.com/0xBoji/verifyOS/compare/v0.10.1...v0.11.0) - 2026-03-17
 
 ### Added
