@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FaGithub, FaChevronRight } from "react-icons/fa";
 import { SiRust } from "react-icons/si";
 import { VscVscode } from "react-icons/vsc";
-import { FiAlertCircle, FiAlertTriangle, FiFolder, FiTarget, FiActivity, FiZoomIn, FiZoomOut, FiMaximize } from "react-icons/fi";
+import { FiAlertCircle, FiAlertTriangle, FiFolder, FiTarget, FiActivity, FiZoomIn, FiZoomOut, FiMaximize, FiX } from "react-icons/fi";
 import JSZip from "jszip";
 
 interface Finding {
@@ -19,6 +19,191 @@ interface Finding {
   duration_ms?: number;
   target: string;
 }
+
+const ASTViewer = ({ data, astFocus }: { data: any; astFocus: string | null }) => {
+  const targets = (data?.report?.scanned_targets as string[]) ?? [];
+  const findings = (data?.report?.results as Finding[]) ?? [];
+  const [selectedNode, setSelectedNode] = useState<Finding | null>(null);
+
+  // AST Pan & Zoom State
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Center node when astFocus changes
+  useEffect(() => {
+    if (astFocus && containerRef.current) {
+      setTimeout(() => {
+        const el = document.getElementById(`ast-node-${astFocus}`);
+        if (el && containerRef.current) {
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const nodeRect = el.getBoundingClientRect();
+          
+          const dx = (containerRect.width / 2) - (nodeRect.left - containerRect.left + nodeRect.width / 2);
+          const dy = (containerRect.height / 2) - (nodeRect.top - containerRect.top + nodeRect.height / 2);
+          
+          setOffset(prev => ({
+            x: prev.x + dx,
+            y: prev.y + dy
+          }));
+        }
+      }, 100);
+    }
+  }, [astFocus, data]);
+
+  const drawTargetNode = (target: string) => {
+    const targetFindings = findings.filter(f => f.target === target && (f.status === 'Fail' || f.status === 'Error'));
+    if (targetFindings.length === 0 && targets.length > 1) return null;
+
+    const hasError = targetFindings.some(f => f.severity === 'Error');
+    const hasWarning = targetFindings.some(f => f.severity === 'Warning');
+
+    return (
+      <div key={target} className="ast-tree" style={{ flex: 1, minWidth: 'fit-content' }}>
+        <div className={`ast-node ${hasError ? 'ast-node--error' : hasWarning ? 'ast-node--warning' : ''}`}>
+          <div className="ast-node-icon"><FiTarget /></div>
+          <span className="ast-node-label">{target}</span>
+          <span className="ast-node-sublabel">Scan Target</span>
+          {targetFindings.length > 0 && <div className="ast-connector" />}
+        </div>
+        
+        <div className="ast-level" style={{ marginTop: '20px' }}>
+          {targetFindings.map((f, idx) => (
+            <div 
+              key={idx} 
+              className={`ast-node ${f.severity === 'Error' ? 'ast-node--error' : 'ast-node--warning'} ${astFocus === f.rule_id || selectedNode?.rule_id === f.rule_id ? 'is-focused' : ''}`} 
+              id={`ast-node-${f.rule_id}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedNode(f);
+              }}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="ast-node-icon"><FiAlertCircle /></div>
+              <span className="ast-node-label">{f.rule_name}</span>
+              <span className="ast-node-sublabel">{f.rule_id}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('.ast-node')) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setOffset({
+      x: e.clientX - dragStart.current.x,
+      y: e.clientY - dragStart.current.y
+    });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Use wheel delta for zooming
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom(prev => Math.min(Math.max(prev * delta, 0.1), 3));
+    } else {
+      // Regular scroll for panning (optional but often expected)
+      setOffset(prev => ({
+        x: prev.x - e.deltaX,
+        y: prev.y - e.deltaY
+      }));
+    }
+  };
+
+  return (
+    <div className="ast-viewer-layout">
+      <div 
+        ref={containerRef}
+        className="ast-container"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+      >
+        <div 
+          className="ast-tree-wrapper"
+          style={{ 
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+            transformOrigin: 'center center',
+            transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+          }}
+        >
+          <div className="ast-level">
+            {targets.length > 0 ? targets.map(drawTargetNode) : drawTargetNode("Default Target")}
+          </div>
+        </div>
+      </div>
+      
+      <div className="ast-controls">
+        <button className="pill-chip" onClick={() => setZoom(z => Math.min(z + 0.1, 3))}><FiZoomIn /></button>
+        <button className="pill-chip" onClick={() => setZoom(z => Math.max(z - 0.1, 0.1))}><FiZoomOut /></button>
+        <button className="pill-chip" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}><FiMaximize /></button>
+        <div className="zoom-label">{Math.round(zoom * 100)}%</div>
+      </div>
+
+      {selectedNode && (
+        <div className="ast-details-panel">
+          <div className="ast-details-header">
+            <div className={`pill-chip pill-chip--${String(selectedNode.severity).toLowerCase()}`}>
+              {selectedNode.severity}
+            </div>
+            <h4>{selectedNode.rule_name}</h4>
+            <button className="ast-close-button" onClick={() => setSelectedNode(null)} aria-label="Close details">
+              <FiX />
+            </button>
+          </div>
+          <div className="ast-details-body">
+            <div className="ast-details-section">
+              <label>Message</label>
+              <p>{selectedNode.message}</p>
+            </div>
+            {selectedNode.evidence && (
+              <div className="ast-details-section">
+                <label>Evidence</label>
+                <pre>{typeof selectedNode.evidence === 'string' ? selectedNode.evidence : JSON.stringify(selectedNode.evidence, null, 2)}</pre>
+              </div>
+            )}
+            {selectedNode.recommendation && (
+              <div className="ast-details-section">
+                <label>Recommendation</label>
+                <p>{selectedNode.recommendation}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ASTModal = ({ isOpen, onClose, data, astFocus }: { isOpen: boolean; onClose: () => void; data: any; astFocus: string | null }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="ast-modal-overlay">
+      <div className="ast-modal-content">
+        <div className="ast-modal-header">
+          <h3>Diagnostic AST</h3>
+          <button className="ghost-button" onClick={onClose}>Close</button>
+        </div>
+        <ASTViewer data={data} astFocus={astFocus} />
+      </div>
+    </div>
+  );
+};
 
 interface DiscoveryTarget {
   path: string;
@@ -56,135 +241,101 @@ export default function Home() {
     };
   }, [isASTModalOpen]);
 
-  useEffect(() => {
-    if (isASTModalOpen && astFocus) {
-      // Small delay to ensure modal content is rendered
-      const timer = setTimeout(() => {
-        const el = document.getElementById(`ast-node-${astFocus}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-        }
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isASTModalOpen, astFocus]);
   const backendBaseUrl =
     process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:7070";
+
 
   const examplePayload = {
     report: {
       ruleset_version: "0.8.2",
       generated_at_unix: 1710604800,
       total_duration_ms: 1240,
-      cache_stats: {
-        nested_bundles: { hits: 2, misses: 1 },
-        usage_scan: { hits: 0, misses: 4 },
-        private_api_scan: { hits: 0, misses: 1 },
-      },
+      scanned_targets: ["ProductionApp.app"],
       results: [
         {
           rule_id: "RULE_XCODE_26_MANDATE",
-          rule_name: "Xcode 26 / iOS 26 SDK Mandate",
+          rule_name: "Xcode 26 Mandate",
           category: "Compliance",
           severity: "Error",
           status: "Fail",
-          message: "App was built with Xcode 15.4 (15F31d) and iOS 17.5 SDK",
-          recommendation: "From April 2026, all apps must be built with Xcode 26 and the iOS 26 SDK.",
-          duration_ms: 5,
+          message: "App built with Xcode 15.4, iOS 17.5 SDK",
+          recommendation: "Upgrade to Xcode 26 for 2026 App Store requirements.",
+          target: "ProductionApp.app"
         },
         {
           rule_id: "RULE_PRIVACY_MANIFEST",
-          rule_name: "Missing Privacy Manifest",
+          rule_name: "Privacy Manifest Missing",
           category: "Privacy",
           severity: "Error",
           status: "Fail",
-          message: "PrivacyInfo.xcprivacy was not found in the main bundle",
-          recommendation: "Add a PrivacyInfo.xcprivacy file to your app bundle to declare data collection and and accessed APIs.",
-          duration_ms: 8,
-        },
-        {
-          rule_id: "RULE_PRIVACY_SDK_CROSSCHECK",
-          rule_name: "Privacy Manifest vs SDK Usage",
-          category: "Privacy",
-          severity: "Error",
-          status: "Fail",
-          message: "Detected GoogleAnalytics and FirebaseSDK but they are not declared in the manifest.",
-          recommendation: "Ensure PrivacyInfo.xcprivacy declares data collection and accessed APIs for all included third-party SDKs.",
-          duration_ms: 450,
+          message: "PrivacyInfo.xcprivacy not found",
+          recommendation: "Add a PrivacyInfo.xcprivacy file to your app bundle.",
+          target: "ProductionApp.app"
         },
         {
           rule_id: "RULE_ENTITLEMENTS_MISMATCH",
-          rule_name: "Debug Entitlements Present",
+          rule_name: "Entitlements Mismatch",
           category: "Entitlements",
           severity: "Error",
           status: "Fail",
-          message: "Found get-task-allow=true in app entitlements",
-          recommendation: "Remove the get-task-allow entitlement for App Store production builds.",
-          duration_ms: 15,
+          message: "get-task-allow=true found in entitlements",
+          recommendation: "Remove get-task-allow for production builds.",
+          target: "ProductionApp.app"
         },
         {
-          rule_id: "RULE_BUNDLE_RESOURCE_LEAKAGE",
-          rule_name: "Sensitive Files in Bundle",
-          category: "Bundle",
+          rule_id: "RULE_APP_ICON_MISSING",
+          rule_name: "App Icon Missing",
+          category: "Metadata",
           severity: "Error",
           status: "Fail",
-          message: "Found .env and development.p12 inside the app bundle",
-          recommendation: "Remove certificates, provisioning profiles, or secret files from the app bundle before submission.",
-          duration_ms: 25,
+          message: "Missing 1024px App Store icon",
+          recommendation: "Ensure 1024x1024 icon is in Assets.car.",
+          target: "ProductionApp.app"
         },
         {
-          rule_id: "RULE_CAMERA_USAGE",
-          rule_name: "Missing Camera Usage Description",
-          category: "Privacy",
+          rule_id: "RULE_MISSING_CFBUNDLEVERSION",
+          rule_name: "Missing Build Version",
+          category: "Metadata",
           severity: "Error",
           status: "Fail",
-          message: "NSCameraUsageDescription is missing from Info.plist",
-          recommendation: "Add NSCameraUsageDescription with a clear, user-facing reason why your app needs camera access.",
-          duration_ms: 4,
+          message: "CFBundleVersion is empty",
+          recommendation: "Set a unique build number for every submission.",
+          target: "ProductionApp.app"
         },
         {
           rule_id: "RULE_ATS_AUDIT",
-          rule_name: "ATS Exceptions Detected",
-          category: "Ats",
+          rule_name: "ATS Audit",
+          category: "Security",
           severity: "Warning",
           status: "Fail",
-          message: "NSAllowsArbitraryLoads is enabled globally",
-          recommendation: "Remove global ATS exceptions or scope them to specific domains with strong justification.",
-          duration_ms: 12,
-        },
-        {
-          rule_id: "RULE_LSAPPLICATIONQUERIES_SCHEMES_AUDIT",
-          rule_name: "LSApplicationQueriesSchemes Audit",
-          category: "Metadata",
-          severity: "Warning",
-          status: "Fail",
-          message: "Found 5+ potentially generic or private schemes in allowlist",
-          recommendation: "Keep LSApplicationQueriesSchemes minimal and aligned with actual app handoff requirements.",
-          duration_ms: 10,
+          message: "NSAllowsArbitraryLoads enabled",
+          recommendation: "Scope ATS exceptions to specific domains.",
+          target: "ProductionApp.app"
         },
         {
           rule_id: "RULE_EXPORT_COMPLIANCE",
-          rule_name: "Export Compliance Declaration",
+          rule_name: "Export Declaration",
           category: "Metadata",
           severity: "Warning",
           status: "Fail",
-          message: "ITSAppUsesNonExemptEncryption is not set",
-          recommendation: "Explicitly set ITSAppUsesNonExemptEncryption in Info.plist to avoid App Store Connect prompts.",
-          duration_ms: 5,
+          message: "ITSAppUsesNonExemptEncryption not set",
+          recommendation: "Update Info.plist to specify encryption usage.",
+          target: "ProductionApp.app"
         },
         {
           rule_id: "RULE_PRIVATE_API",
-          rule_name: "Private API Usage Detected",
+          rule_name: "Private API Usage",
           category: "Private API",
           severity: "Warning",
           status: "Fail",
-          message: "Potential usage of _GSSystemAdditions detected in binary",
-          recommendation: "Remove private API usage or replace with public alternatives to avoid rejection.",
-          duration_ms: 600,
+          message: "_GSSystemAdditions usage detected",
+          recommendation: "Replace with public API to avoid rejection.",
+          target: "ProductionApp.app"
         }
       ],
     },
   };
+
 
   const handleChooseFile = () => {
     fileRef.current?.click();
@@ -477,175 +628,7 @@ export default function Home() {
 
   const [selectedNode, setSelectedNode] = useState<Finding | null>(null);
 
-  // AST Pan & Zoom State
-  const [zoom, setZoom] = useState(1);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStart = useRef({ x: 0, y: 0 });
 
-  const ASTViewer = ({ data }: { data: any }) => {
-    const targets = (data?.report?.scanned_targets as string[]) ?? [];
-    const findings = (data?.report?.results as Finding[]) ?? [];
-
-    const drawTargetNode = (target: string) => {
-      const targetFindings = findings.filter(f => f.target === target && (f.status === 'Fail' || f.status === 'Error'));
-      if (targetFindings.length === 0 && targets.length > 1) return null;
-
-      const hasError = targetFindings.some(f => f.severity === 'Error');
-      const hasWarning = targetFindings.some(f => f.severity === 'Warning');
-
-      const categoryMap = targetFindings.reduce((acc, f) => {
-        const cat = f.category || 'Other';
-        if (!acc[cat]) acc[cat] = [];
-        acc[cat].push(f);
-        return acc;
-      }, {} as Record<string, Finding[]>);
-
-      return (
-        <div key={target} className="ast-tree" style={{ flex: 1, minWidth: 'fit-content' }}>
-          <div className={`ast-node ${hasError ? 'ast-node--error' : hasWarning ? 'ast-node--warning' : ''}`}>
-            <div className="ast-node-icon"><FiTarget /></div>
-            <span className="ast-node-label">{target}</span>
-            <span className="ast-node-sublabel">Scan Target</span>
-            {targetFindings.length > 0 && <div className="ast-connector" />}
-          </div>
-          
-          <div className="ast-level" style={{ marginTop: '20px' }}>
-            {Object.entries(categoryMap).map(([cat, catFindings]) => (
-              <div key={cat} className="ast-tree">
-                <div className={`ast-node ${catFindings.some(f => f.severity === 'Error') ? 'ast-node--error' : 'ast-node--warning'}`}>
-                  <div className="ast-node-icon"><FiActivity /></div>
-                  <span className="ast-node-label">{cat}</span>
-                  <span className="ast-node-sublabel">Category</span>
-                  <div className="ast-connector" />
-                </div>
-                
-                <div className="ast-level" style={{ marginTop: '20px' }}>
-                  {catFindings.map((f, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`ast-node ${f.severity === 'Error' ? 'ast-node--error' : 'ast-node--warning'} ${astFocus === f.rule_id || selectedNode?.rule_id === f.rule_id ? 'is-focused' : ''}`} 
-                      id={`ast-node-${f.rule_id}`}
-                      onClick={() => setSelectedNode(f)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div className="ast-node-icon"><FiAlertCircle /></div>
-                      <span className="ast-node-label">{f.rule_name}</span>
-                      <span className="ast-node-sublabel">{f.rule_id}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    };
-
-    const handleMouseDown = (e: React.MouseEvent) => {
-      if ((e.target as HTMLElement).closest('.ast-node')) return;
-      setIsDragging(true);
-      dragStart.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
-    };
-
-    const handleMouseMove = (e: React.MouseEvent) => {
-      if (!isDragging) return;
-      setOffset({
-        x: e.clientX - dragStart.current.x,
-        y: e.clientY - dragStart.current.y
-      });
-    };
-
-    const handleMouseUp = () => setIsDragging(false);
-
-    const handleWheel = (e: React.WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        setZoom(prev => Math.min(Math.max(prev * delta, 0.2), 3));
-      }
-    };
-
-    return (
-      <div className="ast-viewer-layout">
-        <div 
-          className="ast-container"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
-          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-        >
-          <div 
-            className="ast-tree-wrapper"
-            style={{ 
-              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
-              transformOrigin: 'center center',
-              transition: isDragging ? 'none' : 'transform 0.1s ease-out'
-            }}
-          >
-            <div className="ast-level">
-              {targets.length > 0 ? targets.map(drawTargetNode) : drawTargetNode("Default Target")}
-            </div>
-          </div>
-        </div>
-        
-        <div className="ast-controls">
-          <button className="pill-chip" onClick={() => setZoom(z => Math.min(z + 0.1, 3))}><FiZoomIn /></button>
-          <button className="pill-chip" onClick={() => setZoom(z => Math.max(z - 0.1, 0.2))}><FiZoomOut /></button>
-          <button className="pill-chip" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}><FiMaximize /></button>
-          <div className="zoom-label">{Math.round(zoom * 100)}%</div>
-        </div>
-
-        {selectedNode && (
-          <div className="ast-details-panel">
-            <div className="ast-details-header">
-              <div className={`pill-chip pill-chip--${String(selectedNode.severity).toLowerCase()}`}>
-                {selectedNode.severity}
-              </div>
-              <h4>{selectedNode.rule_name}</h4>
-              <button className="ghost-button" onClick={() => setSelectedNode(null)}>×</button>
-            </div>
-            <div className="ast-details-body">
-              <div className="ast-details-section">
-                <label>Message</label>
-                <p>{selectedNode.message}</p>
-              </div>
-              {selectedNode.evidence && (
-                <div className="ast-details-section">
-                  <label>Evidence</label>
-                  <pre>{typeof selectedNode.evidence === 'string' ? selectedNode.evidence : JSON.stringify(selectedNode.evidence, null, 2)}</pre>
-                </div>
-              )}
-              {selectedNode.recommendation && (
-                <div className="ast-details-section">
-                  <label>Recommendation</label>
-                  <p>{selectedNode.recommendation}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const ASTModal = () => {
-    if (!isASTModalOpen) return null;
-
-    return (
-      <div className="ast-modal-overlay">
-        <div className="ast-modal-content">
-          <div className="ast-modal-header">
-            <h3>Diagnostic AST</h3>
-            <button className="ghost-button" onClick={() => setIsASTModalOpen(false)}>Close</button>
-          </div>
-          <ASTViewer data={result} />
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="page">
@@ -1120,7 +1103,12 @@ export default function Home() {
           </nav>
         </footer>
       </main>
-      <ASTModal />
+      <ASTModal 
+        isOpen={isASTModalOpen} 
+        onClose={() => setIsASTModalOpen(false)} 
+        data={result} 
+        astFocus={astFocus} 
+      />
     </div>
   );
 }

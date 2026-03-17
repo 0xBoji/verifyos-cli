@@ -899,8 +899,9 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-width: 100%;
-  padding: 200px;
+  min-width: 2000px;
+  min-height: 2000px;
+  padding: 500px;
 }
 
 .ast-details-panel {
@@ -918,22 +919,47 @@ body {
   border-bottom: 1px solid var(--ios-outline);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 10px;
   position: relative;
 }
 
 .ast-details-header h4 {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
+  line-height: 1.4;
+  color: var(--ios-ink);
+  padding-right: 32px; /* Space for close button if title is long */
 }
 
-.ast-details-header .ghost-button {
+.ast-close-button {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  font-size: 24px;
-  padding: 4px;
+  top: 18px;
+  right: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--ios-surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  color: var(--ios-ink-soft);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 18px;
+  z-index: 2;
+}
+
+.ast-close-button:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--ios-ink);
+  transform: scale(1.05);
+}
+
+.ast-close-button:active {
+  transform: scale(0.95);
 }
 
 .ast-details-body {
