@@ -8,9 +8,6 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(scan: ScanService, rate_limit: RateLimiter) -> Self {
-        Self {
-            scan,
-            rate_limit,
-        }
+        Self { scan, rate_limit }
     }
 }

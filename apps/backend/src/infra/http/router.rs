@@ -1,5 +1,5 @@
 use crate::app::AppState;
-use crate::infra::http::handlers::{health, handoff_bundle, scan_bundle};
+use crate::infra::http::handlers::{handoff_bundle, health, scan_bundle};
 use axum::routing::{get, post};
 use axum::Router;
 use tower_http::cors::CorsLayer;

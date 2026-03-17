@@ -3,7 +3,9 @@ use std::path::Path;
 use std::time::Instant;
 use thiserror::Error;
 use verifyos_cli::core::engine::Engine;
-use verifyos_cli::profiles::{available_rule_ids, normalize_rule_id, register_rules, RuleSelection, ScanProfile};
+use verifyos_cli::profiles::{
+    available_rule_ids, normalize_rule_id, register_rules, RuleSelection, ScanProfile,
+};
 use verifyos_cli::report::{apply_baseline, build_report, BaselineSummary, ReportData};
 
 #[derive(Debug, Error)]
@@ -45,9 +47,9 @@ impl ScanService {
                 "scan completed in {duration}ms",
                 duration = started.elapsed().as_millis()
             )],
-            baseline: outcome
-                .baseline
-                .map(|summary| BaselineInfo { suppressed: summary.suppressed }),
+            baseline: outcome.baseline.map(|summary| BaselineInfo {
+                suppressed: summary.suppressed,
+            }),
         })
     }
 
@@ -73,11 +75,15 @@ impl ScanService {
         }
 
         let bundle_path = bundle_path.as_ref();
-        let run = engine.run(bundle_path)
+        let run = engine
+            .run(bundle_path)
             .map_err(|err| ScanError::ScanFailed(err.to_string()))?;
 
         let mut report = build_report(run.results, run.total_duration_ms, run.cache_stats);
-        let baseline = request.baseline.as_ref().map(|baseline| apply_baseline(&mut report, baseline));
+        let baseline = request
+            .baseline
+            .as_ref()
+            .map(|baseline| apply_baseline(&mut report, baseline));
         Ok(ScanOutcome { report, baseline })
     }
 }
@@ -120,11 +126,7 @@ fn build_rule_selection(
     })
 }
 
-
-
-fn load_xcode_project(
-    path: &Path,
-) -> Option<verifyos_cli::parsers::xcode_parser::XcodeProject> {
+fn load_xcode_project(path: &Path) -> Option<verifyos_cli::parsers::xcode_parser::XcodeProject> {
     let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
     if extension.eq_ignore_ascii_case("xcworkspace") {
         match verifyos_cli::parsers::xcworkspace_parser::Xcworkspace::from_path(path) {

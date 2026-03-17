@@ -191,7 +191,10 @@ pub async fn scan_bundle(
 
     info!("running scan for uploaded bundle");
     let _keep_project_dir_alive = project_dir;
-    match state.scan.run_scan(request, bundle.path(), project_path.as_deref()) {
+    match state
+        .scan
+        .run_scan(request, bundle.path(), project_path.as_deref())
+    {
         Ok(result) => match format {
             ScanOutputFormat::Json => (StatusCode::OK, Json(result)).into_response(),
             ScanOutputFormat::Sarif => match render_sarif(&result.report) {
@@ -361,11 +364,10 @@ pub async fn handoff_bundle(
 
     info!("building agent handoff bundle");
     let baseline = request.baseline.clone();
-    let outcome =
-        match state
-            .scan
-            .run_scan_report(request, bundle.path(), project_path.as_deref())
-        {
+    let outcome = match state
+        .scan
+        .run_scan_report(request, bundle.path(), project_path.as_deref())
+    {
         Ok(outcome) => outcome,
         Err(err) => return (StatusCode::BAD_REQUEST, Json(error_body(err))).into_response(),
     };
@@ -403,25 +405,19 @@ pub async fn handoff_bundle(
     ) {
         return to_error(err).into_response();
     }
-    if let Err(err) = verifyos_cli::agent_io::write_fix_prompt_file(
-        &layout.fix_prompt_path,
-        &pack,
-        &hints,
-    ) {
+    if let Err(err) =
+        verifyos_cli::agent_io::write_fix_prompt_file(&layout.fix_prompt_path, &pack, &hints)
+    {
         return to_error(err).into_response();
     }
-    if let Err(err) = verifyos_cli::agent_io::write_pr_brief_file(
-        &layout.pr_brief_path,
-        &pack,
-        &hints,
-    ) {
+    if let Err(err) =
+        verifyos_cli::agent_io::write_pr_brief_file(&layout.pr_brief_path, &pack, &hints)
+    {
         return to_error(err).into_response();
     }
-    if let Err(err) = verifyos_cli::agent_io::write_pr_comment_file(
-        &layout.pr_comment_path,
-        &pack,
-        &hints,
-    ) {
+    if let Err(err) =
+        verifyos_cli::agent_io::write_pr_comment_file(&layout.pr_comment_path, &pack, &hints)
+    {
         return to_error(err).into_response();
     }
     if let Err(err) =
@@ -556,16 +552,16 @@ fn write_repair_plan(
     layout: &verifyos_cli::agent_assets::AgentAssetLayout,
     hints: &verifyos_cli::agents::CommandHints,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let policy = verifyos_cli::agent_assets::RepairPolicy::new(
-        std::collections::HashSet::new(),
-        true,
-        true,
-    );
+    let policy =
+        verifyos_cli::agent_assets::RepairPolicy::new(std::collections::HashSet::new(), true, true);
     let plan = verifyos_cli::agent_assets::build_repair_plan(layout, &policy);
     let mut out = String::new();
     out.push_str("# verifyOS Repair Plan\n\n## Context\n\n");
     if let Some(app_path) = hints.app_path.as_deref() {
-        out.push_str(&format!("- Source: `fresh-scan`\n- Scan artifact: `{}`\n", app_path));
+        out.push_str(&format!(
+            "- Source: `fresh-scan`\n- Scan artifact: `{}`\n",
+            app_path
+        ));
     } else {
         out.push_str("- Source: `fresh-scan`\n");
     }

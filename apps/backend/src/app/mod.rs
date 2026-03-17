@@ -1,6 +1,6 @@
+mod rate_limit;
 mod scan;
 mod state;
-mod rate_limit;
 
 pub use rate_limit::{RateLimitError, RateLimiter};
 pub use scan::{ScanError, ScanService};
