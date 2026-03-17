@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaGithub, FaChevronRight } from "react-icons/fa";
 import { SiRust } from "react-icons/si";
 import { VscVscode } from "react-icons/vsc";
@@ -43,6 +43,15 @@ export default function Home() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [viewMode, setViewMode] = useState<"list" | "ast">("list");
   const [astFocus, setAstFocus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (viewMode === 'ast' && astFocus) {
+      const el = document.getElementById(`ast-node-${astFocus}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      }
+    }
+  }, [viewMode, astFocus]);
   const backendBaseUrl =
     process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:7070";
 
@@ -456,27 +465,29 @@ export default function Home() {
 
     const drawTargetNode = (target: string) => {
       const targetFindings = findings.filter(f => f.target === target && (f.status === 'Fail' || f.status === 'Error'));
+      if (targetFindings.length === 0 && targets.length > 1) return null;
+
       const hasError = targetFindings.some(f => f.severity === 'Error');
       const hasWarning = targetFindings.some(f => f.severity === 'Warning');
 
+      const categoryMap = targetFindings.reduce((acc, f) => {
+        const cat = f.category || 'Other';
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(f);
+        return acc;
+      }, {} as Record<string, Finding[]>);
+
       return (
-        <div key={target} className="ast-tree">
+        <div key={target} className="ast-tree" style={{ flex: 1, minWidth: 'fit-content' }}>
           <div className={`ast-node ${hasError ? 'ast-node--error' : hasWarning ? 'ast-node--warning' : ''}`}>
             <div className="ast-node-icon"><FiTarget /></div>
             <span className="ast-node-label">{target}</span>
-            <span className="ast-node-sublabel">Target</span>
-            <div className="ast-connector" />
+            <span className="ast-node-sublabel">Scan Target</span>
+            {targetFindings.length > 0 && <div className="ast-connector" />}
           </div>
           
-          <div className="ast-level">
-            {Object.entries(
-              targetFindings.reduce((acc, f) => {
-                const cat = f.category || 'Other';
-                if (!acc[cat]) acc[cat] = [];
-                acc[cat].push(f);
-                return acc;
-              }, {} as Record<string, Finding[]>)
-            ).map(([cat, catFindings]) => (
+          <div className="ast-level" style={{ marginTop: '20px' }}>
+            {Object.entries(categoryMap).map(([cat, catFindings]) => (
               <div key={cat} className="ast-tree">
                 <div className={`ast-node ${catFindings.some(f => f.severity === 'Error') ? 'ast-node--error' : 'ast-node--warning'}`}>
                   <div className="ast-node-icon"><FiActivity /></div>
@@ -485,7 +496,7 @@ export default function Home() {
                   <div className="ast-connector" />
                 </div>
                 
-                <div className="ast-level">
+                <div className="ast-level" style={{ marginTop: '20px' }}>
                   {catFindings.map((f, idx) => (
                     <div key={idx} className={`ast-node ${f.severity === 'Error' ? 'ast-node--error' : 'ast-node--warning'} ${astFocus === f.rule_id ? 'is-focused' : ''}`} id={`ast-node-${f.rule_id}`}>
                       <div className="ast-node-icon"><FiAlertCircle /></div>

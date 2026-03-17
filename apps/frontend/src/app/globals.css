@@ -874,17 +874,18 @@ body {
 }
 
 .ast-node-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
   background: var(--ios-surface);
   border: 1px solid var(--ios-outline);
   box-shadow: var(--ios-shadow);
   display: grid;
   place-items: center;
-  font-size: 20px;
+  font-size: 24px;
   color: #007aff;
   transition: all 0.2s ease;
+  z-index: 3;
 }
 
 .ast-node--error .ast-node-icon {
@@ -902,17 +903,19 @@ body {
 }
 
 .ast-node-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ios-ink);
   white-space: nowrap;
-  max-width: 120px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   background: var(--ios-glass);
-  padding: 2px 8px;
-  border-radius: 4px;
-  backdrop-filter: blur(4px);
+  padding: 4px 10px;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--ios-outline);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
 }
 
 .ast-node-sublabel {
@@ -923,13 +926,19 @@ body {
 
 .ast-connector {
   position: absolute;
-  top: 48px;
+  top: 40px;
   left: 50%;
   width: 2px;
-  background: var(--ios-outline);
-  height: 60px;
+  background: linear-gradient(180deg, #007aff80, var(--ios-outline));
+  height: 80px;
   transform: translateX(-50%);
   z-index: 1;
+}
+
+.ast-node.is-focused .ast-node-icon {
+  border-color: #007aff;
+  box-shadow: 0 0 20px rgba(0, 122, 255, 0.3);
+  transform: scale(1.1);
 }
 
 @keyframes nodePulse {
