@@ -885,13 +885,22 @@ body {
 
 .ast-container {
   flex: 1;
-  padding: 80px 40px;
-  overflow: auto;
+  padding: 0;
+  overflow: hidden;
   display: flex;
-  justify-content: flex-start;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: center;
   background: rgba(0, 0, 0, 0.01);
   mask-image: linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent);
+  position: relative;
+}
+
+.ast-tree-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 100%;
+  padding: 200px;
 }
 
 .ast-details-panel {
@@ -966,8 +975,35 @@ body {
   align-items: center;
   gap: 80px;
   position: relative;
-  margin: 0 auto;
-  min-width: 100%;
+  min-width: fit-content;
+}
+
+.ast-controls {
+  position: absolute;
+  bottom: 24px;
+  left: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ios-glass);
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--ios-outline);
+  box-shadow: var(--ios-shadow);
+  z-index: 100;
+}
+
+.ast-controls .pill-chip {
+  padding: 6px;
+  cursor: pointer;
+}
+
+.zoom-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ios-ink-soft);
+  min-width: 40px;
+  text-align: center;
 }
 
 .ast-level {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FaGithub, FaChevronRight } from "react-icons/fa";
 import { SiRust } from "react-icons/si";
 import { VscVscode } from "react-icons/vsc";
-import { FiAlertCircle, FiAlertTriangle, FiFolder, FiTarget, FiActivity } from "react-icons/fi";
+import { FiAlertCircle, FiAlertTriangle, FiFolder, FiTarget, FiActivity, FiZoomIn, FiZoomOut, FiMaximize } from "react-icons/fi";
 import JSZip from "jszip";
 
 interface Finding {
@@ -477,6 +477,12 @@ export default function Home() {
 
   const [selectedNode, setSelectedNode] = useState<Finding | null>(null);
 
+  // AST Pan & Zoom State
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+
   const ASTViewer = ({ data }: { data: any }) => {
     const targets = (data?.report?.scanned_targets as string[]) ?? [];
     const findings = (data?.report?.results as Finding[]) ?? [];
@@ -536,14 +542,62 @@ export default function Home() {
       );
     };
 
+    const handleMouseDown = (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest('.ast-node')) return;
+      setIsDragging(true);
+      dragStart.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+      if (!isDragging) return;
+      setOffset({
+        x: e.clientX - dragStart.current.x,
+        y: e.clientY - dragStart.current.y
+      });
+    };
+
+    const handleMouseUp = () => setIsDragging(false);
+
+    const handleWheel = (e: React.WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        setZoom(prev => Math.min(Math.max(prev * delta, 0.2), 3));
+      }
+    };
+
     return (
       <div className="ast-viewer-layout">
-        <div className="ast-container">
-          <div className="ast-level">
-            {targets.length > 0 ? targets.map(drawTargetNode) : drawTargetNode("Default Target")}
+        <div 
+          className="ast-container"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        >
+          <div 
+            className="ast-tree-wrapper"
+            style={{ 
+              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+              transformOrigin: 'center center',
+              transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+            }}
+          >
+            <div className="ast-level">
+              {targets.length > 0 ? targets.map(drawTargetNode) : drawTargetNode("Default Target")}
+            </div>
           </div>
         </div>
         
+        <div className="ast-controls">
+          <button className="pill-chip" onClick={() => setZoom(z => Math.min(z + 0.1, 3))}><FiZoomIn /></button>
+          <button className="pill-chip" onClick={() => setZoom(z => Math.max(z - 0.1, 0.2))}><FiZoomOut /></button>
+          <button className="pill-chip" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}><FiMaximize /></button>
+          <div className="zoom-label">{Math.round(zoom * 100)}%</div>
+        </div>
+
         {selectedNode && (
           <div className="ast-details-panel">
             <div className="ast-details-header">
