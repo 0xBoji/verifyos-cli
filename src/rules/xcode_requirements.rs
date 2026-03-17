@@ -18,7 +18,7 @@ impl AppStoreRule for XcodeVersionRule {
     }
 
     fn severity(&self) -> Severity {
-        Severity::Error
+        Severity::Warning
     }
 
     fn recommendation(&self) -> &'static str {

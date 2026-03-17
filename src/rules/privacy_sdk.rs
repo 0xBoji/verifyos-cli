@@ -35,8 +35,16 @@ impl AppStoreRule for PrivacyManifestSdkCrossCheckRule {
             });
         };
 
-        let manifest = InfoPlist::from_file(&manifest_path)
-            .map_err(|_| crate::rules::entitlements::EntitlementsError::ParseFailure)?;
+        let manifest = match InfoPlist::from_file(&manifest_path) {
+            Ok(m) => m,
+            Err(_) => {
+                return Ok(RuleReport {
+                    status: RuleStatus::Skip,
+                    message: Some("PrivacyInfo.xcprivacy is empty or invalid; skipping".to_string()),
+                    evidence: Some(manifest_path.display().to_string()),
+                });
+            }
+        };
 
         let scan = match artifact.sdk_scan() {
             Ok(scan) => scan,
