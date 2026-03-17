@@ -5,8 +5,15 @@ permissions:
 
 on:
   push:
+    branches: [ "master", "main" ]
+    paths:
+      - "editors/vscode/**"
     tags:
       - "v*"
+  pull_request:
+    branches: [ "master", "main" ]
+    paths:
+      - "editors/vscode/**"
   workflow_dispatch:
     inputs:
       publish_marketplaces:
@@ -141,7 +148,8 @@ jobs:
     needs: package
     runs-on: ubuntu-latest
     if: >
-      (github.event_name == 'push' || inputs.publish_marketplaces == true)
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch' && inputs.publish_marketplaces == true)
       && secrets.VSCE_PAT != ''
     defaults:
       run:
@@ -176,7 +184,8 @@ jobs:
     needs: package
     runs-on: ubuntu-latest
     if: >
-      (github.event_name == 'push' || inputs.publish_marketplaces == true)
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'workflow_dispatch' && inputs.publish_marketplaces == true)
       && secrets.OVSX_PAT != ''
     defaults:
       run:
