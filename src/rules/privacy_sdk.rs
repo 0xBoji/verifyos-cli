@@ -40,7 +40,9 @@ impl AppStoreRule for PrivacyManifestSdkCrossCheckRule {
             Err(_) => {
                 return Ok(RuleReport {
                     status: RuleStatus::Skip,
-                    message: Some("PrivacyInfo.xcprivacy is empty or invalid; skipping".to_string()),
+                    message: Some(
+                        "PrivacyInfo.xcprivacy is empty or invalid; skipping".to_string(),
+                    ),
                     evidence: Some(manifest_path.display().to_string()),
                 });
             }

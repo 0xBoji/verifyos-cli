@@ -1,11 +1,10 @@
 use crate::domain::{BaselineInfo, ScanProfileInput, ScanRequest, ScanResponse};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Instant;
 use thiserror::Error;
-use verifyos_cli::core::engine::{Engine, OrchestratorError};
+use verifyos_cli::core::engine::Engine;
 use verifyos_cli::profiles::{available_rule_ids, normalize_rule_id, register_rules, RuleSelection, ScanProfile};
 use verifyos_cli::report::{apply_baseline, build_report, BaselineSummary, ReportData};
-use zip::ZipArchive;
 
 #[derive(Debug, Error)]
 pub enum ScanError {
@@ -19,6 +18,12 @@ pub struct ScanService;
 pub struct ScanOutcome {
     pub report: ReportData,
     pub baseline: Option<BaselineSummary>,
+}
+
+impl Default for ScanService {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ScanService {
@@ -67,7 +72,6 @@ impl ScanService {
             }
         }
 
-        let run_started = Instant::now();
         let bundle_path = bundle_path.as_ref();
         let run = engine.run(bundle_path)
             .map_err(|err| ScanError::ScanFailed(err.to_string()))?;

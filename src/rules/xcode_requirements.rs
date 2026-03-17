@@ -40,38 +40,45 @@ impl AppStoreRule for XcodeVersionRule {
         let dtxcode = plist.get_string("DTXcode");
         if let Some(version_str) = dtxcode {
             if let Ok(version_int) = version_str.parse::<u32>() {
-                if version_int < 1800 { // Assuming 2600 is Xcode 26, but let's be conservative for now or use a heuristic
+                if version_int < 1800 {
+                    // Assuming 2600 is Xcode 26, but let's be conservative for now or use a heuristic
                     // Note: User specified 2026 mandate usually corresponds to next major version.
                     // If current is Xcode 15/16, Xcode 26 is far off, but the prompt says 2026.
                     // Actually, Xcode versions don't jump to 26 that fast.
-                    // Wait, maybe the user meant Xcode 17 or 18? 
+                    // Wait, maybe the user meant Xcode 17 or 18?
                     // Let's check the prompt again: "Xcode 26+... build bằng Xcode 26 và iOS 26 SDK"
                     // That's a very high version number. Maybe it's a future-proof check.
-                    
+
                     if version_int < 2600 {
-                         failures.push(format!("Built with Xcode version {} (required 2600+)", version_str));
+                        failures.push(format!(
+                            "Built with Xcode version {} (required 2600+)",
+                            version_str
+                        ));
                     }
                 }
             }
         } else {
-             failures.push("DTXcode key missing".to_string());
+            failures.push("DTXcode key missing".to_string());
         }
 
         // 2. Check DTPlatformVersion (e.g., "18.0")
         let platform_version = plist.get_string("DTPlatformVersion");
         if let Some(version) = platform_version {
-             if let Ok(v) = version.parse::<f32>() {
-                 if v < 26.0 {
-                     failures.push(format!("Built with platform version {} (required 26.0+)", version));
-                 }
-             }
+            if let Ok(v) = version.parse::<f32>() {
+                if v < 26.0 {
+                    failures.push(format!(
+                        "Built with platform version {} (required 26.0+)",
+                        version
+                    ));
+                }
+            }
         }
 
         // 3. Check DTSDKName (e.g., "iphoneos18.0")
         let sdk_name = plist.get_string("DTSDKName");
         if let Some(name) = sdk_name {
             if !name.contains("26") {
-                 failures.push(format!("Built with SDK {} (required iOS 26 SDK)", name));
+                failures.push(format!("Built with SDK {} (required iOS 26 SDK)", name));
             }
         }
 

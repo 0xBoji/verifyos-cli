@@ -26,6 +26,12 @@ struct RateLimiterInner {
     limit_per_min: u32,
 }
 
+impl Default for RateLimiter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RateLimiter {
     pub fn new() -> Self {
         let limit_per_min = env_u64("RATE_LIMIT_PER_MIN", 60) as u32;
