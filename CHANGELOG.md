@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0](https://github.com/0xBoji/verifyOS/compare/v0.11.0...v0.12.0) - 2026-03-17
+
+### Added
+
+- *(frontend)* implement hierarchical AST branching connectors and fix UI regressions
+- *(frontend)* implement unified premium alert and toast system
+- *(frontend)* implement diagnostic AST visualization with pan/zoom and UI refinements
+- *(frontend)* implement pan and zoom for AST diagnostic tree
+- *(frontend)* add interactive details panel to AST visualization
+- *(frontend)* transition AST visualization to Modal to fix layout issues
+- *(frontend)* implement diagnostic AST visualization with Apple-inspired design
+- implement multi-target scanning and fix aggregate scan discrepancies
+
+### Fixed
+
+- *(frontend)* improve AST mode connectors node spacing and label readability
+- *(ci)* whitelist package-lock.json to fix release-plz
+- *(ci)* fix formatting and ReportData initialization in tests
+
+### Other
+
+- *(frontend)* theme-aware custom scrollbars
+- *(frontend)* add custom iOS-inspired scrollbar styles
+- update .dockerignore with new result patterns
+
 ## [0.11.0](https://github.com/0xBoji/verifyOS/compare/v0.10.1...v0.11.0) - 2026-03-17
 
 ### Added
