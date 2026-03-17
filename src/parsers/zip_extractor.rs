@@ -25,6 +25,7 @@ impl ExtractedIpa {
             return Ok(None);
         }
 
+        // Try direct root search first
         for entry in fs::read_dir(&self.payload_dir)? {
             let entry = entry?;
             let path = entry.path();
@@ -32,6 +33,23 @@ impl ExtractedIpa {
                 return Ok(Some(path));
             }
         }
+
+        // Fallback: recursive search
+        let mut queue = vec![self.payload_dir.clone()];
+        while let Some(dir) = queue.pop() {
+            if let Ok(entries) = fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        if path.extension().and_then(|e| e.to_str()) == Some("app") {
+                            return Ok(Some(path));
+                        }
+                        queue.push(path);
+                    }
+                }
+            }
+        }
+
         Ok(None)
     }
 }
@@ -48,7 +66,10 @@ pub fn extract_ipa<P: AsRef<Path>>(ipa_path: P) -> Result<ExtractedIpa, Extracti
 
     archive.extract(extract_path)?;
 
-    let payload_dir = extract_path.join("Payload");
+    let mut payload_dir = extract_path.join("Payload");
+    if !payload_dir.exists() {
+        payload_dir = extract_path.to_path_buf();
+    }
 
     Ok(ExtractedIpa {
         temp_dir,

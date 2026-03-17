@@ -13,6 +13,8 @@ pub enum OrchestratorError {
     Extraction(#[from] ExtractionError),
     #[error("Failed to parse Info.plist: {0}")]
     PlistParse(#[from] PlistError),
+    #[error("Could not locate App Bundle (.app) inside {0}. Found entries: {1}")]
+    AppBundleNotFoundWithContext(String, String),
     #[error("Could not locate App Bundle (.app) inside IPAPayload")]
     AppBundleNotFound,
 }
@@ -62,8 +64,23 @@ impl Engine {
 
         let app_bundle_path = extracted_ipa
             .get_app_bundle_path()
-            .map_err(|e| OrchestratorError::Extraction(ExtractionError::Io(e)))?
-            .ok_or(OrchestratorError::AppBundleNotFound)?;
+            .map_err(|e| OrchestratorError::Extraction(ExtractionError::Io(e)))?;
+
+        let app_bundle_path = match app_bundle_path {
+            Some(p) => p,
+            None => {
+                let mut entries = Vec::new();
+                if let Ok(rd) = std::fs::read_dir(&extracted_ipa.payload_dir) {
+                    for entry in rd.flatten().take(10) {
+                        entries.push(entry.file_name().to_string_lossy().into_owned());
+                    }
+                }
+                return Err(OrchestratorError::AppBundleNotFoundWithContext(
+                    extracted_ipa.payload_dir.display().to_string(),
+                    entries.join(", "),
+                ));
+            }
+        };
 
         self.run_on_bundle(&app_bundle_path, run_started)
     }
