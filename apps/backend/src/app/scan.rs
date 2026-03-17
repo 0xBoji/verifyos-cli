@@ -69,29 +69,8 @@ impl ScanService {
 
         let run_started = Instant::now();
         let bundle_path = bundle_path.as_ref();
-        let run = match engine.run(bundle_path) {
-            Ok(run) => run,
-            Err(OrchestratorError::AppBundleNotFound)
-                if is_zip_like(bundle_path) =>
-            {
-                match extract_app_bundle(bundle_path) {
-                    Ok((dir, app_path)) => {
-                        let run = engine
-                            .run_on_bundle(&app_path, run_started)
-                            .map_err(|err| ScanError::ScanFailed(err.to_string()))?;
-                        std::mem::drop(dir);
-                        run
-                    }
-                    Err(err) => {
-                        return Err(ScanError::ScanFailed(format!(
-                            "{}. If you only have a .app, zip it and upload the .zip",
-                            err
-                        )));
-                    }
-                }
-            }
-            Err(err) => return Err(ScanError::ScanFailed(err.to_string())),
-        };
+        let run = engine.run(bundle_path)
+            .map_err(|err| ScanError::ScanFailed(err.to_string()))?;
 
         let mut report = build_report(run.results, run.total_duration_ms, run.cache_stats);
         let baseline = request.baseline.as_ref().map(|baseline| apply_baseline(&mut report, baseline));
@@ -137,41 +116,7 @@ fn build_rule_selection(
     })
 }
 
-fn is_zip_like(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("zip") || ext.eq_ignore_ascii_case("ipa"))
-}
 
-fn extract_app_bundle(path: &Path) -> Result<(tempfile::TempDir, PathBuf), String> {
-    let file = std::fs::File::open(path).map_err(|err| err.to_string())?;
-    let mut archive = ZipArchive::new(file).map_err(|err| err.to_string())?;
-    let dir = tempfile::tempdir().map_err(|err| err.to_string())?;
-    archive
-        .extract(dir.path())
-        .map_err(|err| err.to_string())?;
-
-    let app_path = find_app_bundle(dir.path())
-        .ok_or_else(|| "Could not locate .app in uploaded archive".to_string())?;
-    Ok((dir, app_path))
-}
-
-fn find_app_bundle(root: &Path) -> Option<PathBuf> {
-    let mut queue = vec![root.to_path_buf()];
-    while let Some(dir) = queue.pop() {
-        let entries = std::fs::read_dir(&dir).ok()?;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                if path.extension().is_some_and(|ext| ext == "app") {
-                    return Some(path);
-                }
-                queue.push(path);
-            }
-        }
-    }
-    None
-}
 
 fn load_xcode_project(
     path: &Path,
