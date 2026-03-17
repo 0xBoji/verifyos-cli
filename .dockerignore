@@ -7,3 +7,11 @@ dist/
 build/
 *.log
 .DS_Store
+
+# Results & Test Artifacts
+*.json
+AppStoreMock.zip
+broken_ws.zip
+tmp_broken_ws/
+repro_aggregate.rs
+examples/repro_aggregate.rs
