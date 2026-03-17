@@ -475,6 +475,8 @@ export default function Home() {
     setExpandedCategories(new Set());
   };
 
+  const [selectedNode, setSelectedNode] = useState<Finding | null>(null);
+
   const ASTViewer = ({ data }: { data: any }) => {
     const targets = (data?.report?.scanned_targets as string[]) ?? [];
     const findings = (data?.report?.results as Finding[]) ?? [];
@@ -514,7 +516,13 @@ export default function Home() {
                 
                 <div className="ast-level" style={{ marginTop: '20px' }}>
                   {catFindings.map((f, idx) => (
-                    <div key={idx} className={`ast-node ${f.severity === 'Error' ? 'ast-node--error' : 'ast-node--warning'} ${astFocus === f.rule_id ? 'is-focused' : ''}`} id={`ast-node-${f.rule_id}`}>
+                    <div 
+                      key={idx} 
+                      className={`ast-node ${f.severity === 'Error' ? 'ast-node--error' : 'ast-node--warning'} ${astFocus === f.rule_id || selectedNode?.rule_id === f.rule_id ? 'is-focused' : ''}`} 
+                      id={`ast-node-${f.rule_id}`}
+                      onClick={() => setSelectedNode(f)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="ast-node-icon"><FiAlertCircle /></div>
                       <span className="ast-node-label">{f.rule_name}</span>
                       <span className="ast-node-sublabel">{f.rule_id}</span>
@@ -529,10 +537,42 @@ export default function Home() {
     };
 
     return (
-      <div className="ast-container">
-        <div className="ast-level">
-          {targets.length > 0 ? targets.map(drawTargetNode) : drawTargetNode("Default Target")}
+      <div className="ast-viewer-layout">
+        <div className="ast-container">
+          <div className="ast-level">
+            {targets.length > 0 ? targets.map(drawTargetNode) : drawTargetNode("Default Target")}
+          </div>
         </div>
+        
+        {selectedNode && (
+          <div className="ast-details-panel">
+            <div className="ast-details-header">
+              <div className={`pill-chip pill-chip--${String(selectedNode.severity).toLowerCase()}`}>
+                {selectedNode.severity}
+              </div>
+              <h4>{selectedNode.rule_name}</h4>
+              <button className="ghost-button" onClick={() => setSelectedNode(null)}>×</button>
+            </div>
+            <div className="ast-details-body">
+              <div className="ast-details-section">
+                <label>Message</label>
+                <p>{selectedNode.message}</p>
+              </div>
+              {selectedNode.evidence && (
+                <div className="ast-details-section">
+                  <label>Evidence</label>
+                  <pre>{typeof selectedNode.evidence === 'string' ? selectedNode.evidence : JSON.stringify(selectedNode.evidence, null, 2)}</pre>
+                </div>
+              )}
+              {selectedNode.recommendation && (
+                <div className="ast-details-section">
+                  <label>Recommendation</label>
+                  <p>{selectedNode.recommendation}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   };

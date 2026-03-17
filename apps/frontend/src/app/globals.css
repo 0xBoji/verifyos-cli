@@ -876,15 +876,88 @@ body {
   color: var(--ios-ink);
 }
 
+.ast-viewer-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
 .ast-container {
   flex: 1;
-  padding: 60px 40px;
+  padding: 80px 40px;
   overflow: auto;
   display: flex;
   justify-content: flex-start;
   align-items: flex-start;
   background: rgba(0, 0, 0, 0.01);
   mask-image: linear-gradient(to bottom, transparent, #000 5%, #000 95%, transparent);
+}
+
+.ast-details-panel {
+  width: 380px;
+  background: var(--ios-surface);
+  border-left: 1px solid var(--ios-outline);
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+}
+
+.ast-details-header {
+  padding: 24px;
+  border-bottom: 1px solid var(--ios-outline);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+.ast-details-header h4 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ast-details-header .ghost-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 24px;
+  padding: 4px;
+}
+
+.ast-details-body {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ast-details-section label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ios-ink-soft);
+  margin-bottom: 8px;
+}
+
+.ast-details-section p {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ios-ink);
+}
+
+.ast-details-section pre {
+  background: var(--ios-surface-muted);
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-x: auto;
 }
 
 .ast-tree {
@@ -1000,6 +1073,11 @@ body {
 @keyframes modalScale {
   from { opacity: 0; transform: scale(0.95) translateY(20px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
 .mode-toggle {
