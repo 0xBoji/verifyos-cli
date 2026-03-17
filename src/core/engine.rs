@@ -63,21 +63,22 @@ impl Engine {
         let extracted_ipa = extract_ipa(path)?;
 
         // Attempt to discover project metadata during extraction
-        let discovered_project = extracted_ipa
+        let discovered_project_path = extracted_ipa
             .get_project_path()
-            .map_err(|e| OrchestratorError::Extraction(ExtractionError::Io(e)))?
-            .and_then(|p| {
-                if p.extension().is_some_and(|e| e == "xcworkspace") {
-                    crate::parsers::xcworkspace_parser::Xcworkspace::from_path(&p)
-                        .ok()
-                        .and_then(|ws| ws.project_paths.first().cloned())
-                        .and_then(|proj_path| {
-                            crate::parsers::xcode_parser::XcodeProject::from_path(proj_path).ok()
-                        })
-                } else {
-                    crate::parsers::xcode_parser::XcodeProject::from_path(p).ok()
-                }
-            });
+            .map_err(|e| OrchestratorError::Extraction(ExtractionError::Io(e)))?;
+
+        let discovered_project = discovered_project_path.as_ref().and_then(|p| {
+            if p.extension().is_some_and(|e| e == "xcworkspace") {
+                crate::parsers::xcworkspace_parser::Xcworkspace::from_path(p)
+                    .ok()
+                    .and_then(|ws| ws.project_paths.first().cloned())
+                    .and_then(|proj_path| {
+                        crate::parsers::xcode_parser::XcodeProject::from_path(proj_path).ok()
+                    })
+            } else {
+                crate::parsers::xcode_parser::XcodeProject::from_path(p).ok()
+            }
+        });
 
         let app_bundle_path = extracted_ipa
             .get_app_bundle_path()
@@ -88,7 +89,7 @@ impl Engine {
             None => {
                 // If we found a project but no .app, we can still proceed with the extraction root
                 // as a context and let rules that check project metadata run.
-                if discovered_project.is_some() {
+                if discovered_project_path.is_some() {
                     extracted_ipa.payload_dir.clone()
                 } else {
                     let mut entries = Vec::new();
