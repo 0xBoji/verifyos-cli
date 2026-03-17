@@ -5105,7 +5105,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "verifyos-cli"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "apple-codesign",
  "clap",

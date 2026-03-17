@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0](https://github.com/0xBoji/verifyOS/compare/v0.10.1...v0.11.0) - 2026-03-17
+
+### Added
+
+- *(engine)* implement multi-target scanning and result aggregation
+- *(frontend)* implement smart folder discovery and noise filtering
+- *(frontend)* add client-side folder zipping support
+- support project-only scans and improve frontend folder upload feedback
+- *(frontend)* allow uploading .zip and Xcode project files in scan tool
+
+### Fixed
+
+- *(core)* allow project-only scans even if project is unparseable
+
 ## [0.10.1](https://github.com/0xBoji/verifyOS/compare/v0.10.0...v0.10.1) - 2026-03-17
 
 ### Fixed
