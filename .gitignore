@@ -34,6 +34,7 @@ apps/frontend/pnpm-lock.yaml
 *.json
 !Cargo.toml
 !package.json
+!package-lock.json
 !tsconfig.json
 
 # Temporary test artifacts
