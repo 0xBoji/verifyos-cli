@@ -124,3 +124,27 @@ stdout = data only, stderr = diagnostics. Exit 0 = success.
   - `cargo test`
   - `cargo clippy --all-targets --all-features -- -D warnings`
 - Keep conventional commit messages concise and scope-specific.
+
+---
+
+## Frontend (Taste Skill)
+
+All frontend development MUST adhere to the `taste-skill` design philosophy for a premium, high-performance UI.
+
+### Core Configuration
+- **DESIGN_VARIANCE**: 8 (Modern, asymmetric, overlapping elements).
+- **MOTION_INTENSITY**: 6 (Fluid transitions, staggered reveals, tactile feedback).
+- **VISUAL_DENSITY**: 4 (Spacious, "Art Gallery" feel, luxury spacing).
+
+### Design Rules
+- **Anti-Slop**: Banned "AI Purple/Blue" glows and generic 3-column card layouts.
+- **Typography**: Strictly use `Geist`, `Outfit`, or `Satoshi` for Sans-Serif. Serif fonts are BANNED for software UIs.
+- **Icons**: Exclusively use `@phosphor-icons/react` or `@radix-ui/react-icons`. **Emojis are BANNED**.
+- **Materiality**: Use "Liquid Glass" refraction (1px inner borders + tinted shadows). Omit physical cards/boxes where spacing can define grouping.
+- **Viewport Stability**: ALWAYS use `min-h-[100dvh]` for full-height sections to prevent mobile layout jumping.
+
+### Animation & Performance
+- **Framer Motion**: Use for UI/Bento interactions. Use `layout` and `layoutId` for smooth state transitions.
+- **Spring Physics**: Use `type: "spring", stiffness: 100, damping: 20` for a premium, weighty feel.
+- **Hardware Acceleration**: Animate ONLY `transform` and `opacity`. Use `will-change` sparingly.
+- **Isolation**:CPU-heavy perpetual animations MUST be isolated in their own microscopic Client Components.

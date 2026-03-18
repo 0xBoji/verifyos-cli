@@ -1,10 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FaGithub, FaChevronRight } from "react-icons/fa";
-import { SiRust } from "react-icons/si";
-import { VscVscode } from "react-icons/vsc";
-import { FiAlertCircle, FiAlertTriangle, FiFolder, FiTarget, FiZoomIn, FiZoomOut, FiMaximize, FiX } from "react-icons/fi";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  GithubLogo, 
+  CaretRight, 
+  Warning, 
+  WarningCircle, 
+  Folder, 
+  Target,
+  MagnifyingGlassPlus,
+  MagnifyingGlassMinus,
+  CornersOut,
+  X,
+  UploadSimple,
+  FileZip,
+  Monitor
+} from "@phosphor-icons/react";
 import JSZip from "jszip";
 
 interface Finding {
@@ -64,7 +76,7 @@ const ASTViewer = ({ data, astFocus }: { data: any; astFocus: string | null }) =
     return (
       <div key={target} className="ast-tree" style={{ flex: 1, minWidth: 'fit-content' }}>
         <div className={`ast-node ${hasError ? 'ast-node--error' : hasWarning ? 'ast-node--warning' : ''}`}>
-          <div className="ast-node-icon"><FiTarget /></div>
+          <div className="ast-node-icon"><Target weight="bold" /></div>
           <span className="ast-node-label">{target}</span>
           <span className="ast-node-sublabel">Scan Target</span>
           {targetFindings.length > 0 && <div className="ast-connector" />}
@@ -82,7 +94,7 @@ const ASTViewer = ({ data, astFocus }: { data: any; astFocus: string | null }) =
               }}
               style={{ cursor: 'pointer' }}
             >
-              <div className="ast-node-icon"><FiAlertCircle /></div>
+              <div className="ast-node-icon"><WarningCircle weight="bold" /></div>
               <span className="ast-node-label">{f.rule_name}</span>
               <span className="ast-node-sublabel">{f.rule_id}</span>
             </div>
@@ -149,9 +161,9 @@ const ASTViewer = ({ data, astFocus }: { data: any; astFocus: string | null }) =
       </div>
       
       <div className="ast-controls">
-        <button className="pill-chip" onClick={() => setZoom(z => Math.min(z + 0.1, 3))}><FiZoomIn /></button>
-        <button className="pill-chip" onClick={() => setZoom(z => Math.max(z - 0.1, 0.1))}><FiZoomOut /></button>
-        <button className="pill-chip" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}><FiMaximize /></button>
+        <button className="pill-chip" onClick={() => setZoom(z => Math.min(z + 0.1, 3))}><MagnifyingGlassPlus /></button>
+        <button className="pill-chip" onClick={() => setZoom(z => Math.max(z - 0.1, 0.1))}><MagnifyingGlassMinus /></button>
+        <button className="pill-chip" onClick={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }}><CornersOut /></button>
         <div className="zoom-label">{Math.round(zoom * 100)}%</div>
       </div>
 
@@ -163,7 +175,7 @@ const ASTViewer = ({ data, astFocus }: { data: any; astFocus: string | null }) =
             </div>
             <h4>{selectedNode.rule_name}</h4>
             <button className="ast-close-button" onClick={() => setSelectedNode(null)} aria-label="Close details">
-              <FiX />
+              <X />
             </button>
           </div>
           <div className="ast-details-body">
@@ -228,7 +240,6 @@ export default function Home() {
   const [discoveredTargets, setDiscoveredTargets] = useState<DiscoveryTarget[]>([]);
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [viewMode, setViewMode] = useState<"list" | "ast">("list");
   const [astFocus, setAstFocus] = useState<string | null>(null);
   const [isASTModalOpen, setIsASTModalOpen] = useState(false);
 
@@ -633,35 +644,41 @@ export default function Home() {
   return (
     <div className="page">
       <div className="page-glow page-glow--left" />
+      <div className="page-glow page-glow--center" />
       <div className="page-glow page-glow--right" />
-
-      <header className="nav">
+      
+      <motion.nav 
+        className="nav"
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 100, damping: 20 }}
+      >
         <div className="logo">
-          <span className="logo-mark" aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo/verifyOS_web_128x.png" alt="" />
-          </span>
+          <div className="logo-mark">
+            <Monitor size={32} weight="regular" color="var(--accent)" />
+          </div>
           <div>
             <div className="logo-title">verifyOS</div>
-            <div className="logo-subtitle">App Store review confidence</div>
+            <div className="logo-subtitle">App Store Rejection Risk Scanner</div>
           </div>
         </div>
         <div className="nav-actions">
-          <a
-            className="ghost-button"
-            href="https://github.com/0xBoji/verifyOS#readme"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Docs
+          <a href="https://github.com/0xBoji/verifyOS" target="_blank" rel="noreferrer" className="secondary-button">
+            <GithubLogo size={18} weight="bold" style={{ marginRight: '8px' }} />
+            GitHub
           </a>
         </div>
-      </header>
+      </motion.nav>
 
       <main className="shell">
         <section className="hero">
-          <div className="hero-copy">
-            <div className="badge">iOS-friendly diagnostics</div>
+          <motion.div 
+            className="hero-copy"
+            initial={{ x: -20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.1, duration: 0.6 }}
+          >
+            <div className="badge">v0.1.0 Beta</div>
             <h1>
               Ship App Store reviews with{" "}
               <span className="accent">zero surprises</span>.
@@ -674,38 +691,58 @@ export default function Home() {
               structured report for privacy, entitlements, signing, metadata,
               and more. Designed for AI agents and human reviewers.
             </p>
-          </div>
+            <div className="hero-actions">
+              <button className="primary-button">Get Started</button>
+              <button className="ghost-button">Read documentation</button>
+            </div>
+          </motion.div>
         </section>
 
 
-        <section className="steps">
-          <div className="step">
-            <div className="step-number">1</div>
-            <div>
-              <h4>Upload bundle</h4>
-              <p>Scan locally with zero external uploads or cloud storage.</p>
-            </div>
-          </div>
-          <div className="step">
-            <div className="step-number">2</div>
-            <div>
-              <h4>Review findings</h4>
-              <p>
-                Clear severity, evidence, and recommendations for each rule.
-              </p>
-            </div>
-          </div>
-          <div className="step">
-            <div className="step-number">3</div>
-            <div>
-              <h4>Hand off to AI</h4>
-              <p>Generate agent packs, PR comments, and fix prompts in one tap.</p>
-            </div>
-          </div>
-        </section>
-
+        <motion.section 
+          className="steps"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.1
+              }
+            }
+          }}
+        >
+          {[1, 2, 3].map((num) => (
+            <motion.div 
+              key={num} 
+              className="step"
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                show: { opacity: 1, y: 0 }
+              }}
+            >
+              <div className="step-number">{num}</div>
+              <div>
+                <h4>{num === 1 ? "Upload bundle" : num === 2 ? "Review findings" : "Hand off to AI"}</h4>
+                <p>
+                  {num === 1 ? "Scan locally with zero external uploads or cloud storage." : 
+                   num === 2 ? "Clear severity, evidence, and recommendations for each rule." : 
+                   "Generate agent packs, PR comments, and fix prompts in one tap."}
+                </p>
+              </div>
+            </motion.div>
+          ))}
+        </motion.section>
         <section className="scan-panel" id="quick-scan">
-          <div className="hero-card">
+          <motion.div 
+            className="hero-card"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
             <div className="card-header">
               <div>
                 <h3>Quick Scan</h3>
@@ -715,7 +752,7 @@ export default function Home() {
             </div>
             <div className="dropzone">
               <div className="dropzone-content">
-                <div className="drop-icon">⬆</div>
+                <UploadSimple weight="regular" className="drop-icon" style={{ fontSize: '32px', marginBottom: '8px', color: 'var(--accent)' }} />
                 <strong>Drag &amp; drop your bundle</strong>
                 <span>.ipa, .app, .zip or <strong>zipped</strong> Xcode projects</span>
               </div>
@@ -743,21 +780,26 @@ export default function Home() {
                   Choose file
                 </button>
                 <button className="secondary-button" type="button" onClick={handleChooseFolder}>
-                  <FiFolder style={{ marginRight: '6px' }} />
+                  <Folder weight="bold" style={{ marginRight: '6px' }} />
                   Choose folder
                 </button>
               </div>
             </div>
 
             {discoveredTargets.length > 0 && (
-              <div className="status-pill" style={{ 
-                marginTop: '1.5rem', 
-                background: 'rgba(0, 122, 255, 0.03)', 
-                border: '1px solid rgba(0, 122, 255, 0.1)', 
-                padding: '1.5rem', 
-                borderRadius: '20px',
-                animation: 'slideDown 0.3s ease-out'
-              }}>
+              <motion.div 
+                className="status-pill"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                style={{ 
+                  marginTop: '1.5rem', 
+                  background: 'rgba(0, 122, 255, 0.03)', 
+                  border: '1px solid rgba(0, 122, 255, 0.1)', 
+                  padding: '1.5rem', 
+                  borderRadius: '20px',
+                  overflow: 'hidden'
+                }}
+              >
                 <div style={{ marginBottom: '1rem', fontWeight: 600, fontSize: '1rem', color: 'var(--ios-ink)' }}>
                   Auto-discovered scannable items:
                 </div>
@@ -776,12 +818,12 @@ export default function Home() {
                       }}
                       onClick={() => bundleAndSelect(pendingFiles, t)}
                     >
-                      <FiFolder style={{ marginRight: '12px', color: '#007aff', fontSize: '18px' }} />
+                      <Folder weight="bold" style={{ marginRight: '12px', color: '#007aff', fontSize: '18px' }} />
                       <div style={{ flex: 1, textAlign: 'left', display: 'flex', flexDirection: 'column' }}>
                         <span style={{ fontWeight: 600 }}>{t.name}</span>
                         <span style={{ opacity: 0.5, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.type} found at {t.path}</span>
                       </div>
-                      <FaChevronRight style={{ opacity: 0.3, fontSize: '12px' }} />
+                      <CaretRight weight="bold" style={{ opacity: 0.3, fontSize: '12px' }} />
                     </button>
                   ))}
                   <button
@@ -792,21 +834,16 @@ export default function Home() {
                     Scan entire folder instead
                   </button>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             <div className="upload-actions">
-              <button
+              <motion.button
                 className="primary-button"
-                type="button"
                 onClick={handleUpload}
                 disabled={!selectedFile || isUploading || isDiscovering}
-                style={{ 
-                  height: '52px', 
-                  fontSize: '16px', 
-                  borderRadius: '16px',
-                  opacity: (!selectedFile || isUploading || isDiscovering) ? 0.5 : 1
-                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
                 {isUploading ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -814,38 +851,69 @@ export default function Home() {
                     <span>Analyzing...</span>
                   </div>
                 ) : isDiscovering ? "Analyzing folder..." : "Run scan"}
-              </button>
+              </motion.button>
               <div className="upload-status">
                 {selectedFile ? selectedFile.name : "No file selected"}
               </div>
             </div>
             {status ? <div className="status-pill">{status}</div> : null}
-            {result ? (
-              <div className="report-stack">
-                <div className="report-summary">
-                  <div>
+            
+            <div className="card-footer" style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--ios-outline)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '13px', opacity: 0.7 }}>
+                <strong>Next:</strong> privacy manifest, entitlements, ATS rules
+              </div>
+              <button className="ghost-button" type="button" onClick={handleExampleReport} style={{ fontSize: '13px' }}>
+                View example report
+              </button>
+            </div>
+          </motion.div>
+        </section>
+
+        <AnimatePresence mode="wait">
+          {result && (
+            <motion.section 
+              className="results"
+              initial="hidden"
+              animate="show"
+              exit="exit"
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                show: { 
+                  opacity: 1, 
+                  y: 0,
+                  transition: {
+                    staggerChildren: 0.1,
+                    duration: 0.4
+                  }
+                },
+                exit: { opacity: 0, y: -20 }
+              }}
+            >
+              <motion.div className="report-stack" variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}>
+                <motion.div className="report-summary" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
+                  <motion.div variants={{ hidden: { opacity: 0, x: -5 }, show: { opacity: 1, x: 0 } }}>
                     <div className="summary-label">Errors</div>
                     <div className="summary-value summary-value--error">
                       {summary.errorCount}
                     </div>
-                  </div>
-                  <div>
+                  </motion.div>
+                  <motion.div variants={{ hidden: { opacity: 0, x: -5 }, show: { opacity: 1, x: 0 } }}>
                     <div className="summary-label">Warnings</div>
                     <div className="summary-value summary-value--warning">
                       {summary.warningCount}
                     </div>
-                  </div>
-                  <div>
+                  </motion.div>
+                  <motion.div variants={{ hidden: { opacity: 0, x: -5 }, show: { opacity: 1, x: 0 } }}>
                     <div className="summary-label">Findings</div>
                     <div className="summary-value">{summary.failures.length}</div>
-                  </div>
-                  <div>
+                  </motion.div>
+                  <motion.div variants={{ hidden: { opacity: 0, x: -5 }, show: { opacity: 1, x: 0 } }}>
                     <div className="summary-label">Duration</div>
                     <div className="summary-value">{summary.duration ?? "—"}</div>
-                  </div>
-                </div>
+                  </motion.div>
+                </motion.div>
 
-                <div className="result-card">
+                <motion.div className="result-card" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                   <div className="result-header">Top findings</div>
                   <ul className="finding-list">
                     {summary.failures.slice(0, 5).map((item, index) => (
@@ -861,9 +929,9 @@ export default function Home() {
                       <li className="finding-empty">No failing rules detected.</li>
                     ) : null}
                   </ul>
-                </div>
+                </motion.div>
 
-                <div className="result-card">
+                <motion.div className="result-card" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                   <div className="result-header">Findings by category</div>
                   <div className="bar-list">
                     {Object.entries(summary.byCategory).map(([name, count]) => (
@@ -879,9 +947,9 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
 
-                <div className="result-card">
+                <motion.div className="result-card" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                   <div className="result-header">
                     <span>Findings by severity</span>
                     {severityFilter && (
@@ -898,15 +966,15 @@ export default function Home() {
                         onClick={() => setSeverityFilter(severityFilter === name ? null : name)}
                         style={{ border: severityFilter === name ? "1px solid currentColor" : "1px solid transparent", cursor: "pointer" }}
                       >
-                        {name === "Error" ? <FiAlertCircle /> : <FiAlertTriangle />}
+                        {name === "Error" ? <WarningCircle weight="fill" /> : <Warning weight="fill" />}
                         <span>{name}</span>
                         <strong>{count}</strong>
                       </button>
                     ))}
                   </div>
-                </div>
+                </motion.div>
 
-                <div className="result-card">
+                <motion.div className="result-card" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                   <div className="result-header">
                     <span>Findings Explorer</span>
                     <div className="pill-row" style={{ alignItems: 'center' }}>
@@ -933,7 +1001,7 @@ export default function Home() {
                         <div key={category} className={`tree-node ${isExpanded ? "is-expanded" : ""}`}>
                           <div className="tree-header" onClick={() => toggleCategory(category)}>
                             <div className="tree-header-left">
-                              <FaChevronRight className="tree-arrow" />
+                              <CaretRight className="tree-arrow" weight="bold" />
                               <span>{category}</span>
                             </div>
                             <div className="pill-row">
@@ -1001,9 +1069,9 @@ export default function Home() {
                       );
                     })}
                   </div>
-                </div>
+                </motion.div>
 
-                <div className="result-card">
+                <motion.div className="result-card" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                   <div className="result-header">Report actions</div>
                   <div className="report-actions">
                     <button
@@ -1045,26 +1113,18 @@ export default function Home() {
                       {copied ? "Copied" : "Copy JSON"}
                     </button>
                   </div>
-                </div>
+                </motion.div>
 
                 {rawResult ? (
-                  <details className="result-card">
+                  <motion.details className="result-card" variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}>
                     <summary className="result-header">Raw report</summary>
                     <pre>{rawResult}</pre>
-                  </details>
+                  </motion.details>
                 ) : null}
-              </div>
-            ) : null}
-            <div className="card-footer">
-              <div>
-                <strong>Next:</strong> privacy manifest, entitlements, ATS rules
-              </div>
-              <button className="ghost-button" type="button" onClick={handleExampleReport}>
-                View example report
-              </button>
-            </div>
-          </div>
-        </section>
+              </motion.div>
+            </motion.section>
+          )}
+        </AnimatePresence>
 
         <footer className="app-footer">
           <div>
@@ -1075,31 +1135,28 @@ export default function Home() {
           </div>
           <nav className="footer-links" aria-label="verifyOS links">
             <a
+              className="footer-link"
               href="https://github.com/0xBoji/verifyOS"
               target="_blank"
               rel="noreferrer"
-              className="footer-link"
             >
-              <FaGithub className="footer-icon" aria-hidden="true" />
-              GitHub Repo
+              <GithubLogo className="footer-icon" weight="bold" /> GitHub
             </a>
             <a
+              className="footer-link"
               href="https://marketplace.visualstudio.com/items?itemName=0xBoji.verifyos-vscode"
               target="_blank"
               rel="noreferrer"
-              className="footer-link"
             >
-              <VscVscode className="footer-icon" aria-hidden="true" />
-              VS Code Extension
+              <Monitor className="footer-icon" weight="bold" /> VS Code
             </a>
             <a
+              className="footer-link"
               href="https://crates.io/crates/verifyos-cli"
               target="_blank"
               rel="noreferrer"
-              className="footer-link"
             >
-              <SiRust className="footer-icon" aria-hidden="true" />
-              crates.io
+              <FileZip className="footer-icon" weight="bold" /> Crates.io
             </a>
           </nav>
         </footer>
