@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.2](https://github.com/0xBoji/verifyOS/compare/v0.12.1...v0.12.2) - 2026-03-26
+
+### Added
+
+- Introduce a new UI/UX Pro Max skill with associated data and scripts, add new Rust rules, and update existing taste-skill research and documentation while removing old example apps and agent workflows.
+
+### Other
+
+- *(ci)* fix taste-skill github actions checkout error
+- Merge branch 'main' of https://github.com/0xBoji/verifyos-cli
+- improve code formatting and organize module imports and declarations for consistency.
+- Update help banner ASCII art from block characters to line characters and adjust test assertion.
+
 ## [0.12.1](https://github.com/0xBoji/verifyOS/compare/v0.12.0...v0.12.1) - 2026-03-18
 
 ### Added
