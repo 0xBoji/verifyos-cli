@@ -6,6 +6,7 @@ use crate::rules::core::{
 };
 use std::path::Path;
 use std::time::Instant;
+use rayon::prelude::*;
 
 #[derive(Debug, thiserror::Error)]
 pub enum OrchestratorError {
@@ -203,25 +204,27 @@ impl Engine {
             project_override.as_ref().or(self.xcode_project.as_ref()),
         );
 
-        let mut results = Vec::new();
-
-        for rule in &self.rules {
-            let rule_started = Instant::now();
-            let res = rule.evaluate(&context);
-            results.push(EngineResult {
-                rule_id: rule.id(),
-                rule_name: rule.name(),
-                category: rule.category(),
-                severity: rule.severity(),
-                target: app_bundle_path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| "Bundle".to_string()),
-                recommendation: rule.recommendation(),
-                report: res,
-                duration_ms: rule_started.elapsed().as_millis(),
-            });
-        }
+        let results: Vec<EngineResult> = self
+            .rules
+            .par_iter()
+            .map(|rule| {
+                let rule_started = Instant::now();
+                let res = rule.evaluate(&context);
+                EngineResult {
+                    rule_id: rule.id(),
+                    rule_name: rule.name(),
+                    category: rule.category(),
+                    severity: rule.severity(),
+                    target: app_bundle_path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| "Bundle".to_string()),
+                    recommendation: rule.recommendation(),
+                    report: res,
+                    duration_ms: rule_started.elapsed().as_millis(),
+                }
+            })
+            .collect();
 
         Ok(EngineRun {
             results,

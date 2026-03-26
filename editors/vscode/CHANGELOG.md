@@ -1,4 +1,9 @@
 # Changelog
+ 
+## 0.1.19
+
+- Design Refresh: Applied "Apple Liquid Glass" branding with System Blue accents
+- Updated bundled `voc` binary to the latest version (v0.12.0)
 
 ## 0.1.18
 

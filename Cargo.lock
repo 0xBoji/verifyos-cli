@@ -5115,6 +5115,7 @@ dependencies = [
  "indicatif",
  "miette",
  "plist",
+ "rayon",
  "serde",
  "serde_json",
  "tempfile",

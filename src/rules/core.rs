@@ -10,7 +10,7 @@ use crate::parsers::plist_reader::{InfoPlist, PlistError};
 use crate::parsers::provisioning_profile::{ProvisioningError, ProvisioningProfile};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
+use std::sync::Mutex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -90,18 +90,18 @@ pub enum RuleCategory {
 pub struct ArtifactContext<'a> {
     pub app_bundle_path: &'a std::path::Path,
     pub info_plist: Option<&'a crate::parsers::plist_reader::InfoPlist>,
-    nested_bundles_cache: RefCell<Option<Vec<BundleTarget>>>,
-    usage_scan_cache: RefCell<Option<UsageScan>>,
-    private_api_scan_cache: RefCell<Option<PrivateApiScan>>,
-    sdk_scan_cache: RefCell<Option<SdkScan>>,
-    capability_scan_cache: RefCell<Option<CapabilityScan>>,
-    signature_summary_cache: RefCell<HashMap<PathBuf, MachOSignatureSummary>>,
-    bundle_plist_cache: RefCell<HashMap<PathBuf, Option<InfoPlist>>>,
-    entitlements_cache: RefCell<HashMap<PathBuf, Option<InfoPlist>>>,
-    provisioning_profile_cache: RefCell<HashMap<PathBuf, Option<ProvisioningProfile>>>,
-    bundle_file_cache: RefCell<Option<Vec<PathBuf>>>,
+    nested_bundles_cache: Mutex<Option<Vec<BundleTarget>>>,
+    usage_scan_cache: Mutex<Option<UsageScan>>,
+    private_api_scan_cache: Mutex<Option<PrivateApiScan>>,
+    sdk_scan_cache: Mutex<Option<SdkScan>>,
+    capability_scan_cache: Mutex<Option<CapabilityScan>>,
+    signature_summary_cache: Mutex<HashMap<PathBuf, MachOSignatureSummary>>,
+    bundle_plist_cache: Mutex<HashMap<PathBuf, Option<InfoPlist>>>,
+    entitlements_cache: Mutex<HashMap<PathBuf, Option<InfoPlist>>>,
+    provisioning_profile_cache: Mutex<HashMap<PathBuf, Option<ProvisioningProfile>>>,
+    bundle_file_cache: Mutex<Option<Vec<PathBuf>>>,
     pub xcode_project: Option<&'a crate::parsers::xcode_parser::XcodeProject>,
-    cache_stats: RefCell<ArtifactCacheStats>,
+    cache_stats: Mutex<ArtifactCacheStats>,
 }
 
 impl<'a> ArtifactContext<'a> {
@@ -113,78 +113,78 @@ impl<'a> ArtifactContext<'a> {
         Self {
             app_bundle_path,
             info_plist,
-            nested_bundles_cache: RefCell::new(None),
-            usage_scan_cache: RefCell::new(None),
-            private_api_scan_cache: RefCell::new(None),
-            sdk_scan_cache: RefCell::new(None),
-            capability_scan_cache: RefCell::new(None),
-            signature_summary_cache: RefCell::new(HashMap::new()),
-            bundle_plist_cache: RefCell::new(HashMap::new()),
-            entitlements_cache: RefCell::new(HashMap::new()),
-            provisioning_profile_cache: RefCell::new(HashMap::new()),
-            bundle_file_cache: RefCell::new(None),
+            nested_bundles_cache: Mutex::new(None),
+            usage_scan_cache: Mutex::new(None),
+            private_api_scan_cache: Mutex::new(None),
+            sdk_scan_cache: Mutex::new(None),
+            capability_scan_cache: Mutex::new(None),
+            signature_summary_cache: Mutex::new(HashMap::new()),
+            bundle_plist_cache: Mutex::new(HashMap::new()),
+            entitlements_cache: Mutex::new(HashMap::new()),
+            provisioning_profile_cache: Mutex::new(HashMap::new()),
+            bundle_file_cache: Mutex::new(None),
             xcode_project,
-            cache_stats: RefCell::new(ArtifactCacheStats::default()),
+            cache_stats: Mutex::new(ArtifactCacheStats::default()),
         }
     }
 
     pub fn nested_bundles(&self) -> Result<Vec<BundleTarget>, BundleScanError> {
-        if let Some(bundles) = self.nested_bundles_cache.borrow().as_ref() {
-            self.cache_stats.borrow_mut().nested_bundles.hits += 1;
+        if let Some(bundles) = self.nested_bundles_cache.lock().unwrap().as_ref() {
+            self.cache_stats.lock().unwrap().nested_bundles.hits += 1;
             return Ok(bundles.clone());
         }
 
-        self.cache_stats.borrow_mut().nested_bundles.misses += 1;
+        self.cache_stats.lock().unwrap().nested_bundles.misses += 1;
         let bundles = find_nested_bundles(self.app_bundle_path)?;
-        *self.nested_bundles_cache.borrow_mut() = Some(bundles.clone());
+        *self.nested_bundles_cache.lock().unwrap() = Some(bundles.clone());
         Ok(bundles)
     }
 
     pub fn usage_scan(&self) -> Result<UsageScan, UsageScanError> {
-        if let Some(scan) = self.usage_scan_cache.borrow().as_ref() {
-            self.cache_stats.borrow_mut().usage_scan.hits += 1;
+        if let Some(scan) = self.usage_scan_cache.lock().unwrap().as_ref() {
+            self.cache_stats.lock().unwrap().usage_scan.hits += 1;
             return Ok(scan.clone());
         }
 
-        self.cache_stats.borrow_mut().usage_scan.misses += 1;
+        self.cache_stats.lock().unwrap().usage_scan.misses += 1;
         let scan = scan_usage_from_app_bundle(self.app_bundle_path)?;
-        *self.usage_scan_cache.borrow_mut() = Some(scan.clone());
+        *self.usage_scan_cache.lock().unwrap() = Some(scan.clone());
         Ok(scan)
     }
 
     pub fn private_api_scan(&self) -> Result<PrivateApiScan, UsageScanError> {
-        if let Some(scan) = self.private_api_scan_cache.borrow().as_ref() {
-            self.cache_stats.borrow_mut().private_api_scan.hits += 1;
+        if let Some(scan) = self.private_api_scan_cache.lock().unwrap().as_ref() {
+            self.cache_stats.lock().unwrap().private_api_scan.hits += 1;
             return Ok(scan.clone());
         }
 
-        self.cache_stats.borrow_mut().private_api_scan.misses += 1;
+        self.cache_stats.lock().unwrap().private_api_scan.misses += 1;
         let scan = scan_private_api_from_app_bundle(self.app_bundle_path)?;
-        *self.private_api_scan_cache.borrow_mut() = Some(scan.clone());
+        *self.private_api_scan_cache.lock().unwrap() = Some(scan.clone());
         Ok(scan)
     }
 
     pub fn sdk_scan(&self) -> Result<SdkScan, UsageScanError> {
-        if let Some(scan) = self.sdk_scan_cache.borrow().as_ref() {
-            self.cache_stats.borrow_mut().sdk_scan.hits += 1;
+        if let Some(scan) = self.sdk_scan_cache.lock().unwrap().as_ref() {
+            self.cache_stats.lock().unwrap().sdk_scan.hits += 1;
             return Ok(scan.clone());
         }
 
-        self.cache_stats.borrow_mut().sdk_scan.misses += 1;
+        self.cache_stats.lock().unwrap().sdk_scan.misses += 1;
         let scan = scan_sdks_from_app_bundle(self.app_bundle_path)?;
-        *self.sdk_scan_cache.borrow_mut() = Some(scan.clone());
+        *self.sdk_scan_cache.lock().unwrap() = Some(scan.clone());
         Ok(scan)
     }
 
     pub fn capability_scan(&self) -> Result<CapabilityScan, UsageScanError> {
-        if let Some(scan) = self.capability_scan_cache.borrow().as_ref() {
-            self.cache_stats.borrow_mut().capability_scan.hits += 1;
+        if let Some(scan) = self.capability_scan_cache.lock().unwrap().as_ref() {
+            self.cache_stats.lock().unwrap().capability_scan.hits += 1;
             return Ok(scan.clone());
         }
 
-        self.cache_stats.borrow_mut().capability_scan.misses += 1;
+        self.cache_stats.lock().unwrap().capability_scan.misses += 1;
         let scan = scan_capabilities_from_app_bundle(self.app_bundle_path)?;
-        *self.capability_scan_cache.borrow_mut() = Some(scan.clone());
+        *self.capability_scan_cache.lock().unwrap() = Some(scan.clone());
         Ok(scan)
     }
 
@@ -193,15 +193,15 @@ impl<'a> ArtifactContext<'a> {
         executable_path: impl AsRef<Path>,
     ) -> Result<MachOSignatureSummary, MachOError> {
         let executable_path = executable_path.as_ref().to_path_buf();
-        if let Some(summary) = self.signature_summary_cache.borrow().get(&executable_path) {
-            self.cache_stats.borrow_mut().signature_summary.hits += 1;
+        if let Some(summary) = self.signature_summary_cache.lock().unwrap().get(&executable_path) {
+            self.cache_stats.lock().unwrap().signature_summary.hits += 1;
             return Ok(summary.clone());
         }
 
-        self.cache_stats.borrow_mut().signature_summary.misses += 1;
+        self.cache_stats.lock().unwrap().signature_summary.misses += 1;
         let summary = read_macho_signature_summary(&executable_path)?;
         self.signature_summary_cache
-            .borrow_mut()
+            .lock().unwrap()
             .insert(executable_path, summary.clone());
         Ok(summary)
     }
@@ -220,12 +220,12 @@ impl<'a> ArtifactContext<'a> {
     }
 
     pub fn bundle_info_plist(&self, bundle_path: &Path) -> Result<Option<InfoPlist>, PlistError> {
-        if let Some(plist) = self.bundle_plist_cache.borrow().get(bundle_path) {
-            self.cache_stats.borrow_mut().bundle_plist.hits += 1;
+        if let Some(plist) = self.bundle_plist_cache.lock().unwrap().get(bundle_path) {
+            self.cache_stats.lock().unwrap().bundle_plist.hits += 1;
             return Ok(plist.clone());
         }
 
-        self.cache_stats.borrow_mut().bundle_plist.misses += 1;
+        self.cache_stats.lock().unwrap().bundle_plist.misses += 1;
         let plist_path = bundle_path.join("Info.plist");
         let plist = if plist_path.exists() {
             Some(InfoPlist::from_file(&plist_path)?)
@@ -234,7 +234,7 @@ impl<'a> ArtifactContext<'a> {
         };
 
         self.bundle_plist_cache
-            .borrow_mut()
+            .lock().unwrap()
             .insert(bundle_path.to_path_buf(), plist.clone());
         Ok(plist)
     }
@@ -248,12 +248,12 @@ impl<'a> ArtifactContext<'a> {
             None => return Ok(None),
         };
 
-        if let Some(entitlements) = self.entitlements_cache.borrow().get(&executable_path) {
-            self.cache_stats.borrow_mut().entitlements.hits += 1;
+        if let Some(entitlements) = self.entitlements_cache.lock().unwrap().get(&executable_path) {
+            self.cache_stats.lock().unwrap().entitlements.hits += 1;
             return Ok(entitlements.clone());
         }
 
-        self.cache_stats.borrow_mut().entitlements.misses += 1;
+        self.cache_stats.lock().unwrap().entitlements.misses += 1;
         let macho = MachOExecutable::from_file(&executable_path)
             .map_err(crate::rules::entitlements::EntitlementsError::MachO)
             .map_err(RuleError::Entitlements)?;
@@ -267,7 +267,7 @@ impl<'a> ArtifactContext<'a> {
         };
 
         self.entitlements_cache
-            .borrow_mut()
+            .lock().unwrap()
             .insert(executable_path, entitlements.clone());
         Ok(entitlements)
     }
@@ -279,14 +279,14 @@ impl<'a> ArtifactContext<'a> {
         let provisioning_path = bundle_path.join("embedded.mobileprovision");
         if let Some(profile) = self
             .provisioning_profile_cache
-            .borrow()
+            .lock().unwrap()
             .get(&provisioning_path)
         {
-            self.cache_stats.borrow_mut().provisioning_profile.hits += 1;
+            self.cache_stats.lock().unwrap().provisioning_profile.hits += 1;
             return Ok(profile.clone());
         }
 
-        self.cache_stats.borrow_mut().provisioning_profile.misses += 1;
+        self.cache_stats.lock().unwrap().provisioning_profile.misses += 1;
         let profile = if provisioning_path.exists() {
             Some(ProvisioningProfile::from_embedded_file(&provisioning_path)?)
         } else {
@@ -294,21 +294,21 @@ impl<'a> ArtifactContext<'a> {
         };
 
         self.provisioning_profile_cache
-            .borrow_mut()
+            .lock().unwrap()
             .insert(provisioning_path, profile.clone());
         Ok(profile)
     }
 
     pub fn bundle_file_paths(&self) -> Vec<PathBuf> {
-        if let Some(paths) = self.bundle_file_cache.borrow().as_ref() {
-            self.cache_stats.borrow_mut().bundle_files.hits += 1;
+        if let Some(paths) = self.bundle_file_cache.lock().unwrap().as_ref() {
+            self.cache_stats.lock().unwrap().bundle_files.hits += 1;
             return paths.clone();
         }
 
-        self.cache_stats.borrow_mut().bundle_files.misses += 1;
+        self.cache_stats.lock().unwrap().bundle_files.misses += 1;
         let mut files = Vec::new();
         collect_bundle_files(self.app_bundle_path, &mut files);
-        *self.bundle_file_cache.borrow_mut() = Some(files.clone());
+        *self.bundle_file_cache.lock().unwrap() = Some(files.clone());
         files
     }
 
@@ -322,7 +322,7 @@ impl<'a> ArtifactContext<'a> {
     }
 
     pub fn cache_stats(&self) -> ArtifactCacheStats {
-        self.cache_stats.borrow().clone()
+        self.cache_stats.lock().unwrap().clone()
     }
 }
 

@@ -14,3 +14,6 @@ pub mod privacy_sdk;
 pub mod private_api;
 pub mod signing;
 pub mod xcode_requirements;
+pub mod bitcode;
+pub mod deprecated_api;
+pub mod launch_screen;
