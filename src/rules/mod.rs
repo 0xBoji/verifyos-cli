@@ -1,4 +1,6 @@
+pub mod app_icon;
 pub mod ats;
+pub mod binary_stripping;
 pub mod bitcode;
 pub mod bundle_leakage;
 pub mod bundle_metadata;
@@ -10,6 +12,7 @@ pub mod extensions;
 pub mod info_plist;
 pub mod launch_screen;
 pub mod nested_bundles;
+pub mod os_version;
 pub mod permissions;
 pub mod privacy;
 pub mod privacy_manifest;
