@@ -140,27 +140,43 @@ fn suggested_fix_scope(item: &ReportItem) -> String {
     }
 }
 
+fn canonical_rule_id(rule_id: &str) -> &str {
+    match rule_id {
+        "RULE_USAGE_DESCRIPTIONS_VALUE" => "RULE_USAGE_DESCRIPTIONS_EMPTY",
+        "RULE_CAMERA_USAGE_DESCRIPTION" => "RULE_CAMERA_USAGE",
+        "RULE_LSAPPLICATIONQUERIESSCHEMES" => "RULE_LSAPPLICATIONQUERIES_SCHEMES_AUDIT",
+        "RULE_UIREQUIREDDEVICECAPABILITIES" => "RULE_DEVICE_CAPABILITIES_AUDIT",
+        "RULE_EXTENSION_ENTITLEMENTS" => "RULE_EXTENSION_ENTITLEMENTS_COMPAT",
+        "RULE_EMBEDDED_SIGNING_CONSISTENCY" => "RULE_EMBEDDED_TEAM_ID_MISMATCH",
+        other => other,
+    }
+}
+
 fn target_files(item: &ReportItem) -> Vec<String> {
-    match item.rule_id.as_str() {
+    match canonical_rule_id(&item.rule_id) {
         "RULE_USAGE_DESCRIPTIONS"
-        | "RULE_USAGE_DESCRIPTIONS_VALUE"
-        | "RULE_CAMERA_USAGE_DESCRIPTION"
-        | "RULE_LSAPPLICATIONQUERIESSCHEMES"
-        | "RULE_UIREQUIREDDEVICECAPABILITIES"
+        | "RULE_USAGE_DESCRIPTIONS_EMPTY"
+        | "RULE_CAMERA_USAGE"
         | "RULE_INFO_PLIST_VERSIONING" => vec!["Info.plist".to_string()],
-        "RULE_PRIVACY_MANIFEST" | "RULE_PRIVACY_SDK_CROSSCHECK" => {
+        "RULE_LSAPPLICATIONQUERIES_SCHEMES_AUDIT" | "RULE_DEVICE_CAPABILITIES_AUDIT" => {
+            vec!["Info.plist".to_string()]
+        }
+        "RULE_PRIVACY_MANIFEST"
+        | "RULE_PRIVACY_MANIFEST_COMPLETENESS"
+        | "RULE_PRIVACY_SDK_CROSSCHECK" => {
             vec!["PrivacyInfo.xcprivacy".to_string()]
         }
         "RULE_ATS_AUDIT" => vec!["Info.plist (NSAppTransportSecurity)".to_string()],
         "RULE_BUNDLE_RESOURCE_LEAKAGE" => vec!["App bundle resources".to_string()],
         "RULE_ENTITLEMENTS_MISMATCH"
         | "RULE_ENTITLEMENTS_PROVISIONING_MISMATCH"
-        | "RULE_EXTENSION_ENTITLEMENTS"
-        | "RULE_DEBUG_ENTITLEMENTS" => vec![
+        | "RULE_EXTENSION_ENTITLEMENTS_COMPAT"
+        | "RULE_NESTED_ENTITLEMENTS_MISMATCH"
+        | "RULE_NESTED_DEBUG_ENTITLEMENT" => vec![
             "App entitlements plist".to_string(),
             "embedded.mobileprovision".to_string(),
         ],
-        "RULE_EMBEDDED_SIGNING_CONSISTENCY" => vec![
+        "RULE_EMBEDDED_TEAM_ID_MISMATCH" => vec![
             "Main app executable signature".to_string(),
             "Embedded frameworks/extensions".to_string(),
         ],
@@ -181,22 +197,22 @@ fn target_files(item: &ReportItem) -> Vec<String> {
 }
 
 fn patch_hint(item: &ReportItem) -> String {
-    match item.rule_id.as_str() {
+    match canonical_rule_id(&item.rule_id) {
         "RULE_USAGE_DESCRIPTIONS"
-        | "RULE_USAGE_DESCRIPTIONS_VALUE"
-        | "RULE_CAMERA_USAGE_DESCRIPTION" => {
+        | "RULE_USAGE_DESCRIPTIONS_EMPTY"
+        | "RULE_CAMERA_USAGE" => {
             "Update Info.plist with the required NS*UsageDescription keys and give each key a user-facing reason that matches the in-app behavior.".to_string()
         }
-        "RULE_LSAPPLICATIONQUERIESSCHEMES" => {
+        "RULE_LSAPPLICATIONQUERIES_SCHEMES_AUDIT" => {
             "Trim LSApplicationQueriesSchemes to only the schemes the app really probes, remove duplicates, and avoid private or overly broad schemes.".to_string()
         }
-        "RULE_UIREQUIREDDEVICECAPABILITIES" => {
+        "RULE_DEVICE_CAPABILITIES_AUDIT" => {
             "Align UIRequiredDeviceCapabilities with real binary usage so review devices are not excluded by mistake and unsupported hardware is not declared.".to_string()
         }
         "RULE_INFO_PLIST_VERSIONING" => {
             "Set a valid CFBundleShortVersionString and increment CFBundleVersion before the next submission.".to_string()
         }
-        "RULE_PRIVACY_MANIFEST" => {
+        "RULE_PRIVACY_MANIFEST" | "RULE_PRIVACY_MANIFEST_COMPLETENESS" => {
             "Add PrivacyInfo.xcprivacy to the shipped bundle and declare the accessed APIs and collected data used by the app or bundled SDKs.".to_string()
         }
         "RULE_PRIVACY_SDK_CROSSCHECK" => {
@@ -211,13 +227,13 @@ fn patch_hint(item: &ReportItem) -> String {
         "RULE_ENTITLEMENTS_MISMATCH" | "RULE_ENTITLEMENTS_PROVISIONING_MISMATCH" => {
             "Make the exported entitlements match the provisioning profile and enabled capabilities for APNs, keychain groups, and iCloud.".to_string()
         }
-        "RULE_EXTENSION_ENTITLEMENTS" => {
+        "RULE_EXTENSION_ENTITLEMENTS_COMPAT" | "RULE_NESTED_ENTITLEMENTS_MISMATCH" => {
             "Make each extension entitlement set a valid subset of the host app and add the extension-specific capabilities it actually needs.".to_string()
         }
-        "RULE_DEBUG_ENTITLEMENTS" => {
+        "RULE_NESTED_DEBUG_ENTITLEMENT" => {
             "Strip debug-only entitlements like get-task-allow from release builds and regenerate the final signed archive.".to_string()
         }
-        "RULE_EMBEDDED_SIGNING_CONSISTENCY" => {
+        "RULE_EMBEDDED_TEAM_ID_MISMATCH" => {
             "Re-sign embedded frameworks, dylibs, and extensions with the same Team ID and release identity as the host app.".to_string()
         }
         "RULE_PRIVATE_API" => {
@@ -231,22 +247,24 @@ fn patch_hint(item: &ReportItem) -> String {
 }
 
 fn why_it_fails_review(item: &ReportItem) -> String {
-    match item.rule_id.as_str() {
+    match canonical_rule_id(&item.rule_id) {
         "RULE_USAGE_DESCRIPTIONS"
-        | "RULE_USAGE_DESCRIPTIONS_VALUE"
-        | "RULE_CAMERA_USAGE_DESCRIPTION" => {
+        | "RULE_USAGE_DESCRIPTIONS_EMPTY"
+        | "RULE_CAMERA_USAGE" => {
             "App Review rejects binaries that touch protected APIs without clear, user-facing usage descriptions in Info.plist.".to_string()
         }
-        "RULE_LSAPPLICATIONQUERIESSCHEMES" => {
+        "RULE_LSAPPLICATIONQUERIES_SCHEMES_AUDIT" => {
             "Overreaching canOpenURL allowlists look like app enumeration and often trigger manual review questions or rejection.".to_string()
         }
-        "RULE_UIREQUIREDDEVICECAPABILITIES" => {
+        "RULE_DEVICE_CAPABILITIES_AUDIT" => {
             "Incorrect device capability declarations can exclude valid review devices or misrepresent the hardware the app actually requires.".to_string()
         }
         "RULE_INFO_PLIST_VERSIONING" => {
             "Invalid or non-incrementing version metadata blocks submission and confuses App Store release processing.".to_string()
         }
-        "RULE_PRIVACY_MANIFEST" | "RULE_PRIVACY_SDK_CROSSCHECK" => {
+        "RULE_PRIVACY_MANIFEST"
+        | "RULE_PRIVACY_MANIFEST_COMPLETENESS"
+        | "RULE_PRIVACY_SDK_CROSSCHECK" => {
             "Apple now expects accurate privacy manifests for apps and bundled SDKs, and missing declarations can block review.".to_string()
         }
         "RULE_ATS_AUDIT" => {
@@ -257,11 +275,12 @@ fn why_it_fails_review(item: &ReportItem) -> String {
         }
         "RULE_ENTITLEMENTS_MISMATCH"
         | "RULE_ENTITLEMENTS_PROVISIONING_MISMATCH"
-        | "RULE_EXTENSION_ENTITLEMENTS"
-        | "RULE_DEBUG_ENTITLEMENTS" => {
+        | "RULE_EXTENSION_ENTITLEMENTS_COMPAT"
+        | "RULE_NESTED_ENTITLEMENTS_MISMATCH"
+        | "RULE_NESTED_DEBUG_ENTITLEMENT" => {
             "Entitlements that do not match the signed capabilities or release profile frequently cause validation failures or manual rejection.".to_string()
         }
-        "RULE_EMBEDDED_SIGNING_CONSISTENCY" => {
+        "RULE_EMBEDDED_TEAM_ID_MISMATCH" => {
             "Embedded code signed with a different identity or Team ID can fail notarization-style checks during App Store validation.".to_string()
         }
         "RULE_PRIVATE_API" => {
@@ -271,5 +290,52 @@ fn why_it_fails_review(item: &ReportItem) -> String {
             "This finding maps to the {} scope and signals metadata, signing, or bundle state that App Review may treat as invalid or risky.",
             suggested_fix_scope(item)
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_agent_pack;
+    use crate::report::data::{ReportData, ReportItem};
+    use crate::rules::core::{ArtifactCacheStats, RuleCategory, RuleStatus, Severity};
+
+    fn report_item(rule_id: &str) -> ReportItem {
+        ReportItem {
+            rule_id: rule_id.to_string(),
+            rule_name: rule_id.to_string(),
+            category: RuleCategory::Metadata,
+            severity: Severity::Warning,
+            target: "Demo.app".to_string(),
+            status: RuleStatus::Fail,
+            message: Some("example".to_string()),
+            evidence: None,
+            recommendation: "fix it".to_string(),
+            duration_ms: 1,
+        }
+    }
+
+    #[test]
+    fn agent_pack_maps_current_rule_ids() {
+        let report = ReportData {
+            ruleset_version: "test".to_string(),
+            generated_at_unix: 0,
+            total_duration_ms: 0,
+            cache_stats: ArtifactCacheStats::default(),
+            slow_rules: Vec::new(),
+            results: vec![
+                report_item("RULE_USAGE_DESCRIPTIONS_EMPTY"),
+                report_item("RULE_LSAPPLICATIONQUERIES_SCHEMES_AUDIT"),
+                report_item("RULE_DEVICE_CAPABILITIES_AUDIT"),
+            ],
+            scanned_targets: vec!["Demo.app".to_string()],
+        };
+
+        let pack = build_agent_pack(&report);
+
+        assert_eq!(pack.total_findings, 3);
+        assert!(pack
+            .findings
+            .iter()
+            .all(|finding| finding.target_files == vec!["Info.plist".to_string()]));
     }
 }
