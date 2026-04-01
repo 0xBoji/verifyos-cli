@@ -83,6 +83,7 @@ fn is_nested_bundle(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::find_nested_bundles;
+    use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
     #[test]
@@ -98,22 +99,21 @@ mod tests {
         std::fs::create_dir_all(app_path.join("XPCServices/Service.xpc")).expect("create xpc");
 
         let bundles = find_nested_bundles(&app_path).expect("nested bundles");
-        let paths: Vec<String> = bundles
+        let paths: Vec<PathBuf> = bundles
             .into_iter()
             .map(|bundle| {
                 bundle
                     .bundle_path
                     .strip_prefix(&app_path)
                     .expect("relative path")
-                    .display()
-                    .to_string()
+                    .to_path_buf()
             })
             .collect();
 
-        assert!(paths.contains(&"Frameworks/Foo.framework".to_string()));
-        assert!(paths.contains(&"PlugIns/Share.appex".to_string()));
-        assert!(paths.contains(&"Watch/WatchApp.app".to_string()));
-        assert!(paths.contains(&"AppClips/Clip.app".to_string()));
-        assert!(paths.contains(&"XPCServices/Service.xpc".to_string()));
+        assert!(paths.contains(&Path::new("Frameworks").join("Foo.framework")));
+        assert!(paths.contains(&Path::new("PlugIns").join("Share.appex")));
+        assert!(paths.contains(&Path::new("Watch").join("WatchApp.app")));
+        assert!(paths.contains(&Path::new("AppClips").join("Clip.app")));
+        assert!(paths.contains(&Path::new("XPCServices").join("Service.xpc")));
     }
 }
