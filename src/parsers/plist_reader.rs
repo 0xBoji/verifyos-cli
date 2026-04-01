@@ -80,4 +80,41 @@ impl InfoPlist {
                     .collect()
             })
     }
+
+    pub fn get_app_icons(&self) -> Vec<String> {
+        let mut icons = Vec::new();
+
+        // 1. Check CFBundleIcons
+        if let Some(icons_dict) = self.get_dictionary("CFBundleIcons") {
+            if let Some(primary_icon) = icons_dict
+                .get("CFBundlePrimaryIcon")
+                .and_then(|v| v.as_dictionary())
+            {
+                if let Some(files) = primary_icon.get("CFBundleIconFiles").and_then(|v| v.as_array())
+                {
+                    for file in files {
+                        if let Some(name) = file.as_string() {
+                            icons.push(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Fallback to CFBundleIconFiles (older style)
+        if icons.is_empty() {
+            if let Some(files) = self.get_array_strings("CFBundleIconFiles") {
+                icons.extend(files);
+            }
+        }
+
+        // 3. Fallback to CFBundleIconFile (even older style)
+        if icons.is_empty() {
+            if let Some(file) = self.get_string("CFBundleIconFile") {
+                icons.push(file.to_string());
+            }
+        }
+
+        icons
+    }
 }

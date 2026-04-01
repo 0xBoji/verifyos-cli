@@ -1,6 +1,16 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+const NESTED_BUNDLE_CONTAINER_DIRS: &[&str] = &[
+    "Frameworks",
+    "PlugIns",
+    "Extensions",
+    "AppClips",
+    "Watch",
+    "XPCServices",
+];
+const NESTED_BUNDLE_EXTENSIONS: &[&str] = &["app", "appex", "framework", "xpc"];
+
 #[derive(Debug, thiserror::Error)]
 pub enum BundleScanError {
     #[error("IO Error: {0}")]
@@ -16,14 +26,10 @@ pub struct BundleTarget {
 pub fn find_nested_bundles(app_bundle_path: &Path) -> Result<Vec<BundleTarget>, BundleScanError> {
     let mut bundles = Vec::new();
 
-    let frameworks = app_bundle_path.join("Frameworks");
-    collect_bundles_in_dir(&frameworks, &mut bundles)?;
-
-    let plugins = app_bundle_path.join("PlugIns");
-    collect_bundles_in_dir(&plugins, &mut bundles)?;
-
-    let extensions = app_bundle_path.join("Extensions");
-    collect_bundles_in_dir(&extensions, &mut bundles)?;
+    for dir_name in NESTED_BUNDLE_CONTAINER_DIRS {
+        let dir = app_bundle_path.join(dir_name);
+        collect_bundles_in_dir(&dir, &mut bundles)?;
+    }
 
     bundles.sort_by(|a, b| a.bundle_path.cmp(&b.bundle_path));
     bundles.dedup_by(|a, b| a.bundle_path == b.bundle_path);
@@ -43,10 +49,7 @@ fn collect_bundles_in_dir(
         let entry = entry?;
         let path = entry.path();
 
-        if path.extension().and_then(|e| e.to_str()) == Some("app")
-            || path.extension().and_then(|e| e.to_str()) == Some("appex")
-            || path.extension().and_then(|e| e.to_str()) == Some("framework")
-        {
+        if is_nested_bundle(&path) {
             bundles.push(BundleTarget {
                 display_name: path
                     .file_name()
@@ -63,4 +66,54 @@ fn collect_bundles_in_dir(
     }
 
     Ok(())
+}
+
+fn is_nested_bundle(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| {
+            let extension = extension.to_ascii_lowercase();
+            NESTED_BUNDLE_EXTENSIONS
+                .iter()
+                .any(|expected| expected == &extension)
+        })
+        .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::find_nested_bundles;
+    use tempfile::tempdir;
+
+    #[test]
+    fn finds_nested_bundles_in_additional_container_directories() {
+        let dir = tempdir().expect("temp dir");
+        let app_path = dir.path().join("Demo.app");
+
+        std::fs::create_dir_all(app_path.join("Frameworks/Foo.framework"))
+            .expect("create framework");
+        std::fs::create_dir_all(app_path.join("PlugIns/Share.appex")).expect("create appex");
+        std::fs::create_dir_all(app_path.join("Watch/WatchApp.app")).expect("create watch app");
+        std::fs::create_dir_all(app_path.join("AppClips/Clip.app")).expect("create app clip");
+        std::fs::create_dir_all(app_path.join("XPCServices/Service.xpc")).expect("create xpc");
+
+        let bundles = find_nested_bundles(&app_path).expect("nested bundles");
+        let paths: Vec<String> = bundles
+            .into_iter()
+            .map(|bundle| {
+                bundle
+                    .bundle_path
+                    .strip_prefix(&app_path)
+                    .expect("relative path")
+                    .display()
+                    .to_string()
+            })
+            .collect();
+
+        assert!(paths.contains(&"Frameworks/Foo.framework".to_string()));
+        assert!(paths.contains(&"PlugIns/Share.appex".to_string()));
+        assert!(paths.contains(&"Watch/WatchApp.app".to_string()));
+        assert!(paths.contains(&"AppClips/Clip.app".to_string()));
+        assert!(paths.contains(&"XPCServices/Service.xpc".to_string()));
+    }
 }

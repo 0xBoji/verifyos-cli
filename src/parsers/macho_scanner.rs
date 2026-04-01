@@ -1,3 +1,4 @@
+use crate::parsers::plist_reader::InfoPlist;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -12,6 +13,7 @@ pub enum UsageScanError {
 #[derive(Debug, Default, Clone)]
 pub struct UsageScan {
     pub required_keys: HashSet<&'static str>,
+    pub privacy_categories: HashSet<&'static str>,
     pub requires_location_key: bool,
     pub evidence: HashSet<&'static str>,
 }
@@ -60,7 +62,34 @@ pub fn scan_capabilities_from_app_bundle(
     scan_capabilities_from_executable(&executable)
 }
 
+pub fn scan_instrumentation_from_app_bundle(
+    app_bundle_path: &Path,
+) -> Result<Vec<&'static str>, UsageScanError> {
+    let executable =
+        resolve_executable_path(app_bundle_path).ok_or(UsageScanError::MissingExecutable)?;
+    let bytes = std::fs::read(&executable)?;
+    let mut hits = Vec::new();
+    for signature in INSTRUMENTATION_SIGNATURES {
+        if contains_subslice(&bytes, signature.as_bytes()) {
+            hits.push(*signature);
+        }
+    }
+    Ok(hits)
+}
+
 fn resolve_executable_path(app_bundle_path: &Path) -> Option<PathBuf> {
+    let info_plist_path = app_bundle_path.join("Info.plist");
+    if info_plist_path.exists() {
+        if let Ok(info_plist) = InfoPlist::from_file(&info_plist_path) {
+            if let Some(executable) = info_plist.get_string("CFBundleExecutable") {
+                let candidate = app_bundle_path.join(executable);
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
     let app_name = app_bundle_path
         .file_name()
         .and_then(|n| n.to_str())
@@ -71,12 +100,8 @@ fn resolve_executable_path(app_bundle_path: &Path) -> Option<PathBuf> {
         return None;
     }
 
-    let executable_path = app_bundle_path.join(app_name);
-    if executable_path.exists() {
-        Some(executable_path)
-    } else {
-        None
-    }
+    let fallback = app_bundle_path.join(app_name);
+    fallback.exists().then_some(fallback)
 }
 
 fn scan_usage_from_executable(path: &Path) -> Result<UsageScan, UsageScanError> {
@@ -89,6 +114,9 @@ fn scan_usage_from_executable(path: &Path) -> Result<UsageScan, UsageScanError> 
             match requirement {
                 Requirement::Key(key) => {
                     scan.required_keys.insert(*key);
+                }
+                Requirement::PrivacyCategory(cat) => {
+                    scan.privacy_categories.insert(*cat);
                 }
                 Requirement::AnyLocation => {
                     scan.requires_location_key = true;
@@ -155,6 +183,7 @@ fn contains_subslice(haystack: &[u8], needle: &[u8]) -> bool {
 #[derive(Clone, Copy)]
 enum Requirement {
     Key(&'static str),
+    PrivacyCategory(&'static str),
     AnyLocation,
 }
 
@@ -222,6 +251,27 @@ const SIGNATURES: &[(&str, Requirement)] = &[
         "HKHealthStore",
         Requirement::Key("NSHealthShareUsageDescription"),
     ),
+    // Required Reason APIs (2024 Mandate)
+    (
+        "systemBootTime",
+        Requirement::PrivacyCategory("NSPrivacyAccessedAPICategorySystemBootTime"),
+    ),
+    (
+        "diskSpace",
+        Requirement::PrivacyCategory("NSPrivacyAccessedAPICategoryDiskSpace"),
+    ),
+    (
+        "activeInputModes",
+        Requirement::PrivacyCategory("NSPrivacyAccessedAPICategoryActiveInputModes"),
+    ),
+    (
+        "userDefaults",
+        Requirement::PrivacyCategory("NSPrivacyAccessedAPICategoryUserDefaults"),
+    ),
+    (
+        "fileModificationDate",
+        Requirement::PrivacyCategory("NSPrivacyAccessedAPICategoryFileModificationDate"),
+    ),
 ];
 
 const PRIVATE_API_SIGNATURES: &[&str] = &[
@@ -254,3 +304,59 @@ const CAPABILITY_SIGNATURES: &[(&str, &str)] = &[
     ("AVCaptureDevice", "camera"),
     ("CLLocationManager", "location"),
 ];
+
+const INSTRUMENTATION_SIGNATURES: &[&str] = &[
+    "__llvm_profile_runtime",
+    "__llvm_prf_data",
+    "__llvm_prf_names",
+    "__llvm_prf_vnds",
+];
+
+#[cfg(test)]
+mod tests {
+    use super::{resolve_executable_path, scan_usage_from_app_bundle};
+    use plist::{Dictionary, Value};
+    use tempfile::tempdir;
+
+    #[test]
+    fn resolves_executable_from_cf_bundle_executable_before_bundle_name() {
+        let dir = tempdir().expect("temp dir");
+        let app_path = dir.path().join("CustomName.app");
+        std::fs::create_dir_all(&app_path).expect("create app dir");
+
+        let mut dict = Dictionary::new();
+        dict.insert(
+            "CFBundleExecutable".to_string(),
+            Value::String("RunnerBinary".to_string()),
+        );
+        Value::Dictionary(dict)
+            .to_file_xml(app_path.join("Info.plist"))
+            .expect("write plist");
+        std::fs::write(app_path.join("RunnerBinary"), b"plain binary").expect("write executable");
+
+        let resolved = resolve_executable_path(&app_path).expect("resolved executable");
+        assert_eq!(resolved, app_path.join("RunnerBinary"));
+    }
+
+    #[test]
+    fn usage_scan_reads_custom_executable_name_from_info_plist() {
+        let dir = tempdir().expect("temp dir");
+        let app_path = dir.path().join("CustomName.app");
+        std::fs::create_dir_all(&app_path).expect("create app dir");
+
+        let mut dict = Dictionary::new();
+        dict.insert(
+            "CFBundleExecutable".to_string(),
+            Value::String("RunnerBinary".to_string()),
+        );
+        Value::Dictionary(dict)
+            .to_file_xml(app_path.join("Info.plist"))
+            .expect("write plist");
+        std::fs::write(app_path.join("RunnerBinary"), b"AVCaptureDevice")
+            .expect("write executable");
+
+        let scan = scan_usage_from_app_bundle(&app_path).expect("usage scan");
+        assert!(scan.required_keys.contains("NSCameraUsageDescription"));
+        assert!(scan.evidence.contains("AVCaptureDevice"));
+    }
+}
