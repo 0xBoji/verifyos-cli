@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0](https://github.com/0xBoji/verifyOS/compare/v0.12.2...v0.13.0) - 2026-04-01
+
+### Added
+
+- *(rules)* enhance existing compliance rules with deep auditing capabilities
+- *(rules)* add App Store compliance rules for icons, stripping, and OS versioning
+- *(core)* enhance Mach-O and Plist parsers for deep compliance scanning
+
+### Other
+
+- *(cli)* update integration tests for new compliance rules
+
 ## [0.12.2](https://github.com/0xBoji/verifyOS/compare/v0.12.1...v0.12.2) - 2026-03-26
 
 ### Added
