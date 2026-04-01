@@ -1,5 +1,7 @@
 use crate::core::engine::Engine;
+use crate::rules::app_icon::AppIconAlphaRule;
 use crate::rules::ats::{AtsAuditRule, AtsExceptionsGranularityRule};
+use crate::rules::binary_stripping::BinaryStrippingRule;
 use crate::rules::bitcode::BitcodeRule;
 use crate::rules::bundle_leakage::BundleResourceLeakageRule;
 use crate::rules::bundle_metadata::BundleMetadataConsistencyRule;
@@ -15,6 +17,7 @@ use crate::rules::info_plist::{
     UsageDescriptionsRule, UsageDescriptionsValueRule,
 };
 use crate::rules::launch_screen::LaunchScreenStoryboardRule;
+use crate::rules::os_version::OSVersionConsistencyRule;
 use crate::rules::permissions::CameraUsageDescriptionRule;
 use crate::rules::privacy::MissingPrivacyManifestRule;
 use crate::rules::privacy_manifest::PrivacyManifestCompletenessRule;
@@ -203,5 +206,8 @@ fn full_rules() -> Vec<Box<dyn AppStoreRule>> {
         Box::new(BitcodeRule),
         Box::new(DeprecatedApiRule),
         Box::new(LaunchScreenStoryboardRule),
+        Box::new(AppIconAlphaRule),
+        Box::new(BinaryStrippingRule),
+        Box::new(OSVersionConsistencyRule),
     ]
 }
