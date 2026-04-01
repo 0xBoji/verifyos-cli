@@ -71,6 +71,7 @@ pub struct ArtifactCacheStats {
     pub entitlements: CacheCounter,
     pub provisioning_profile: CacheCounter,
     pub bundle_files: CacheCounter,
+    pub instrumentation_scan: CacheCounter,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -100,6 +101,7 @@ pub struct ArtifactContext<'a> {
     entitlements_cache: Mutex<HashMap<PathBuf, Option<InfoPlist>>>,
     provisioning_profile_cache: Mutex<HashMap<PathBuf, Option<ProvisioningProfile>>>,
     bundle_file_cache: Mutex<Option<Vec<PathBuf>>>,
+    instrumentation_scan_cache: Mutex<Option<Vec<&'static str>>>,
     pub xcode_project: Option<&'a crate::parsers::xcode_parser::XcodeProject>,
     cache_stats: Mutex<ArtifactCacheStats>,
 }
@@ -123,6 +125,7 @@ impl<'a> ArtifactContext<'a> {
             entitlements_cache: Mutex::new(HashMap::new()),
             provisioning_profile_cache: Mutex::new(HashMap::new()),
             bundle_file_cache: Mutex::new(None),
+            instrumentation_scan_cache: Mutex::new(None),
             xcode_project,
             cache_stats: Mutex::new(ArtifactCacheStats::default()),
         }
@@ -186,6 +189,20 @@ impl<'a> ArtifactContext<'a> {
         let scan = scan_capabilities_from_app_bundle(self.app_bundle_path)?;
         *self.capability_scan_cache.lock().unwrap() = Some(scan.clone());
         Ok(scan)
+    }
+
+    pub fn instrumentation_scan(&self) -> Result<Vec<&'static str>, UsageScanError> {
+        if let Some(hits) = self.instrumentation_scan_cache.lock().unwrap().as_ref() {
+            self.cache_stats.lock().unwrap().instrumentation_scan.hits += 1;
+            return Ok(hits.clone());
+        }
+
+        self.cache_stats.lock().unwrap().instrumentation_scan.misses += 1;
+        let hits = crate::parsers::macho_scanner::scan_instrumentation_from_app_bundle(
+            self.app_bundle_path,
+        )?;
+        *self.instrumentation_scan_cache.lock().unwrap() = Some(hits.clone());
+        Ok(hits)
     }
 
     pub fn signature_summary(
