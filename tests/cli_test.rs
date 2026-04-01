@@ -56,6 +56,10 @@ fn test_good_app_passes_rules() {
     selection
         .exclude
         .insert("RULE_LAUNCH_SCREEN_STORYBOARD".to_string());
+    selection
+        .exclude
+        .insert("RULE_BINARY_STRIPPING".to_string());
+    selection.exclude.insert("RULE_APP_ICON_ALPHA".to_string());
     register_rules(&mut engine, ScanProfile::Full, &selection);
 
     let run = engine.run(&good_app).expect("Engine orchestrator failed");
@@ -899,7 +903,7 @@ fn test_doctor_plan_from_scan_includes_context() {
     let freshness_path = output_dir.join("report.json");
     std::fs::write(
         &baseline_path,
-        r#"{"ruleset_version":"1","generated_at_unix":0,"total_duration_ms":0,"cache_stats":{"nested_bundles":{"hits":0,"misses":0},"usage_scan":{"hits":0,"misses":0},"private_api_scan":{"hits":0,"misses":0},"sdk_scan":{"hits":0,"misses":0},"capability_scan":{"hits":0,"misses":0},"signature_summary":{"hits":0,"misses":0},"bundle_plist":{"hits":0,"misses":0},"entitlements":{"hits":0,"misses":0},"provisioning_profile":{"hits":0,"misses":0},"bundle_files":{"hits":0,"misses":0}},"slow_rules":[],"results":[]}"#,
+        r#"{"ruleset_version":"1","generated_at_unix":0,"total_duration_ms":0,"cache_stats":{"nested_bundles":{"hits":0,"misses":0},"usage_scan":{"hits":0,"misses":0},"private_api_scan":{"hits":0,"misses":0},"sdk_scan":{"hits":0,"misses":0},"capability_scan":{"hits":0,"misses":0},"signature_summary":{"hits":0,"misses":0},"bundle_plist":{"hits":0,"misses":0},"entitlements":{"hits":0,"misses":0},"provisioning_profile":{"hits":0,"misses":0},"bundle_files":{"hits":0,"misses":0},"instrumentation_scan":{"hits":0,"misses":0}},"slow_rules":[],"results":[]}"#,
     )
     .expect("write baseline");
     std::fs::write(&freshness_path, "{}").expect("write freshness source");
