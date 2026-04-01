@@ -2,6 +2,7 @@ use crate::parsers::plist_reader::InfoPlist;
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
 };
+use crate::rules::entitlements::{APS_ENVIRONMENT_KEY, EXTENSION_SUBSET_ENTITLEMENT_KEYS};
 
 pub struct ExtensionEntitlementsCompatibilityRule;
 
@@ -128,18 +129,7 @@ impl AppStoreRule for ExtensionEntitlementsCompatibilityRule {
 fn compare_entitlements(app: &InfoPlist, ext: &InfoPlist) -> Vec<String> {
     let mut issues = Vec::new();
 
-    for key in [
-        "aps-environment",
-        "keychain-access-groups",
-        "com.apple.security.application-groups",
-        "com.apple.developer.icloud-container-identifiers",
-        "com.apple.developer.icloud-services",
-        "com.apple.developer.associated-domains",
-        "com.apple.developer.in-app-payments",
-        "com.apple.developer.ubiquity-kvstore-identifier",
-        "com.apple.developer.ubiquity-container-identifiers",
-        "com.apple.developer.networking.wifi-info",
-    ] {
+    for key in EXTENSION_SUBSET_ENTITLEMENT_KEYS {
         if !ext.has_key(key) {
             continue;
         }
@@ -184,7 +174,49 @@ fn compare_entitlements(app: &InfoPlist, ext: &InfoPlist) -> Vec<String> {
 fn required_entitlements_for_extension(extension_point: &str) -> &'static [&'static str] {
     match extension_point {
         "com.apple.widgetkit-extension" => &["com.apple.security.application-groups"],
-        "com.apple.usernotifications.service" => &["aps-environment"],
+        "com.apple.usernotifications.service" => &[APS_ENVIRONMENT_KEY],
         _ => &[],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compare_entitlements;
+    use crate::parsers::plist_reader::InfoPlist;
+    use crate::rules::entitlements::{
+        ICLOUD_CONTAINER_IDENTIFIERS_KEY, KEYCHAIN_ACCESS_GROUPS_KEY,
+    };
+    use plist::{Dictionary, Value};
+
+    #[test]
+    fn compare_entitlements_uses_shared_subset_keys() {
+        let mut app = Dictionary::new();
+        app.insert(
+            KEYCHAIN_ACCESS_GROUPS_KEY.to_string(),
+            Value::Array(vec![Value::String("group.shared".to_string())]),
+        );
+        app.insert(
+            ICLOUD_CONTAINER_IDENTIFIERS_KEY.to_string(),
+            Value::Array(vec![Value::String("iCloud.shared".to_string())]),
+        );
+
+        let mut ext = Dictionary::new();
+        ext.insert(
+            KEYCHAIN_ACCESS_GROUPS_KEY.to_string(),
+            Value::Array(vec![
+                Value::String("group.shared".to_string()),
+                Value::String("group.extra".to_string()),
+            ]),
+        );
+
+        let issues = compare_entitlements(
+            &InfoPlist::from_dictionary(app),
+            &InfoPlist::from_dictionary(ext),
+        );
+
+        assert_eq!(
+            issues,
+            vec!["entitlement keychain-access-groups values not in host app: group.extra"]
+        );
     }
 }

@@ -3,6 +3,23 @@ use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
 };
 
+pub(crate) const APS_ENVIRONMENT_KEY: &str = "aps-environment";
+pub(crate) const KEYCHAIN_ACCESS_GROUPS_KEY: &str = "keychain-access-groups";
+pub(crate) const ICLOUD_CONTAINER_IDENTIFIERS_KEY: &str =
+    "com.apple.developer.icloud-container-identifiers";
+pub(crate) const EXTENSION_SUBSET_ENTITLEMENT_KEYS: &[&str] = &[
+    APS_ENVIRONMENT_KEY,
+    KEYCHAIN_ACCESS_GROUPS_KEY,
+    "com.apple.security.application-groups",
+    ICLOUD_CONTAINER_IDENTIFIERS_KEY,
+    "com.apple.developer.icloud-services",
+    "com.apple.developer.associated-domains",
+    "com.apple.developer.in-app-payments",
+    "com.apple.developer.ubiquity-kvstore-identifier",
+    "com.apple.developer.ubiquity-container-identifiers",
+    "com.apple.developer.networking.wifi-info",
+];
+
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum EntitlementsError {
     #[error("Failed to parse Mach-O executable for entitlements")]
@@ -113,8 +130,8 @@ impl AppStoreRule for EntitlementsProvisioningMismatchRule {
 
         let mut mismatches = Vec::new();
 
-        if let Some(app_aps) = entitlements.get_string("aps-environment") {
-            match provisioning_entitlements.get_string("aps-environment") {
+        if let Some(app_aps) = entitlements.get_string(APS_ENVIRONMENT_KEY) {
+            match provisioning_entitlements.get_string(APS_ENVIRONMENT_KEY) {
                 Some(prov_aps) if prov_aps != app_aps => mismatches.push(format!(
                     "aps-environment: app={} profile={}",
                     app_aps, prov_aps
@@ -127,7 +144,7 @@ impl AppStoreRule for EntitlementsProvisioningMismatchRule {
         let keychain_diff = diff_string_array(
             &entitlements,
             &provisioning_entitlements,
-            "keychain-access-groups",
+            KEYCHAIN_ACCESS_GROUPS_KEY,
         );
         if !keychain_diff.is_empty() {
             mismatches.push(format!(
@@ -139,7 +156,7 @@ impl AppStoreRule for EntitlementsProvisioningMismatchRule {
         let icloud_diff = diff_string_array(
             &entitlements,
             &provisioning_entitlements,
-            "com.apple.developer.icloud-container-identifiers",
+            ICLOUD_CONTAINER_IDENTIFIERS_KEY,
         );
         if !icloud_diff.is_empty() {
             mismatches.push(format!(
@@ -168,7 +185,11 @@ fn load_entitlements_plist(artifact: &ArtifactContext) -> Result<Option<InfoPlis
     artifact.entitlements_for_bundle(artifact.app_bundle_path)
 }
 
-fn diff_string_array(entitlements: &InfoPlist, profile: &InfoPlist, key: &str) -> Vec<String> {
+pub(crate) fn diff_string_array(
+    entitlements: &InfoPlist,
+    profile: &InfoPlist,
+    key: &str,
+) -> Vec<String> {
     let app_values = entitlements.get_array_strings(key).unwrap_or_default();
     let profile_values = profile.get_array_strings(key).unwrap_or_default();
 

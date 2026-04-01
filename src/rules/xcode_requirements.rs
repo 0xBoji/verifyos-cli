@@ -1,6 +1,12 @@
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const APP_STORE_CONNECT_REQUIREMENT_DATE: &str = "April 28, 2026";
+const APP_STORE_CONNECT_REQUIREMENT_UNIX: u64 = 1_777_334_400;
+const MIN_XCODE_BUILD_NUMBER: u32 = 2600;
+const MIN_IOS_SDK_MAJOR: u32 = 26;
 
 pub struct XcodeVersionRule;
 
@@ -22,7 +28,7 @@ impl AppStoreRule for XcodeVersionRule {
     }
 
     fn recommendation(&self) -> &'static str {
-        "From April 2026, all apps must be built with Xcode 26 and the iOS 26 SDK."
+        "Starting April 28, 2026, iOS and iPadOS apps uploaded to App Store Connect must be built with Xcode 26 and the iOS 26 SDK or later."
     }
 
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
@@ -36,64 +42,116 @@ impl AppStoreRule for XcodeVersionRule {
 
         let mut failures = Vec::new();
 
-        // 1. Check DTXcode (e.g., "1700" for Xcode 17, so "2600" for Xcode 26)
-        let dtxcode = plist.get_string("DTXcode");
-        if let Some(version_str) = dtxcode {
-            if let Ok(version_int) = version_str.parse::<u32>() {
-                if version_int < 1800 {
-                    // Assuming 2600 is Xcode 26, but let's be conservative for now or use a heuristic
-                    // Note: User specified 2026 mandate usually corresponds to next major version.
-                    // If current is Xcode 15/16, Xcode 26 is far off, but the prompt says 2026.
-                    // Actually, Xcode versions don't jump to 26 that fast.
-                    // Wait, maybe the user meant Xcode 17 or 18?
-                    // Let's check the prompt again: "Xcode 26+... build bằng Xcode 26 và iOS 26 SDK"
-                    // That's a very high version number. Maybe it's a future-proof check.
-
-                    if version_int < 2600 {
-                        failures.push(format!(
-                            "Built with Xcode version {} (required 2600+)",
-                            version_str
-                        ));
-                    }
-                }
-            }
-        } else {
-            failures.push("DTXcode key missing".to_string());
+        match plist.get_string("DTXcode") {
+            Some(version) => match version.parse::<u32>() {
+                Ok(build_number) if build_number >= MIN_XCODE_BUILD_NUMBER => {}
+                Ok(_) => failures.push(format!(
+                    "DTXcode={} is below the minimum build number {}",
+                    version, MIN_XCODE_BUILD_NUMBER
+                )),
+                Err(_) => failures.push(format!("DTXcode={} is not a valid build number", version)),
+            },
+            None => failures.push("DTXcode key missing".to_string()),
         }
 
-        // 2. Check DTPlatformVersion (e.g., "18.0")
-        let platform_version = plist.get_string("DTPlatformVersion");
-        if let Some(version) = platform_version {
-            if let Ok(v) = version.parse::<f32>() {
-                if v < 26.0 {
-                    failures.push(format!(
-                        "Built with platform version {} (required 26.0+)",
-                        version
-                    ));
-                }
-            }
+        match plist.get_string("DTPlatformVersion") {
+            Some(version) => match parse_major_version(version) {
+                Some(major) if major >= MIN_IOS_SDK_MAJOR => {}
+                Some(_) => failures.push(format!(
+                    "DTPlatformVersion={} is below {}.0",
+                    version, MIN_IOS_SDK_MAJOR
+                )),
+                None => failures.push(format!(
+                    "DTPlatformVersion={} is not a valid platform version",
+                    version
+                )),
+            },
+            None => failures.push("DTPlatformVersion key missing".to_string()),
         }
 
-        // 3. Check DTSDKName (e.g., "iphoneos18.0")
-        let sdk_name = plist.get_string("DTSDKName");
-        if let Some(name) = sdk_name {
-            if !name.contains("26") {
-                failures.push(format!("Built with SDK {} (required iOS 26 SDK)", name));
-            }
+        match plist.get_string("DTSDKName") {
+            Some(name) => match parse_sdk_major_version(name) {
+                Some(major) if major >= MIN_IOS_SDK_MAJOR => {}
+                Some(_) => failures.push(format!(
+                    "DTSDKName={} is below iphoneos{}",
+                    name, MIN_IOS_SDK_MAJOR
+                )),
+                None => failures.push(format!(
+                    "DTSDKName={} does not look like an iPhone OS SDK identifier",
+                    name
+                )),
+            },
+            None => failures.push("DTSDKName key missing".to_string()),
         }
 
         if failures.is_empty() {
             return Ok(RuleReport {
                 status: RuleStatus::Pass,
-                message: None,
+                message: Some(success_message().to_string()),
                 evidence: None,
             });
         }
 
         Ok(RuleReport {
             status: RuleStatus::Fail,
-            message: Some("App does not meet 2026 build requirements".to_string()),
+            message: Some(failure_message().to_string()),
             evidence: Some(failures.join("; ")),
         })
+    }
+}
+
+fn parse_major_version(value: &str) -> Option<u32> {
+    value.trim().split('.').next()?.parse::<u32>().ok()
+}
+
+fn parse_sdk_major_version(value: &str) -> Option<u32> {
+    let suffix = value.trim().strip_prefix("iphoneos")?;
+    parse_major_version(suffix)
+}
+
+fn requirement_is_live() -> bool {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() >= APP_STORE_CONNECT_REQUIREMENT_UNIX)
+        .unwrap_or(true)
+}
+
+fn success_message() -> &'static str {
+    if requirement_is_live() {
+        "App meets the current App Store Connect Xcode 26 / iOS 26 SDK requirement"
+    } else {
+        "App already meets the upcoming App Store Connect Xcode 26 / iOS 26 SDK requirement"
+    }
+}
+
+fn failure_message() -> String {
+    if requirement_is_live() {
+        "App does not meet the current App Store Connect Xcode 26 / iOS 26 SDK requirement"
+            .to_string()
+    } else {
+        format!(
+            "App does not meet the upcoming App Store Connect requirement that takes effect on {APP_STORE_CONNECT_REQUIREMENT_DATE}"
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_major_version, parse_sdk_major_version};
+
+    #[test]
+    fn parses_major_platform_version() {
+        assert_eq!(parse_major_version("26.1"), Some(26));
+        assert_eq!(parse_major_version("26"), Some(26));
+        assert_eq!(parse_major_version(""), None);
+        assert_eq!(parse_major_version("abc"), None);
+    }
+
+    #[test]
+    fn parses_sdk_major_version() {
+        assert_eq!(parse_sdk_major_version("iphoneos26.0"), Some(26));
+        assert_eq!(parse_sdk_major_version("iphoneos26"), Some(26));
+        assert_eq!(parse_sdk_major_version("iphonesimulator26.0"), None);
+        assert_eq!(parse_sdk_major_version("iphoneos"), None);
     }
 }

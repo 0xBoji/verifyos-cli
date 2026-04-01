@@ -1,6 +1,10 @@
 use crate::rules::core::{
     AppStoreRule, ArtifactContext, RuleCategory, RuleError, RuleReport, RuleStatus, Severity,
 };
+use crate::rules::entitlements::{
+    diff_string_array, APS_ENVIRONMENT_KEY, ICLOUD_CONTAINER_IDENTIFIERS_KEY,
+    KEYCHAIN_ACCESS_GROUPS_KEY,
+};
 
 pub struct NestedBundleEntitlementsRule;
 
@@ -53,8 +57,8 @@ impl AppStoreRule for NestedBundleEntitlementsRule {
 
             let mut local_mismatches = Vec::new();
 
-            if let Some(app_aps) = entitlements.get_string("aps-environment") {
-                match profile.entitlements.get_string("aps-environment") {
+            if let Some(app_aps) = entitlements.get_string(APS_ENVIRONMENT_KEY) {
+                match profile.entitlements.get_string(APS_ENVIRONMENT_KEY) {
                     Some(prov_aps) if prov_aps != app_aps => local_mismatches.push(format!(
                         "aps-environment app={} profile={}",
                         app_aps, prov_aps
@@ -67,7 +71,7 @@ impl AppStoreRule for NestedBundleEntitlementsRule {
             let keychain_diff = diff_string_array(
                 &entitlements,
                 &profile.entitlements,
-                "keychain-access-groups",
+                KEYCHAIN_ACCESS_GROUPS_KEY,
             );
             if !keychain_diff.is_empty() {
                 local_mismatches.push(format!(
@@ -79,7 +83,7 @@ impl AppStoreRule for NestedBundleEntitlementsRule {
             let icloud_diff = diff_string_array(
                 &entitlements,
                 &profile.entitlements,
-                "com.apple.developer.icloud-container-identifiers",
+                ICLOUD_CONTAINER_IDENTIFIERS_KEY,
             );
             if !icloud_diff.is_empty() {
                 local_mismatches.push(format!(
@@ -175,18 +179,4 @@ impl AppStoreRule for NestedBundleDebugEntitlementRule {
             evidence: Some(offenders.join(", ")),
         })
     }
-}
-
-fn diff_string_array(
-    entitlements: &crate::parsers::plist_reader::InfoPlist,
-    profile: &crate::parsers::plist_reader::InfoPlist,
-    key: &str,
-) -> Vec<String> {
-    let app_values = entitlements.get_array_strings(key).unwrap_or_default();
-    let profile_values = profile.get_array_strings(key).unwrap_or_default();
-
-    app_values
-        .into_iter()
-        .filter(|value| !profile_values.contains(value))
-        .collect()
 }

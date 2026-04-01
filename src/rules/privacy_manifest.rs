@@ -67,13 +67,29 @@ impl AppStoreRule for PrivacyManifestCompletenessRule {
             });
         }
 
-        let has_accessed_api_types = manifest
+        let declared_types: std::collections::HashSet<String> = manifest
             .get_value("NSPrivacyAccessedAPITypes")
             .and_then(|v| v.as_array())
-            .map(|arr| !arr.is_empty())
-            .unwrap_or(false);
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| {
+                        v.as_dictionary()
+                            .and_then(|d| d.get("NSPrivacyAccessedAPIType"))
+                            .and_then(|t| t.as_string())
+                            .map(|s| s.to_string())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
 
-        if has_accessed_api_types {
+        let mut missing_categories = Vec::new();
+        for cat in &scan.privacy_categories {
+            if !declared_types.contains(*cat) {
+                missing_categories.push(*cat);
+            }
+        }
+
+        if missing_categories.is_empty() {
             return Ok(RuleReport {
                 status: RuleStatus::Pass,
                 message: None,
@@ -81,10 +97,14 @@ impl AppStoreRule for PrivacyManifestCompletenessRule {
             });
         }
 
+        missing_categories.sort();
         Ok(RuleReport {
             status: RuleStatus::Fail,
-            message: Some("Privacy manifest missing accessed API types".to_string()),
-            evidence: Some("NSPrivacyAccessedAPITypes is missing or empty".to_string()),
+            message: Some("Privacy manifest missing required API declarations".to_string()),
+            evidence: Some(format!(
+                "Missing categories in NSPrivacyAccessedAPITypes: {}",
+                missing_categories.join(", ")
+            )),
         })
     }
 }

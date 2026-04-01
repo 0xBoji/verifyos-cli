@@ -8,6 +8,11 @@ const LOCATION_KEYS: &[&str] = &[
     "NSLocationAlwaysAndWhenInUseUsageDescription",
     "NSLocationAlwaysUsageDescription",
 ];
+const REQUIRED_INFO_PLIST_STRING_KEYS: &[&str] = &[
+    "CFBundleIdentifier",
+    "CFBundleExecutable",
+    "CFBundlePackageType",
+];
 const LSQUERY_SCHEME_LIMIT: usize = 50;
 const SUSPICIOUS_SCHEMES: &[&str] = &[
     "app-prefs",
@@ -204,7 +209,7 @@ impl AppStoreRule for InfoPlistRequiredKeysRule {
     }
 
     fn recommendation(&self) -> &'static str {
-        "Add required Info.plist keys for your app's functionality."
+        "Ensure core Info.plist metadata keys are present, non-empty, and valid for an app bundle."
     }
 
     fn evaluate(&self, artifact: &ArtifactContext) -> Result<RuleReport, RuleError> {
@@ -216,15 +221,29 @@ impl AppStoreRule for InfoPlistRequiredKeysRule {
             });
         };
 
-        let mut missing = Vec::new();
-        if !plist.has_key("LSApplicationQueriesSchemes") {
-            missing.push("LSApplicationQueriesSchemes");
-        }
-        if !plist.has_key("UIRequiredDeviceCapabilities") {
-            missing.push("UIRequiredDeviceCapabilities");
+        let mut issues = Vec::new();
+
+        for key in REQUIRED_INFO_PLIST_STRING_KEYS {
+            if !plist.has_key(key) {
+                issues.push(format!("{key} missing"));
+                continue;
+            }
+
+            if is_empty_string(plist, key) {
+                issues.push(format!("{key} empty"));
+            }
         }
 
-        if missing.is_empty() {
+        if let Some(package_type) = plist.get_string("CFBundlePackageType") {
+            if package_type != "APPL" {
+                issues.push(format!(
+                    "CFBundlePackageType={} (expected APPL)",
+                    package_type
+                ));
+            }
+        }
+
+        if issues.is_empty() {
             return Ok(RuleReport {
                 status: RuleStatus::Pass,
                 message: None,
@@ -234,8 +253,8 @@ impl AppStoreRule for InfoPlistRequiredKeysRule {
 
         Ok(RuleReport {
             status: RuleStatus::Fail,
-            message: Some("Missing required Info.plist keys".to_string()),
-            evidence: Some(format!("Missing keys: {}", missing.join(", "))),
+            message: Some("Missing or invalid core Info.plist metadata".to_string()),
+            evidence: Some(issues.join(" | ")),
         })
     }
 }
@@ -721,4 +740,72 @@ fn unique_sorted(mut values: Vec<String>) -> Vec<String> {
     values.sort();
     values.dedup();
     values
+}
+
+#[cfg(test)]
+mod tests {
+    use super::InfoPlistRequiredKeysRule;
+    use crate::parsers::plist_reader::InfoPlist;
+    use crate::rules::core::{AppStoreRule, ArtifactContext, RuleStatus};
+    use plist::{Dictionary, Value};
+    use tempfile::tempdir;
+
+    fn artifact_context_for(plist: InfoPlist) -> (tempfile::TempDir, ArtifactContext<'static>) {
+        let dir = tempdir().expect("temp dir");
+        let app_path = dir.path().join("Demo.app");
+        std::fs::create_dir_all(&app_path).expect("create app dir");
+        let leaked_path = Box::leak(Box::new(app_path));
+        let leaked_plist = Box::leak(Box::new(plist));
+        (
+            dir,
+            ArtifactContext::new(leaked_path, Some(leaked_plist), None),
+        )
+    }
+
+    #[test]
+    fn info_plist_required_keys_rule_passes_with_core_metadata() {
+        let mut dict = Dictionary::new();
+        dict.insert(
+            "CFBundleIdentifier".to_string(),
+            Value::String("com.example.demo".to_string()),
+        );
+        dict.insert(
+            "CFBundleExecutable".to_string(),
+            Value::String("Demo".to_string()),
+        );
+        dict.insert(
+            "CFBundlePackageType".to_string(),
+            Value::String("APPL".to_string()),
+        );
+
+        let (_dir, artifact) = artifact_context_for(InfoPlist::from_dictionary(dict));
+        let report = InfoPlistRequiredKeysRule
+            .evaluate(&artifact)
+            .expect("rule evaluation");
+
+        assert_eq!(report.status, RuleStatus::Pass);
+    }
+
+    #[test]
+    fn info_plist_required_keys_rule_fails_for_missing_core_metadata() {
+        let mut dict = Dictionary::new();
+        dict.insert(
+            "CFBundleIdentifier".to_string(),
+            Value::String("com.example.demo".to_string()),
+        );
+        dict.insert(
+            "CFBundlePackageType".to_string(),
+            Value::String("BNDL".to_string()),
+        );
+
+        let (_dir, artifact) = artifact_context_for(InfoPlist::from_dictionary(dict));
+        let report = InfoPlistRequiredKeysRule
+            .evaluate(&artifact)
+            .expect("rule evaluation");
+
+        assert_eq!(report.status, RuleStatus::Fail);
+        let evidence = report.evidence.expect("evidence");
+        assert!(evidence.contains("CFBundleExecutable missing"));
+        assert!(evidence.contains("CFBundlePackageType=BNDL (expected APPL)"));
+    }
 }
